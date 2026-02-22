@@ -134,16 +134,16 @@
   --transition-base: var(--transition-normal);
 
   /* Visualization SVG colors */
-  --viz-grid-major: rgba(0, 0, 0, 0.12);
-  --viz-grid-minor: rgba(0, 0, 0, 0.04);
-  --viz-axis-label: rgba(0, 0, 0, 0.3);
-  --viz-dashed: rgba(0, 0, 0, 0.15);
-  --viz-arrowhead: rgba(0, 0, 0, 0.5);
-  --viz-panel-bg: rgba(255, 255, 255, 0.9);
-  --viz-panel-border: rgba(0, 0, 0, 0.1);
-  --viz-label: rgba(0, 0, 0, 0.45);
-  --viz-annotation: rgba(0, 0, 0, 0.5);
-  --viz-bg-gradient: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.05), transparent 70%);
+  --viz-grid-major: rgba(0, 0, 0, 0.22);
+  --viz-grid-minor: rgba(0, 0, 0, 0.09);
+  --viz-axis-label: rgba(0, 0, 0, 0.5);
+  --viz-dashed: rgba(0, 0, 0, 0.2);
+  --viz-arrowhead: rgba(0, 0, 0, 0.6);
+  --viz-panel-bg: rgba(255, 255, 255, 0.92);
+  --viz-panel-border: rgba(0, 0, 0, 0.15);
+  --viz-label: rgba(0, 0, 0, 0.55);
+  --viz-annotation: rgba(0, 0, 0, 0.6);
+  --viz-bg-gradient: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.06), rgba(241, 245, 249, 0.8) 70%);
 }
 
 /* ── Base Styles ── */

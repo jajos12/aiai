@@ -676,7 +676,7 @@ export function MatrixTransform(props: MatrixTransformProps) {
 
   // ── Render ──
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative', background: 'var(--viz-bg-gradient)', borderRadius: 'var(--radius-md)' }}>
       <svg
         ref={svgRef}
         viewBox={`0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}`}
