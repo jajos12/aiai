@@ -10,6 +10,9 @@ interface LessonSidebarProps {
   moduleTitle: string;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  /** Mobile drawer state */
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 export function LessonSidebar({
@@ -20,141 +23,92 @@ export function LessonSidebar({
   moduleTitle,
   collapsed,
   onToggleCollapse,
+  mobileOpen = false,
+  onMobileClose,
 }: LessonSidebarProps) {
-  if (collapsed) {
-    return (
-      <div
-        style={{
-          width: '3rem',
-          height: '100%',
-          background: 'var(--bg-surface)',
-          borderRight: '1px solid var(--border-subtle)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          paddingTop: '1rem',
-          transition: 'width var(--transition-base)',
-        }}
-      >
-        <button
-          onClick={onToggleCollapse}
-          style={{
-            width: '2rem',
-            height: '2rem',
-            borderRadius: 'var(--radius-sm)',
-            border: 'none',
-            background: 'none',
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-            fontSize: '1rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          title="Expand sidebar"
-        >
-          ☰
-        </button>
 
-        {/* Mini step indicators */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.25rem',
-            marginTop: '1rem',
-          }}
-        >
-          {steps.map((step, i) => {
-            const isActive = i === currentStepIndex;
-            const isComplete = completedSteps.has(step.id);
-            return (
-              <button
-                key={step.id}
-                onClick={() => onSelectStep(i)}
+  // ── Shared step list renderer ──
+  function renderStepList(onStepClick?: () => void) {
+    return (
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0.25rem 0.5rem' }}>
+        {steps.map((step, i) => {
+          const isActive = i === currentStepIndex;
+          const isComplete = completedSteps.has(step.id);
+          return (
+            <button
+              key={step.id}
+              onClick={() => {
+                onSelectStep(i);
+                onStepClick?.();
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.625rem',
+                width: '100%',
+                padding: '0.5rem 0.625rem',
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                background: isActive ? 'var(--accent-soft)' : 'transparent',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'background var(--transition-fast)',
+                marginBottom: '0.125rem',
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) e.currentTarget.style.background = 'var(--bg-hover)';
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <span
                 style={{
-                  width: '0.5rem',
-                  height: '0.5rem',
+                  width: '1.25rem',
+                  height: '1.25rem',
                   borderRadius: '50%',
-                  border: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                  background: isActive
-                    ? 'var(--accent)'
-                    : isComplete
-                      ? 'var(--success)'
-                      : 'var(--border-default)',
-                  transition: 'all var(--transition-fast)',
-                  boxShadow: isActive ? '0 0 6px var(--accent)' : 'none',
+                  border: isComplete
+                    ? 'none'
+                    : `2px solid ${isActive ? 'var(--accent)' : 'var(--border-default)'}`,
+                  background: isComplete
+                    ? 'var(--success)'
+                    : isActive
+                      ? 'var(--accent)'
+                      : 'transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.5625rem',
+                  fontWeight: 700,
+                  color: isComplete || isActive ? 'white' : 'var(--text-muted)',
+                  flexShrink: 0,
+                  marginTop: '0.125rem',
                 }}
-                title={`Step ${i + 1}: ${step.title}`}
-              />
-            );
-          })}
-        </div>
+              >
+                {isComplete ? '✓' : i + 1}
+              </span>
+              <span
+                style={{
+                  fontSize: '0.8125rem',
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive
+                    ? 'var(--accent)'
+                    : 'var(--text-secondary)',
+                  lineHeight: 1.4,
+                }}
+              >
+                {step.title}
+              </span>
+            </button>
+          );
+        })}
       </div>
     );
   }
 
-  return (
-    <div
-      style={{
-        width: '280px',
-        height: '100%',
-        background: 'var(--bg-surface)',
-        borderRight: '1px solid var(--border-subtle)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        transition: 'width var(--transition-base)',
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: '1rem',
-          borderBottom: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <h3
-          style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: '0.875rem',
-            fontWeight: 700,
-            color: 'var(--text-primary)',
-            margin: 0,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {moduleTitle}
-        </h3>
-        <button
-          onClick={onToggleCollapse}
-          style={{
-            width: '1.5rem',
-            height: '1.5rem',
-            borderRadius: 'var(--radius-sm)',
-            border: 'none',
-            background: 'none',
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-            fontSize: '0.75rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          title="Collapse sidebar"
-        >
-          ✕
-        </button>
-      </div>
-
-      {/* Progress bar */}
+  // ── Shared progress bar renderer ──
+  function renderProgress() {
+    return (
       <div style={{ padding: '0.75rem 1rem 0.5rem' }}>
         <div
           style={{
@@ -204,90 +158,176 @@ export function LessonSidebar({
           />
         </div>
       </div>
+    );
+  }
 
-      {/* Step list */}
+  // ── Mobile Drawer ──
+  const mobileDrawer = mobileOpen ? (
+    <>
+      <div className="sidebar-drawer-backdrop" onClick={onMobileClose} />
+      <div className="sidebar-drawer">
+        <button className="sidebar-drawer-close" onClick={onMobileClose} aria-label="Close menu">
+          ✕
+        </button>
+        <div style={{ padding: '1rem', borderBottom: '1px solid var(--border-subtle)' }}>
+          <h3
+            style={{
+              fontFamily: 'var(--font-heading)',
+              fontSize: '0.875rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              margin: 0,
+            }}
+          >
+            {moduleTitle}
+          </h3>
+        </div>
+        {renderProgress()}
+        {renderStepList(() => onMobileClose?.())}
+      </div>
+    </>
+  ) : null;
+  if (collapsed) {
+    return (
+      <>
+        {mobileDrawer}
+        <div
+          className="desktop-sidebar"
+          style={{
+            width: '3rem',
+            height: '100%',
+            background: 'var(--bg-surface)',
+            borderRight: '1px solid var(--border-subtle)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            paddingTop: '1rem',
+            transition: 'width var(--transition-base)',
+          }}
+        >
+          <button
+            onClick={onToggleCollapse}
+            style={{
+              width: '2rem',
+              height: '2rem',
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              background: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            title="Expand sidebar"
+          >
+            ☰
+          </button>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.25rem',
+              marginTop: '1rem',
+            }}
+          >
+            {steps.map((step, i) => {
+              const isActive = i === currentStepIndex;
+              const isComplete = completedSteps.has(step.id);
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => onSelectStep(i)}
+                  style={{
+                    width: '0.5rem',
+                    height: '0.5rem',
+                    borderRadius: '50%',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    background: isActive
+                      ? 'var(--accent)'
+                      : isComplete
+                        ? 'var(--success)'
+                        : 'var(--border-default)',
+                    transition: 'all var(--transition-fast)',
+                    boxShadow: isActive ? '0 0 6px var(--accent)' : 'none',
+                  }}
+                  title={`Step ${i + 1}: ${step.title}`}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {mobileDrawer}
       <div
+        className="desktop-sidebar"
         style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '0.25rem 0.5rem',
+          width: '280px',
+          height: '100%',
+          background: 'var(--bg-surface)',
+          borderRight: '1px solid var(--border-subtle)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          transition: 'width var(--transition-base)',
         }}
       >
-        {steps.map((step, i) => {
-          const isActive = i === currentStepIndex;
-          const isComplete = completedSteps.has(step.id);
+        {/* Header */}
+        <div
+          style={{
+            padding: '1rem',
+            borderBottom: '1px solid var(--border-subtle)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <h3
+            style={{
+              fontFamily: 'var(--font-heading)',
+              fontSize: '0.875rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              margin: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {moduleTitle}
+          </h3>
+          <button
+            onClick={onToggleCollapse}
+            style={{
+              width: '1.5rem',
+              height: '1.5rem',
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              background: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            title="Collapse sidebar"
+          >
+            ✕
+          </button>
+        </div>
 
-          return (
-            <button
-              key={step.id}
-              onClick={() => onSelectStep(i)}
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.625rem',
-                width: '100%',
-                padding: '0.5rem 0.625rem',
-                borderRadius: 'var(--radius-sm)',
-                border: 'none',
-                background: isActive ? 'var(--accent-soft)' : 'transparent',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'background var(--transition-fast)',
-                marginBottom: '0.125rem',
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.background = 'var(--bg-hover)';
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) e.currentTarget.style.background = 'transparent';
-              }}
-            >
-              {/* Step indicator */}
-              <span
-                style={{
-                  width: '1.25rem',
-                  height: '1.25rem',
-                  borderRadius: '50%',
-                  border: isComplete
-                    ? 'none'
-                    : `2px solid ${isActive ? 'var(--accent)' : 'var(--border-default)'}`,
-                  background: isComplete
-                    ? 'var(--success)'
-                    : isActive
-                      ? 'var(--accent)'
-                      : 'transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.5625rem',
-                  fontWeight: 700,
-                  color: isComplete || isActive ? 'white' : 'var(--text-muted)',
-                  flexShrink: 0,
-                  marginTop: '0.125rem',
-                }}
-              >
-                {isComplete ? '✓' : i + 1}
-              </span>
-
-              {/* Step title */}
-              <span
-                style={{
-                  fontSize: '0.8125rem',
-                  fontWeight: isActive ? 600 : 400,
-                  color: isActive
-                    ? 'var(--accent)'
-                    : isComplete
-                      ? 'var(--text-secondary)'
-                      : 'var(--text-secondary)',
-                  lineHeight: 1.4,
-                }}
-              >
-                {step.title}
-              </span>
-            </button>
-          );
-        })}
+        {renderProgress()}
+        {renderStepList()}
       </div>
-    </div>
+    </>
   );
 }

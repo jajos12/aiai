@@ -19,6 +19,7 @@ export default function GuidedPage() {
   const [moduleData, setModuleData] = useState<Module | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   const { completeStep, answerQuiz, getModuleProgress } = useProgress();
 
@@ -105,6 +106,8 @@ export default function GuidedPage() {
         moduleTitle={moduleData.title}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileDrawerOpen}
+        onMobileClose={() => setMobileDrawerOpen(false)}
       />
 
       {/* Main content */}
@@ -129,6 +132,14 @@ export default function GuidedPage() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {/* Mobile hamburger */}
+            <button
+              className="mobile-menu-btn"
+              onClick={() => setMobileDrawerOpen(true)}
+              aria-label="Open navigation"
+            >
+              ☰
+            </button>
             <button
               onClick={() => router.push(`/tier/${tierId}/${moduleId}`)}
               style={{
