@@ -103,7 +103,7 @@ const MemoArrowDefs = memo(function ArrowDefs() {
         <polygon points="0 0, 10 3.5, 0 7" fill="#a78bfa" />
       </marker>
       <marker id="arrowhead-white" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-        <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,0.6)" />
+        <polygon points="0 0, 10 3.5, 0 7" fill="var(--viz-arrowhead)" />
       </marker>
       {/* Glow filter for drag handles */}
       <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -128,18 +128,18 @@ const MemoGrid = memo(function Grid() {
     const isMain = i === 0;
     lines.push(
       <line key={`v${i}`} x1={x1} y1={y1} x2={x2} y2={y2}
-        stroke={isMain ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)'}
+        stroke={isMain ? 'var(--viz-grid-major)' : 'var(--viz-grid-minor)'}
         strokeWidth={isMain ? 1.5 : 0.5} />,
       <line key={`h${i}`} x1={hx1} y1={hy1} x2={hx2} y2={hy2}
-        stroke={isMain ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)'}
+        stroke={isMain ? 'var(--viz-grid-major)' : 'var(--viz-grid-minor)'}
         strokeWidth={isMain ? 1.5 : 0.5} />,
     );
     if (i !== 0 && i % 2 === 0) {
       const [lx] = toSvg(i, 0);
       const [, ly] = toSvg(0, i);
       lines.push(
-        <text key={`lx${i}`} x={lx} y={CENTER + 14} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.25)">{i}</text>,
-        <text key={`ly${i}`} x={CENTER - 12} y={ly + 3} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.25)">{i}</text>,
+        <text key={`lx${i}`} x={lx} y={CENTER + 14} textAnchor="middle" fontSize="9" fill="var(--viz-axis-label)">{i}</text>,
+        <text key={`ly${i}`} x={CENTER - 12} y={ly + 3} textAnchor="middle" fontSize="9" fill="var(--viz-axis-label)">{i}</text>,
       );
     }
   }
@@ -545,9 +545,9 @@ export function VectorTransform(props: VectorTransformProps) {
       );
       elements.push(
         <text key="pyth-x" x={(ox + axX) / 2} y={oy + 16} textAnchor="middle"
-          fontSize="10" fontWeight="600" fill="rgba(255,255,255,0.5)">x²</text>,
+          fontSize="10" fontWeight="600" fill="var(--viz-annotation)">x²</text>,
         <text key="pyth-y" x={axX + 14} y={(oy + ay) / 2} textAnchor="start"
-          fontSize="10" fontWeight="600" fill="rgba(255,255,255,0.5)">y²</text>,
+          fontSize="10" fontWeight="600" fill="var(--viz-annotation)">y²</text>,
       );
     }
 
@@ -804,7 +804,7 @@ export function VectorTransform(props: VectorTransformProps) {
       const [qx, qy] = toSvg(-2, 3);
       elements.push(
         <line key="analogy" x1={kx} y1={ky} x2={qx} y2={qy}
-          stroke="rgba(255,255,255,0.15)" strokeWidth={1} strokeDasharray="4,3" />,
+          stroke="var(--viz-dashed)" strokeWidth={1} strokeDasharray="4,3" />,
       );
     }
 
@@ -825,7 +825,7 @@ export function VectorTransform(props: VectorTransformProps) {
         style={{
           width: '100%',
           height: '100%',
-          background: 'radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.03), transparent 70%)',
+          background: 'var(--viz-bg-gradient)',
           borderRadius: 'var(--radius-md)',
           touchAction: 'none', /* Prevent browser gestures from fighting drag */
         }}
@@ -842,10 +842,10 @@ export function VectorTransform(props: VectorTransformProps) {
             position: 'absolute',
             top: '0.5rem',
             left: '0.5rem',
-            background: 'rgba(15, 17, 23, 0.85)',
+            background: 'var(--viz-panel-bg)',
             backdropFilter: 'blur(8px)',
             borderRadius: '8px',
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: '1px solid var(--viz-panel-border)',
             padding: '6px 10px',
             fontFamily: 'monospace',
             fontSize: '11px',
@@ -855,7 +855,7 @@ export function VectorTransform(props: VectorTransformProps) {
         >
           {infoItems.map((item, i) => (
             <div key={i}>
-              <span style={{ color: 'rgba(255,255,255,0.4)' }}>{item.label}: </span>
+              <span style={{ color: 'var(--viz-label)' }}>{item.label}: </span>
               <span style={{ color: item.color ?? '#e0e0e0', fontWeight: 600 }}>{item.value}</span>
             </div>
           ))}
@@ -874,13 +874,13 @@ export function VectorTransform(props: VectorTransformProps) {
             alignItems: 'center',
             gap: '0.75rem',
             padding: '0.5rem 1rem',
-            background: 'rgba(15, 17, 23, 0.85)',
+            background: 'var(--viz-panel-bg)',
             backdropFilter: 'blur(8px)',
             borderRadius: '8px',
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: '1px solid var(--viz-panel-border)',
           }}
         >
-          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>
+          <span style={{ fontSize: '11px', color: 'var(--viz-annotation)', fontFamily: 'monospace' }}>
             c =
           </span>
           <input
@@ -909,10 +909,10 @@ export function VectorTransform(props: VectorTransformProps) {
             display: 'flex',
             gap: '1.5rem',
             padding: '0.5rem 1rem',
-            background: 'rgba(15, 17, 23, 0.85)',
+            background: 'var(--viz-panel-bg)',
             backdropFilter: 'blur(8px)',
             borderRadius: '8px',
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: '1px solid var(--viz-panel-border)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

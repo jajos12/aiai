@@ -149,18 +149,18 @@ const MemoOriginalGrid = memo(function OriginalGrid() {
     const isMain = i === 0;
     lines.push(
       <line key={`v${i}`} x1={x1} y1={y1} x2={x2} y2={y2}
-        stroke={isMain ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)'}
+        stroke={isMain ? 'var(--viz-grid-major)' : 'var(--viz-grid-minor)'}
         strokeWidth={isMain ? 1.5 : 0.5} />,
       <line key={`h${i}`} x1={hx1} y1={hy1} x2={hx2} y2={hy2}
-        stroke={isMain ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)'}
+        stroke={isMain ? 'var(--viz-grid-major)' : 'var(--viz-grid-minor)'}
         strokeWidth={isMain ? 1.5 : 0.5} />,
     );
     if (i !== 0 && i % 2 === 0) {
       const [lx] = toSvg(i, 0);
       const [, ly] = toSvg(0, i);
       lines.push(
-        <text key={`lx${i}`} x={lx} y={CENTER + 14} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.2)">{i}</text>,
-        <text key={`ly${i}`} x={CENTER - 12} y={ly + 3} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.2)">{i}</text>,
+        <text key={`lx${i}`} x={lx} y={CENTER + 14} textAnchor="middle" fontSize="9" fill="var(--viz-axis-label)">{i}</text>,
+        <text key={`ly${i}`} x={CENTER - 12} y={ly + 3} textAnchor="middle" fontSize="9" fill="var(--viz-axis-label)">{i}</text>,
       );
     }
   }
@@ -341,7 +341,7 @@ function UnitCircle() {
   const [cx, cy] = toSvg(0, 0);
   return (
     <circle cx={cx} cy={cy} r={SCALE}
-      fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={1} strokeDasharray="4,3" />
+      fill="none" stroke="var(--viz-dashed)" strokeWidth={1} strokeDasharray="4,3" />
   );
 }
 
@@ -700,10 +700,10 @@ export function MatrixTransform(props: MatrixTransformProps) {
             position: 'absolute',
             top: '0.5rem',
             left: '0.5rem',
-            background: 'rgba(15, 17, 23, 0.85)',
+            background: 'var(--viz-panel-bg)',
             backdropFilter: 'blur(8px)',
             borderRadius: '8px',
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: '1px solid var(--viz-panel-border)',
             padding: '6px 10px',
             fontFamily: 'monospace',
             fontSize: '11px',
@@ -713,7 +713,7 @@ export function MatrixTransform(props: MatrixTransformProps) {
         >
           {infoItems.map((item, i) => (
             <div key={i}>
-              <span style={{ color: 'rgba(255,255,255,0.4)' }}>{item.label}: </span>
+              <span style={{ color: 'var(--viz-label)' }}>{item.label}: </span>
               <span style={{ color: item.color ?? '#e0e0e0', fontWeight: 600 }}>{item.value}</span>
             </div>
           ))}
@@ -731,15 +731,15 @@ export function MatrixTransform(props: MatrixTransformProps) {
           alignItems: 'center',
           gap: '0.5rem',
           padding: '0.5rem 1rem',
-          background: 'rgba(15, 17, 23, 0.85)',
+          background: 'var(--viz-panel-bg)',
           backdropFilter: 'blur(8px)',
           borderRadius: '8px',
-          border: '1px solid rgba(255,255,255,0.08)',
+          border: '1px solid var(--viz-panel-border)',
           fontFamily: 'monospace',
           fontSize: '12px',
         }}
       >
-        <span style={{ color: 'rgba(255,255,255,0.4)' }}>A =</span>
+        <span style={{ color: 'var(--viz-label)' }}>A =</span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           <div style={{ display: 'flex', gap: '8px' }}>
             <span style={{ color: '#f87171', fontWeight: 600, minWidth: '36px', textAlign: 'right' }}>{mat.a.toFixed(2)}</span>
@@ -751,7 +751,7 @@ export function MatrixTransform(props: MatrixTransformProps) {
           </div>
         </div>
         {/* Bracket decoration */}
-        <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '20px', fontWeight: 100, alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}></span>
+        <span style={{ color: 'var(--viz-axis-label)', fontSize: '20px', fontWeight: 100, alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}></span>
       </div>
     </div>
   );

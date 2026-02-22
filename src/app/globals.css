@@ -85,6 +85,18 @@
   --success: var(--color-success);
   --error: var(--color-error);
   --transition-base: var(--transition-normal);
+
+  /* Visualization SVG colors */
+  --viz-grid-major: rgba(255, 255, 255, 0.12);
+  --viz-grid-minor: rgba(255, 255, 255, 0.035);
+  --viz-axis-label: rgba(255, 255, 255, 0.25);
+  --viz-dashed: rgba(255, 255, 255, 0.15);
+  --viz-arrowhead: rgba(255, 255, 255, 0.6);
+  --viz-panel-bg: rgba(15, 17, 23, 0.85);
+  --viz-panel-border: rgba(255, 255, 255, 0.08);
+  --viz-label: rgba(255, 255, 255, 0.4);
+  --viz-annotation: rgba(255, 255, 255, 0.5);
+  --viz-bg-gradient: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.03), transparent 70%);
 }
 
 /* ── Light Theme ── */
@@ -120,6 +132,18 @@
   --success: var(--color-success);
   --error: var(--color-error);
   --transition-base: var(--transition-normal);
+
+  /* Visualization SVG colors */
+  --viz-grid-major: rgba(0, 0, 0, 0.12);
+  --viz-grid-minor: rgba(0, 0, 0, 0.04);
+  --viz-axis-label: rgba(0, 0, 0, 0.3);
+  --viz-dashed: rgba(0, 0, 0, 0.15);
+  --viz-arrowhead: rgba(0, 0, 0, 0.5);
+  --viz-panel-bg: rgba(255, 255, 255, 0.9);
+  --viz-panel-border: rgba(0, 0, 0, 0.1);
+  --viz-label: rgba(0, 0, 0, 0.45);
+  --viz-annotation: rgba(0, 0, 0, 0.5);
+  --viz-bg-gradient: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.05), transparent 70%);
 }
 
 /* ── Base Styles ── */
