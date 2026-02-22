@@ -193,6 +193,7 @@ export default function GuidedPage() {
           }}
         >
           <StepViewer
+            key={`step-${lesson.currentStepIndex}`}
             step={lesson.currentStep}
             stepIndex={lesson.currentStepIndex}
             totalSteps={lesson.totalSteps}

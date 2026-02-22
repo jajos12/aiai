@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import type { Step } from '@/types/curriculum';
 import { GoDeeper } from '@/components/lesson/GoDeeper';
 import { AuthorNote } from '@/components/lesson/AuthorNote';
@@ -36,6 +37,17 @@ export function StepViewer({
   canGoBack,
   isLastStep,
 }: StepViewerProps) {
+  // Track direction for step transition animation
+  const prevIndex = useRef(stepIndex);
+  const direction = useRef<'next' | 'back'>('next');
+
+  if (stepIndex !== prevIndex.current) {
+    direction.current = stepIndex > prevIndex.current ? 'next' : 'back';
+    prevIndex.current = stepIndex;
+  }
+
+  const slideClass = direction.current === 'next' ? 'step-slide-next' : 'step-slide-back';
+
   function handleContinue() {
     onComplete();
     if (canGoNext) {
@@ -64,6 +76,8 @@ export function StepViewer({
 
   return (
     <div
+      key={`step-${stepIndex}`}
+      className={slideClass}
       style={{
         display: 'flex',
         flexDirection: 'column',
