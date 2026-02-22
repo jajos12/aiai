@@ -33,10 +33,12 @@ export interface ModuleProgress {
 }
 
 export interface ActivityEntry {
-  date: string;
-  modulesWorkedOn: string[];
-  stepsCompleted: number;
-  minutesSpent: number;
+  type: 'step' | 'challenge' | 'quiz' | 'session';
+  date: string;             // ISO date string (YYYY-MM-DD)
+  timestamp: string;        // Full ISO timestamp
+  moduleId: string;
+  stepId?: string;
+  challengeId?: string;
 }
 
 export interface UserSettings {

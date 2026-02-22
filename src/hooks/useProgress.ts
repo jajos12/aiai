@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import type { ProgressState, ModuleProgress, TierProgress } from '@/types/progress';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import type { ProgressState, ModuleProgress, TierProgress, ActivityEntry } from '@/types/progress';
 
 const STORAGE_KEY = 'ai-playground-progress';
 const SCHEMA_VERSION = 1;
@@ -90,6 +90,62 @@ export function useProgress() {
     [save],
   );
 
+  // ── Streak helpers ──
+
+  /** Get today's date string YYYY-MM-DD */
+  const todayStr = useCallback(() => {
+    return new Date().toISOString().split('T')[0];
+  }, []);
+
+  /** Compute the date string for yesterday */
+  const yesterdayStr = useCallback(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  /** Update streak based on last active date */
+  const withStreakUpdate = useCallback(
+    (state: ProgressState): ProgressState => {
+      const today = todayStr();
+      const { lastActiveDate, current, longest } = state.streak;
+
+      if (lastActiveDate === today) return state; // Already counted today
+
+      const yesterday = yesterdayStr();
+      const isConsecutive = lastActiveDate === yesterday;
+      const newCurrent = isConsecutive ? current + 1 : 1;
+
+      return {
+        ...state,
+        streak: {
+          current: newCurrent,
+          longest: Math.max(longest, newCurrent),
+          lastActiveDate: today,
+        },
+      };
+    },
+    [todayStr, yesterdayStr],
+  );
+
+  /** Log an activity event and update streak */
+  const logActivity = useCallback(
+    (entry: Omit<ActivityEntry, 'date' | 'timestamp'>) => {
+      update((prev) => {
+        const now = new Date();
+        const event: ActivityEntry = {
+          ...entry,
+          date: now.toISOString().split('T')[0],
+          timestamp: now.toISOString(),
+        };
+        // Keep last 500 events to avoid unbounded growth
+        const log = [...prev.activityLog, event].slice(-500);
+        return withStreakUpdate({ ...prev, activityLog: log });
+      });
+    },
+    [update, withStreakUpdate],
+  );
+
   // ── Module-level helpers ──
 
   const getModuleProgress = useCallback(
@@ -132,8 +188,9 @@ export function useProgress() {
           : [...mod.stepsCompleted, stepId],
         lastAccessedStep: stepId,
       }));
+      logActivity({ type: 'step', moduleId, stepId });
     },
-    [updateModule],
+    [updateModule, logActivity],
   );
 
   const answerQuiz = useCallback(
@@ -165,8 +222,9 @@ export function useProgress() {
           ? mod.challengesCompleted
           : [...mod.challengesCompleted, challengeId],
       }));
+      logActivity({ type: 'challenge', moduleId, challengeId });
     },
-    [updateModule],
+    [updateModule, logActivity],
   );
 
   const setLastAccessedStep = useCallback(
@@ -179,9 +237,35 @@ export function useProgress() {
     [updateModule],
   );
 
+  // ── Computed stats ──
+
+  const stats = useMemo(() => {
+    let totalSteps = 0;
+    let totalChallenges = 0;
+    let modulesCompleted = 0;
+
+    for (const tier of Object.values(progress.tiers)) {
+      for (const mod of Object.values(tier.modules)) {
+        totalSteps += mod.stepsCompleted.length;
+        totalChallenges += mod.challengesCompleted.length;
+        if (mod.status === 'completed') modulesCompleted++;
+      }
+    }
+
+    return {
+      totalSteps,
+      totalChallenges,
+      modulesCompleted,
+      totalActivities: progress.activityLog.length,
+      streak: progress.streak,
+      activityLog: progress.activityLog,
+    };
+  }, [progress]);
+
   return {
     progress,
     isLoaded,
+    stats,
     getModuleProgress,
     updateModule,
     completeStep,
@@ -189,6 +273,7 @@ export function useProgress() {
     completeModule,
     completeChallenge,
     setLastAccessedStep,
+    logActivity,
     update,
   };
 }

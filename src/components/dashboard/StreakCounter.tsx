@@ -1,6 +1,15 @@
 'use client';
 
+import { useProgress } from '@/hooks/useProgress';
+
 export function StreakCounter() {
+  const { stats, isLoaded } = useProgress();
+
+  const streakDays = isLoaded ? stats.streak.current : 0;
+  const longestStreak = isLoaded ? stats.streak.longest : 0;
+  const modulesCompleted = isLoaded ? stats.modulesCompleted : 0;
+  const totalSteps = isLoaded ? stats.totalSteps : 0;
+
   return (
     <div
       style={{
@@ -21,17 +30,26 @@ export function StreakCounter() {
           padding: '0 0.75rem',
         }}
       >
-        <span style={{ fontSize: '2.5rem', lineHeight: 1 }}>🔥</span>
+        <span
+          style={{
+            fontSize: '2.5rem',
+            lineHeight: 1,
+            filter: streakDays > 0 ? 'none' : 'grayscale(0.8)',
+            opacity: streakDays > 0 ? 1 : 0.5,
+          }}
+        >
+          🔥
+        </span>
         <span
           style={{
             fontSize: '1.75rem',
             fontWeight: 800,
             fontFamily: 'var(--font-heading)',
-            color: 'var(--text-primary)',
+            color: streakDays > 0 ? 'var(--accent)' : 'var(--text-muted)',
             marginTop: '0.25rem',
           }}
         >
-          0
+          {streakDays}
         </span>
         <span
           style={{
@@ -61,9 +79,9 @@ export function StreakCounter() {
           justifyContent: 'center',
         }}
       >
-        <StatRow label="Longest streak" value="0 days" />
-        <StatRow label="Modules completed" value="0" />
-        <StatRow label="Time learning" value="0h 0m" />
+        <StatRow label="Longest streak" value={`${longestStreak} day${longestStreak !== 1 ? 's' : ''}`} />
+        <StatRow label="Steps completed" value={String(totalSteps)} />
+        <StatRow label="Modules done" value={String(modulesCompleted)} />
       </div>
     </div>
   );
