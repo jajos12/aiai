@@ -5,7 +5,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { getModule } from '@/content/registry';
 import { useProgress } from '@/hooks/useProgress';
 import { VectorTransform } from '@/components/visualizations/VectorTransform';
+import { MatrixTransform } from '@/components/visualizations/MatrixTransform';
 import type { Module, Challenge } from '@/types/curriculum';
+
+// ── Matrix types (mirroring MatrixTransform) ──
+interface Mat2 { a: number; b: number; c: number; d: number }
 
 // ── Challenge-specific configurations ──
 // Each challenge has:
@@ -102,6 +106,69 @@ function getChallengeSetup(challengeId: string): ChallengeSetup {
         mode: 'interactive',
         vizProps: { draggable: true, vectors: [{ x: 3, y: 2, color: '#6366f1' }] },
         target: { x: 4, y: 4 },
+        check: () => 999,
+      };
+  }
+}
+
+// ── Matrix challenge configurations ──
+interface MatrixChallengeSetup {
+  vizProps: Record<string, unknown>;
+  /** Returns distance-to-win from the matrix state. 0 = perfect. */
+  check: (mat: Mat2) => number;
+}
+
+function getMatrixChallengeSetup(challengeId: string): MatrixChallengeSetup {
+  switch (challengeId) {
+    case 'make-rotation':
+      // Target: 90° CCW rotation → [[0, -1], [1, 0]]
+      return {
+        vizProps: {
+          mode: 'custom',
+          interactive: true,
+          showBasisVectors: true,
+          showTransformedBasis: true,
+          showUnitCircle: true,
+          showTransformedCircle: true,
+        },
+        check: (m) => {
+          // Distance to rotation matrix [[cos90, -sin90],[sin90, cos90]] = [[0,-1],[1,0]]
+          return Math.sqrt(
+            (m.a - 0) ** 2 + (m.b - (-1)) ** 2 +
+            (m.c - 1) ** 2 + (m.d - 0) ** 2
+          );
+        },
+      };
+
+    case 'zero-determinant':
+      // Target: det(A) = 0
+      return {
+        vizProps: {
+          mode: 'custom',
+          interactive: true,
+          showDeterminant: true,
+          showTransformedGrid: true,
+          showTransformedBasis: true,
+        },
+        check: (m) => Math.abs(m.a * m.d - m.b * m.c),
+      };
+
+    case 'double-area':
+      // Target: det(A) = 2
+      return {
+        vizProps: {
+          mode: 'custom',
+          interactive: true,
+          showDeterminant: true,
+          showTransformedGrid: true,
+          showTransformedBasis: true,
+        },
+        check: (m) => Math.abs((m.a * m.d - m.b * m.c) - 2),
+      };
+
+    default:
+      return {
+        vizProps: { mode: 'custom', interactive: true },
         check: () => 999,
       };
   }
@@ -204,6 +271,138 @@ function ChallengeCanvas({
             </text>
           </svg>
         )}
+      </div>
+
+      {/* Distance indicator */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '0.5rem',
+          right: '0.5rem',
+          background: 'rgba(15, 17, 23, 0.85)',
+          backdropFilter: 'blur(8px)',
+          borderRadius: '8px',
+          border: '1px solid rgba(255,255,255,0.08)',
+          padding: '6px 10px',
+          fontFamily: 'monospace',
+          fontSize: '11px',
+          pointerEvents: 'none',
+        }}
+      >
+        <div>
+          <span style={{ color: 'rgba(255,255,255,0.4)' }}>distance: </span>
+          <span style={{ color: progressColor, fontWeight: 600 }}>
+            {distance < 999 ? distance.toFixed(3) : '—'}
+          </span>
+        </div>
+        <div>
+          <span style={{ color: 'rgba(255,255,255,0.4)' }}>threshold: </span>
+          <span style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>
+            ≤ {threshold}
+          </span>
+        </div>
+      </div>
+
+      {/* Success overlay */}
+      {showSuccess && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(15, 17, 23, 0.7)',
+            backdropFilter: 'blur(4px)',
+            borderRadius: 'var(--radius-md)',
+            animation: 'fadeIn 0.3s ease',
+          }}
+          onClick={() => setShowSuccess(false)}
+        >
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '2rem',
+              background: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--success)',
+              boxShadow: '0 0 40px rgba(52, 211, 153, 0.15)',
+              maxWidth: '300px',
+            }}
+          >
+            <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🎉</div>
+            <h3
+              style={{
+                fontFamily: 'var(--font-heading)',
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                color: '#34d399',
+                margin: '0 0 0.5rem 0',
+              }}
+            >
+              Challenge Complete!
+            </h3>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Distance: {distance.toFixed(4)} (threshold: {threshold})
+            </p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
+              Click to dismiss
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Matrix Challenge Canvas ──
+function MatrixChallengeCanvas({
+  challenge,
+  onComplete,
+}: {
+  challenge: Challenge;
+  onComplete: () => void;
+}) {
+  const setup = getMatrixChallengeSetup(challenge.id);
+  const [distance, setDistance] = useState(999);
+  const [won, setWon] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const threshold = typeof challenge.completionCriteria.target === 'number'
+    ? challenge.completionCriteria.target
+    : 0.3;
+  const latestMat = useRef<Mat2>({ a: 1, b: 0, c: 0, d: 1 });
+  const checkTimer = useRef<ReturnType<typeof setInterval>>(null);
+
+  useEffect(() => {
+    checkTimer.current = setInterval(() => {
+      const d = setup.check(latestMat.current);
+      setDistance(d);
+      if (d <= threshold && !won) {
+        setWon(true);
+        setShowSuccess(true);
+        onComplete();
+      }
+    }, 100);
+    return () => { if (checkTimer.current) clearInterval(checkTimer.current); };
+  }, [setup, threshold, won, onComplete]);
+
+  const handleMatrixChange = useCallback((m: Mat2) => {
+    latestMat.current = m;
+  }, []);
+
+  const progressColor = won
+    ? '#34d399'
+    : distance < threshold * 3
+      ? '#fbbf24'
+      : 'var(--text-muted)';
+
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+        <MatrixTransform
+          {...setup.vizProps}
+          onMatrixChange={handleMatrixChange}
+        />
       </div>
 
       {/* Distance indicator */}
@@ -411,10 +610,17 @@ export default function ChallengePage() {
             }}
           >
             <div style={{ width: '100%', maxWidth: '550px', aspectRatio: '1', position: 'relative' }}>
-              <ChallengeCanvas
-                challenge={selectedChallenge}
-                onComplete={handleChallengeComplete}
-              />
+              {selectedChallenge.component === 'MatrixTransform' ? (
+                <MatrixChallengeCanvas
+                  challenge={selectedChallenge}
+                  onComplete={handleChallengeComplete}
+                />
+              ) : (
+                <ChallengeCanvas
+                  challenge={selectedChallenge}
+                  onComplete={handleChallengeComplete}
+                />
+              )}
             </div>
           </div>
 
