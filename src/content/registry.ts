@@ -5,9 +5,9 @@ import type { Module } from '@/types/curriculum';
 
 const moduleRegistry: Record<string, () => Promise<Module>> = {
   vectors: () => import('@/content/tier0/vectors/module').then((m) => m.default),
+  matrices: () => import('@/content/tier0/matrices/module').then((m) => m.default),
   // Future modules:
   // 'vector-spaces': () => import('@/content/tier0/vector-spaces/module').then(m => m.default),
-  // 'matrices': () => import('@/content/tier0/matrices/module').then(m => m.default),
 };
 
 export async function getModule(moduleId: string): Promise<Module | null> {

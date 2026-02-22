@@ -5,6 +5,7 @@ import { GoDeeper } from '@/components/lesson/GoDeeper';
 import { AuthorNote } from '@/components/lesson/AuthorNote';
 import { QuizBlock } from '@/components/lesson/QuizBlock';
 import { VectorTransform } from '@/components/visualizations/VectorTransform';
+import { MatrixTransform } from '@/components/visualizations/MatrixTransform';
 
 interface StepViewerProps {
   step: Step;
@@ -47,6 +48,9 @@ export function StepViewer({
     const { component, props } = step.visualization;
     if (component === 'VectorTransform') {
       return <VectorTransform {...(props as Record<string, unknown>)} />;
+    }
+    if (component === 'MatrixTransform') {
+      return <MatrixTransform {...(props as Record<string, unknown>)} />;
     }
     // Fallback placeholder for unknown components
     return (

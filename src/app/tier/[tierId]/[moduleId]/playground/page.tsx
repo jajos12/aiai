@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { getModule } from '@/content/registry';
 import { useProgress } from '@/hooks/useProgress';
 import { VectorTransform } from '@/components/visualizations/VectorTransform';
+import { MatrixTransform } from '@/components/visualizations/MatrixTransform';
 import type { Module } from '@/types/curriculum';
 
 export default function PlaygroundPage() {
@@ -161,6 +162,20 @@ export default function PlaygroundPage() {
           <div style={{ width: '100%', maxWidth: '600px', aspectRatio: '1', position: 'relative' }}>
             {moduleData.visualizationComponent === 'VectorTransform' ? (
               <VectorTransform {...vizProps} />
+            ) : moduleData.visualizationComponent === 'MatrixTransform' ? (
+              <MatrixTransform
+                mode="custom"
+                interactive
+                showGrid={paramValues.showGrid as boolean ?? true}
+                showTransformedGrid={paramValues.showTransformedGrid as boolean ?? true}
+                showBasisVectors={paramValues.showBasisVectors as boolean ?? true}
+                showTransformedBasis={paramValues.showTransformedBasis as boolean ?? true}
+                showDeterminant={paramValues.showDeterminant as boolean ?? false}
+                showEigenvectors={paramValues.showEigenvectors as boolean ?? false}
+                showUnitCircle={paramValues.showUnitCircle as boolean ?? false}
+                showTransformedCircle={paramValues.showTransformedCircle as boolean ?? false}
+                showInverse={paramValues.showInverse as boolean ?? false}
+              />
             ) : (
               <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
                 <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🧪</div>
