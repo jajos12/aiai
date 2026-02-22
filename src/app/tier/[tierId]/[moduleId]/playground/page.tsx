@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getModule } from '@/content/registry';
 import { useProgress } from '@/hooks/useProgress';
-import { VectorTransform } from '@/components/visualizations/VectorTransform';
-import { MatrixTransform } from '@/components/visualizations/MatrixTransform';
+import { LazyVectorTransform as VectorTransform, LazyMatrixTransform as MatrixTransform } from '@/components/visualizations/lazy';
 import type { Module } from '@/types/curriculum';
 
 export default function PlaygroundPage() {

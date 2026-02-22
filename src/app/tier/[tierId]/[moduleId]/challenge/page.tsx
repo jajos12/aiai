@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getModule } from '@/content/registry';
 import { useProgress } from '@/hooks/useProgress';
-import { VectorTransform } from '@/components/visualizations/VectorTransform';
-import { MatrixTransform } from '@/components/visualizations/MatrixTransform';
+import { LazyVectorTransform as VectorTransform, LazyMatrixTransform as MatrixTransform } from '@/components/visualizations/lazy';
 import type { Module, Challenge } from '@/types/curriculum';
 
 // ── Matrix types (mirroring MatrixTransform) ──

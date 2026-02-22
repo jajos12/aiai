@@ -5,8 +5,7 @@ import type { Step } from '@/types/curriculum';
 import { GoDeeper } from '@/components/lesson/GoDeeper';
 import { AuthorNote } from '@/components/lesson/AuthorNote';
 import { QuizBlock } from '@/components/lesson/QuizBlock';
-import { VectorTransform } from '@/components/visualizations/VectorTransform';
-import { MatrixTransform } from '@/components/visualizations/MatrixTransform';
+import { LazyVectorTransform as VectorTransform, LazyMatrixTransform as MatrixTransform } from '@/components/visualizations/lazy';
 
 interface StepViewerProps {
   step: Step;
