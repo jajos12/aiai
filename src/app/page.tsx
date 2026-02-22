@@ -75,6 +75,7 @@ export default function DashboardPage() {
 
   return (
     <div
+      className="bg-mesh"
       style={{
         minHeight: '100vh',
         display: 'flex',
@@ -167,6 +168,7 @@ export default function DashboardPage() {
 
         {/* Tier Cards Grid */}
         <div
+          className="stagger-children responsive-grid"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',

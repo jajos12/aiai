@@ -61,6 +61,7 @@ export default function TierOverviewPage() {
 
   return (
     <div
+      className="page-wrapper bg-mesh"
       style={{
         minHeight: '100vh',
         background: 'var(--bg-base)',

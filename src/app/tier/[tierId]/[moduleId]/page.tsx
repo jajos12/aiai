@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getModule } from '@/content/registry';
 import { useProgress } from '@/hooks/useProgress';
+import { ModuleHubSkeleton } from '@/components/ui/Skeleton';
 import type { Module } from '@/types/curriculum';
 
 export default function ModuleHubPage() {
@@ -27,34 +28,7 @@ export default function ModuleHubPage() {
   const progress = getModuleProgress(tierId, moduleId);
 
   if (loading) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          background: 'var(--bg-base)',
-          color: 'var(--text-muted)',
-          fontFamily: 'var(--font-heading)',
-        }}
-      >
-        <div style={{ textAlign: 'center' }}>
-          <div
-            style={{
-              width: '2rem',
-              height: '2rem',
-              border: '3px solid var(--border-subtle)',
-              borderTop: '3px solid var(--accent)',
-              borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite',
-              margin: '0 auto 1rem',
-            }}
-          />
-          Loading module...
-        </div>
-      </div>
-    );
+    return <ModuleHubSkeleton />;
   }
 
   if (!moduleData) {
@@ -126,6 +100,7 @@ export default function ModuleHubPage() {
 
   return (
     <div
+      className="page-wrapper bg-mesh"
       style={{
         minHeight: '100vh',
         background: 'var(--bg-base)',

@@ -9,10 +9,9 @@ interface TopNavProps {
 export function TopNav({ currentPath = '/' }: TopNavProps) {
   return (
     <nav
+      className="nav-frosted"
       style={{
         height: 'var(--topnav-height)',
-        borderBottom: '1px solid var(--border-subtle)',
-        background: 'var(--bg-surface)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',

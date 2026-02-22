@@ -364,6 +364,26 @@ p {
   to { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+  50% { box-shadow: 0 0 16px 4px rgba(99, 102, 241, 0.1); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.4s ease forwards;
 }
@@ -372,9 +392,57 @@ p {
   animation: slideIn 0.3s ease forwards;
 }
 
+.animate-page-enter {
+  animation: pageEnter 0.35s ease forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease forwards;
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ── Skeleton Shimmer ── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-hover) 25%,
+    var(--bg-surface) 50%,
+    var(--bg-hover) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ── Page Transitions ── */
+.page-wrapper {
+  animation: pageEnter 0.3s ease forwards;
+}
+
+/* Stagger children animations */
+.stagger-children > * { opacity: 0; animation: fadeIn 0.4s ease forwards; }
+.stagger-children > *:nth-child(1) { animation-delay: 0s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.06s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.12s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.18s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.24s; }
+.stagger-children > *:nth-child(6) { animation-delay: 0.30s; }
+.stagger-children > *:nth-child(7) { animation-delay: 0.36s; }
+.stagger-children > *:nth-child(8) { animation-delay: 0.42s; }
+
+/* ── Accessibility: Focus Visible ── */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove outline for mouse clicks */
+*:focus:not(:focus-visible) {
+  outline: none;
 }
 
 /* ── Button Size Compose ── */
@@ -382,3 +450,112 @@ p {
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
 }
+
+/* ── Frosted glass nav ── */
+.nav-frosted {
+  background: rgba(15, 17, 23, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+[data-theme="light"] .nav-frosted {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+/* ── Glassmorphic card ── */
+.card--glass {
+  background: rgba(26, 29, 39, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="light"] .card--glass {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+/* ── Subtle mesh gradient background ── */
+.bg-mesh {
+  background-image:
+    radial-gradient(at 20% 20%, rgba(99, 102, 241, 0.04) 0, transparent 60%),
+    radial-gradient(at 80% 60%, rgba(52, 211, 153, 0.03) 0, transparent 60%),
+    radial-gradient(at 50% 90%, rgba(251, 191, 36, 0.02) 0, transparent 60%);
+}
+
+/* ── Interactive hover classes ── */
+.hover-lift {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.hover-glow {
+  transition: box-shadow var(--transition-normal);
+}
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.08);
+}
+
+/* ── Responsive Layout ── */
+
+/* Mobile: < 640px */
+@media (max-width: 639px) {
+  .responsive-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .responsive-sidebar {
+    display: none !important;
+  }
+
+  .responsive-main {
+    padding: 1rem !important;
+  }
+
+  .responsive-flex-col {
+    flex-direction: column !important;
+  }
+
+  .responsive-hide {
+    display: none !important;
+  }
+
+  .viz-container-responsive {
+    max-width: 100% !important;
+    aspect-ratio: 1 !important;
+  }
+}
+
+/* Tablet: 640px — 1024px */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .responsive-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  }
+
+  .responsive-sidebar {
+    width: 220px !important;
+  }
+}
+
+/* Desktop: 1024px+ (default) */
+
+/* ── Scrollbar for Firefox ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+[data-theme="light"] * {
+  scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+}
+
+/* ── Selection color ── */
+::selection {
+  background: rgba(99, 102, 241, 0.3);
+  color: var(--text-primary);
+}
+

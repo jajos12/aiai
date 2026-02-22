@@ -7,6 +7,7 @@ import { useLesson } from '@/hooks/useLesson';
 import { useProgress } from '@/hooks/useProgress';
 import { StepViewer } from '@/components/lesson/StepViewer';
 import { LessonSidebar } from '@/components/lesson/LessonSidebar';
+import { ModuleHubSkeleton } from '@/components/ui/Skeleton';
 import type { Module } from '@/types/curriculum';
 
 export default function GuidedPage() {
@@ -56,34 +57,7 @@ export default function GuidedPage() {
   });
 
   if (loading) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          background: 'var(--bg-base)',
-          color: 'var(--text-muted)',
-          fontFamily: 'var(--font-heading)',
-        }}
-      >
-        <div style={{ textAlign: 'center' }}>
-          <div
-            style={{
-              width: '2rem',
-              height: '2rem',
-              border: '3px solid var(--border-subtle)',
-              borderTop: '3px solid var(--accent)',
-              borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite',
-              margin: '0 auto 1rem',
-            }}
-          />
-          Loading module...
-        </div>
-      </div>
-    );
+    return <ModuleHubSkeleton />;
   }
 
   if (!moduleData) {
