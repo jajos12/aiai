@@ -563,6 +563,8 @@ Font:   Crimson Pro (serif) / Fira Code (math)
 - **For maximal beginner-friendliness**: **B (Playful)** wins
 - **Adaptive approach**: Dark mode = Direction A, Light mode = Direction C
 
+> **✅ DECIDED**: Brilliant.org-inspired hybrid — clean, colorful, approachable like **B+C** with dark mode as default. Dual theme support (dark default + light mode toggle). Per-tier vibrant color identity. Clean cards with shadows/lift effects (no heavy glassmorphism). See `implementation_plan.md` §7 for full CSS variable spec.
+
 ---
 
 ## 6. Navigation & Learning Path Design
@@ -1264,15 +1266,15 @@ MODULE: "Gradient Descent"  (~15-25 minutes)
 
 ### 🎮 Gamification — Level 2 (Light)
 
-| Feature                      | Implementation                                                    |
-| ---------------------------- | ----------------------------------------------------------------- |
-| ✅ **Completion checkmarks** | Per-step, per-module, per-tier. Stored in localStorage            |
-| 📊 **Progress bars**         | Per-tier on dashboard. Gradient-filled (indigo→violet)            |
-| 🔥 **Daily streak**          | "Day X" counter. Shows on home page. Resets if you skip a day     |
-| 📅 **Activity calendar**     | GitHub-style contribution graph on profile page. Green squares    |
-| 🏅 **Milestone badges**      | "Tier 0 Complete", "10-Day Streak", "First Challenge Solved"      |
-| ⏱ **Time tracking**          | "You've spent 4h 23m learning" on profile page                    |
-| 🔒 **Tier gating**           | Next tier locked until ~70% completion. Glass card with lock icon |
+| Feature                      | Implementation                                                     |
+| ---------------------------- | ------------------------------------------------------------------ |
+| ✅ **Completion checkmarks** | Per-step, per-module, per-tier. Stored in localStorage             |
+| 📊 **Progress bars**         | Per-tier on dashboard. Gradient-filled (indigo→violet)             |
+| 🔥 **Daily streak**          | "Day X" counter. Shows on home page. Resets if you skip a day      |
+| 📅 **Activity calendar**     | GitHub-style contribution graph on profile page. Green squares     |
+| 🏅 **Milestone badges**      | "Tier 0 Complete", "10-Day Streak", "First Challenge Solved"       |
+| ⏱ **Time tracking**          | "You've spent 4h 23m learning" on profile page                     |
+| 🔒 **Tier gating**           | Next tier locked until ~70% completion. Grayed card with lock icon |
 
 **Not in V1** (save for later): XP points, leaderboards, social features, achievements
 
@@ -1346,7 +1348,8 @@ ai-playground/
 │   │   │   ├── ParamStepper.tsx      # Discrete value stepper
 │   │   │   └── ParamToggle.tsx       # On/off toggle
 │   │   └── ui/
-│   │       ├── GlassCard.tsx
+│   │       ├── Card.tsx                # Clean container component
+│   │       ├── ThemeToggle.tsx         # Dark/light mode toggle
 │   │       ├── ProgressBar.tsx
 │   │       ├── Badge.tsx
 │   │       └── Button.tsx
@@ -1406,19 +1409,19 @@ ai-playground/
 
 ### 📐 V1 Scope — What's In, What's Out
 
-| ✅ In V1                             | ❌ Not in V1 (Future)   |
-| ------------------------------------ | ----------------------- |
-| Tier 0 complete (13 modules)         | Tiers 3, 4, 5           |
-| Tier 1 complete (12 modules)         | User accounts / auth    |
-| Tier 2 started (5-6 modules)         | Backend / database      |
-| 3-phase lesson format                | Social features         |
-| Dashboard home page                  | Leaderboards            |
-| Journey map / roadmap view           | Mobile optimization     |
-| Light gamification (streaks, badges) | Tracks (curated paths)  |
-| Dark glass UI theme                  | Monetization            |
-| Author's margin notes                | Community contributions |
-| localStorage progress                | Comments / discussions  |
-| Vercel deployment                    | ML inference backend    |
+| ✅ In V1                                   | ❌ Not in V1 (Future)   |
+| ------------------------------------------ | ----------------------- |
+| Tier 0 complete (13 modules)               | Tiers 3, 4, 5           |
+| Tier 1 complete (12 modules)               | User accounts / auth    |
+| Tier 2 started (5-6 modules)               | Backend / database      |
+| 3-phase lesson format                      | Social features         |
+| Dashboard home page                        | Leaderboards            |
+| Journey map / roadmap view                 | Mobile optimization     |
+| Light gamification (streaks, badges)       | Tracks (curated paths)  |
+| Brilliant-inspired dual theme (dark/light) | Monetization            |
+| Author's margin notes                      | Community contributions |
+| localStorage progress                      | Comments / discussions  |
+| Vercel deployment                          | ML inference backend    |
 
 ---
 
@@ -1428,7 +1431,7 @@ ai-playground/
 Week 1: Foundation
 ├── Next.js project setup, design system, CSS variables
 ├── Layout components (shell, sidebar, nav)
-├── GlassCard, ProgressBar, Button components
+├── Card, ThemeToggle, ProgressBar, Button components
 └── Home page / Dashboard skeleton
 
 Week 2: Lesson Engine
@@ -1471,30 +1474,30 @@ Week 8: Deploy & Share
 
 ### Summary Table — Every Decision at a Glance
 
-| Dimension              | V1 Choice                                              |
-| ---------------------- | ------------------------------------------------------ |
-| **Framework**          | Next.js (App Router)                                   |
-| **Language**           | TypeScript                                             |
-| **Styling**            | Tailwind CSS + custom CSS for visuals                  |
-| **Math Visuals**       | Mafs (Tier 0) + KaTeX (everywhere)                     |
-| **ML Visuals**         | Canvas 2D + Konva.js (Tier 1–2)                        |
-| **3D Visuals**         | React Three Fiber (Tier 3+)                            |
-| **Charts**             | Visx                                                   |
-| **UI Animation**       | Framer Motion                                          |
-| **Sequence Animation** | GSAP (step-through algorithm animations)               |
-| **Design**             | Dark Glass Lab (dark + glassmorphism)                  |
-| **Fonts**              | Plus Jakarta Sans + Inter                              |
-| **Content Structure**  | Clusters with tier gating                              |
-| **Lesson Format**      | Hybrid: Guided → Playground → Challenge                |
-| **Content Depth**      | "Go Deeper" expandable sections (intuitive + rigorous) |
-| **Navigation**         | Dashboard home + sidebar in lessons + roadmap toggle   |
-| **Gamification**       | Level 2: streaks, badges, progress bars, calendar      |
-| **Notes**              | In-lesson margin notes + external TG channel           |
-| **State**              | localStorage (client-only)                             |
-| **Backend**            | None (V1) → Supabase (V2) → FastAPI on Render (V3)     |
-| **Deploy**             | Vercel                                                 |
-| **V1 Content**         | Tier 0 + Tier 1 + partial Tier 2 (~30 modules)         |
-| **Target Timeline**    | ~8 weeks                                               |
+| Dimension              | V1 Choice                                                   |
+| ---------------------- | ----------------------------------------------------------- |
+| **Framework**          | Next.js (App Router)                                        |
+| **Language**           | TypeScript                                                  |
+| **Styling**            | Tailwind CSS + custom CSS for visuals                       |
+| **Math Visuals**       | Mafs (Tier 0) + KaTeX (everywhere)                          |
+| **ML Visuals**         | Canvas 2D + Konva.js (Tier 1–2)                             |
+| **3D Visuals**         | React Three Fiber (Tier 3+)                                 |
+| **Charts**             | Visx                                                        |
+| **UI Animation**       | Framer Motion                                               |
+| **Sequence Animation** | GSAP (step-through algorithm animations)                    |
+| **Design**             | Brilliant-inspired dual theme (dark default + light toggle) |
+| **Fonts**              | Plus Jakarta Sans + Inter                                   |
+| **Content Structure**  | Clusters with tier gating                                   |
+| **Lesson Format**      | Hybrid: Guided → Playground → Challenge                     |
+| **Content Depth**      | "Go Deeper" expandable sections (intuitive + rigorous)      |
+| **Navigation**         | Dashboard home + sidebar in lessons + roadmap toggle        |
+| **Gamification**       | Level 2: streaks, badges, progress bars, calendar           |
+| **Notes**              | In-lesson margin notes + external TG channel                |
+| **State**              | localStorage (client-only)                                  |
+| **Backend**            | None (V1) → Supabase (V2) → FastAPI on Render (V3)          |
+| **Deploy**             | Vercel                                                      |
+| **V1 Content**         | Tier 0 + Tier 1 + partial Tier 2 (~30 modules)              |
+| **Target Timeline**    | ~8 weeks                                                    |
 
 ---
 

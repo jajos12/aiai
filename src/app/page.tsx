@@ -1,65 +1,194 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useRouter } from 'next/navigation';
+import { TopNav } from '@/components/layout/TopNav';
+import { Footer } from '@/components/layout/Footer';
+import { TierCard } from '@/components/dashboard/TierCard';
+import { StreakCounter } from '@/components/dashboard/StreakCounter';
+import { ActivityCalendar } from '@/components/dashboard/ActivityCalendar';
+
+// Placeholder tier data (will be replaced by real curriculum data)
+const TIERS = [
+  {
+    id: 0,
+    title: 'Mathematical Foundations',
+    emoji: '🟢',
+    description: 'Vectors, matrices, calculus, probability — the building blocks of everything in AI.',
+    moduleCount: 13,
+    completedModules: 0,
+    isUnlocked: true,
+  },
+  {
+    id: 1,
+    title: 'ML Fundamentals',
+    emoji: '🔵',
+    description: 'Linear regression, gradient descent, classification — your first ML algorithms.',
+    moduleCount: 12,
+    completedModules: 0,
+    isUnlocked: false,
+    unlockRequirement: 'Complete 70% of Tier 0 to unlock',
+  },
+  {
+    id: 2,
+    title: 'Deep Learning Core',
+    emoji: '🟣',
+    description: 'Neural networks, backpropagation, CNNs — the deep learning revolution.',
+    moduleCount: 12,
+    completedModules: 0,
+    isUnlocked: false,
+    unlockRequirement: 'Complete 70% of Tier 1 to unlock',
+  },
+  {
+    id: 3,
+    title: 'Advanced Architectures',
+    emoji: '🟡',
+    description: 'Transformers, attention, generative models — cutting-edge architectures.',
+    moduleCount: 15,
+    completedModules: 0,
+    isUnlocked: false,
+    unlockRequirement: 'Complete 70% of Tier 2 to unlock',
+  },
+  {
+    id: 4,
+    title: 'Frontiers & Applications',
+    emoji: '🔴',
+    description: 'Reinforcement learning, multimodal AI, emergence — the frontier.',
+    moduleCount: 15,
+    completedModules: 0,
+    isUnlocked: false,
+    unlockRequirement: 'Complete 70% of Tier 3 to unlock',
+  },
+  {
+    id: 5,
+    title: 'Research & Open Problems',
+    emoji: '🟤',
+    description: 'Alignment, scaling laws, open problems — where the field is headed.',
+    moduleCount: 15,
+    completedModules: 0,
+    isUnlocked: false,
+    unlockRequirement: 'Complete 70% of Tier 4 to unlock',
+  },
+];
+
+export default function DashboardPage() {
+  const router = useRouter();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <TopNav currentPath="/" />
+
+      <main
+        style={{
+          flex: 1,
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '2rem 1.5rem',
+          width: '100%',
+        }}
+      >
+        {/* Welcome Section */}
+        <div style={{ marginBottom: '2rem' }} className="animate-fade-in">
+          <h1
+            style={{
+              fontFamily: 'var(--font-heading)',
+              fontSize: '1.75rem',
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              margin: '0 0 0.5rem 0',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Welcome to AI Playground
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p
+            style={{
+              fontSize: '1rem',
+              color: 'var(--text-secondary)',
+              margin: 0,
+              maxWidth: '600px',
+            }}
+          >
+            Learn AI concepts from the ground up through interactive visualizations.
+            No prerequisites — just curiosity.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        {/* Stats Row */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+            gap: '1rem',
+            marginBottom: '2rem',
+          }}
+          className="animate-fade-in"
+        >
+          <StreakCounter />
+          <ActivityCalendar />
+        </div>
+
+        {/* Learning Path Header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '1rem',
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: 'var(--font-heading)',
+              fontSize: '1.25rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              margin: 0,
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Learning Path
+          </h2>
+          <button
+            className="btn btn--ghost btn--sm"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.375rem',
+            }}
           >
-            Documentation
-          </a>
+            🗺️ Roadmap View
+          </button>
+        </div>
+
+        {/* Tier Cards Grid */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gap: '1rem',
+          }}
+        >
+          {TIERS.map((tier, i) => (
+            <div
+              key={tier.id}
+              className="animate-fade-in"
+              style={{ animationDelay: `${i * 0.08}s` }}
+            >
+              <TierCard
+                {...tier}
+                onClick={() => router.push(`/tier/${tier.id}`)}
+              />
+            </div>
+          ))}
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

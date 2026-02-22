@@ -1,6 +1,6 @@
 # AI Learning Playground — V1 Implementation Plan
 
-> **Status**: Awaiting approval
+> **Status**: ✅ Approved — Locked on 2026-02-21
 > **Scope**: V1 launch — ~30 modules, client-side only, Vercel deploy
 > **Timeline**: ~8 weeks
 > **Deep context**: See [brainstorm.md](file:///c:/Users/LOQ/source/repos/projects/ai_playground/docs/brainstorm.md) for full rationale behind every decision
@@ -257,6 +257,7 @@ export interface ActivityEntry {
 }
 
 export interface UserSettings {
+  theme: "dark" | "light"; // Dark mode default, user-toggleable
   goDeeper: "collapsed" | "expanded"; // Global default for Go Deeper sections
   animationSpeed: "slow" | "normal" | "fast";
   sidebarCollapsed: boolean;
@@ -394,8 +395,8 @@ interface ParamToggleProps {
 ### UI Components
 
 ```tsx
-// GlassCard — Glassmorphic container (used everywhere)
-interface GlassCardProps {
+// Card — Clean container (used everywhere, Brilliant-inspired)
+interface CardProps {
   children: React.ReactNode;
   className?: string;
   variant?: "default" | "elevated" | "interactive";
@@ -403,9 +404,9 @@ interface GlassCardProps {
   onClick?: () => void;
 }
 // Variants:
-//   default:     bg-white/5, backdrop-blur-12, border-white/8
-//   elevated:    bg-white/8, backdrop-blur-16, subtle shadow
-//   interactive: default + hover:bg-white/10 + cursor-pointer + scale(1.01) on hover
+//   default:     bg-surface, border-subtle, shadow-sm
+//   elevated:    bg-elevated, shadow-md
+//   interactive: default + hover:translateY(-2px) + shadow-md + cursor-pointer
 ```
 
 ```tsx
@@ -426,9 +427,10 @@ interface TierCardProps {
   onClick: () => void; // Navigate to tier page
 }
 // Behavior:
+// - Colored top stripe using tier's accent color (--tier-N)
 // - Shows tier emoji, title, module count, progress bar
 // - Locked state: grayscale, lock icon overlay, "Complete 70% of Tier N to unlock"
-// - Unlocked: full color, interactive hover, glow on the tier's accent color
+// - Unlocked: full color, hover lift effect, tier-colored progress bar
 // - Completed: gold border, completion badge
 ```
 
@@ -455,7 +457,7 @@ interface SidebarProps {
 interface TopNavProps {
   currentPath: string; // For breadcrumb/active indicator
 }
-// Contents: Logo (left), Breadcrumb (center), Streak counter + Profile link (right)
+// Contents: Logo (left), Breadcrumb (center), Streak counter + ThemeToggle + Profile link (right)
 ```
 
 ---
@@ -571,53 +573,142 @@ Full curriculum with all 82 modules defined in [brainstorm.md §2](file:///c:/Us
 
 ---
 
-## Design System — "Dark Glass Lab"
+## Design System — Brilliant-Inspired, Dual Theme
 
-### Colors
+> **Inspiration**: Brilliant.org's clean, colorful, approachable visual language — vibrant per-topic colors, clean layouts, generous whitespace, playful yet professional. We support **both dark (default) and light modes** with a UI toggle.
+
+### Theme Toggle
+
+A `ThemeToggle` component in the TopNav lets users switch between dark and light mode. Theme preference is persisted in `UserSettings.theme`. The toggle uses `data-theme` attribute on `<html>` to switch CSS variable sets.
+
+```tsx
+// src/components/ui/ThemeToggle.tsx
+interface ThemeToggleProps {
+  theme: "dark" | "light";
+  onToggle: () => void;
+}
+// Behavior: Sun/moon icon pill toggle. Smooth transition when switching.
+// On first visit: defaults to 'dark'. Persisted in localStorage settings.
+```
+
+### Colors — Dark Mode (Default)
 
 ```css
-/* src/app/globals.css — root CSS variables */
-:root {
+[data-theme="dark"] {
   /* Base */
-  --bg-primary: #0a0e1a;
-  --bg-surface: #12162b;
-  --bg-elevated: #1a1f3a;
+  --bg-primary: #0f1117; /* Deep dark, slightly warmer than pure black */
+  --bg-surface: #1a1d27; /* Card/panel backgrounds */
+  --bg-elevated: #242836; /* Elevated panels, modals */
+  --bg-hover: #2a2e3d; /* Hover states on surfaces */
 
-  /* Glass */
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-hover: rgba(255, 255, 255, 0.1);
-  --glass-blur: 12px;
-
-  /* Accent (indigo → violet gradient) */
-  --accent-start: #6366f1;
-  --accent-end: #8b5cf6;
-  --accent-glow: rgba(99, 102, 241, 0.3);
-
-  /* Semantic */
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-error: #ef4444;
-  --color-info: #3b82f6;
+  /* Borders & dividers */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.16);
 
   /* Text */
-  --text-primary: #e8e6f0;
-  --text-secondary: #8b8ba3;
-  --text-accent: #a5b4fc;
-  --text-muted: #525270;
+  --text-primary: #f0f0f5; /* Headings, important text */
+  --text-secondary: #a0a0b8; /* Body text, descriptions */
+  --text-muted: #636380; /* Captions, hints */
 
-  /* Tier colors (for tier-specific theming) */
-  --tier-0: #10b981; /* green */
-  --tier-1: #3b82f6; /* blue */
-  --tier-2: #8b5cf6; /* purple */
-  --tier-3: #f59e0b; /* orange */
-  --tier-4: #ef4444; /* red */
-  --tier-5: #6b7280; /* gray/dark */
+  /* Accent (consistent across themes) */
+  --accent: #6366f1; /* Primary interactive color */
+  --accent-hover: #818cf8;
+  --accent-soft: rgba(99, 102, 241, 0.15); /* Accent backgrounds */
 
-  /* Sizing */
+  /* Semantic */
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
+  --color-info: #60a5fa;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+```
+
+### Colors — Light Mode
+
+```css
+[data-theme="light"] {
+  /* Base — clean whites like Brilliant */
+  --bg-primary: #ffffff;
+  --bg-surface: #f8f9fb; /* Subtle off-white for cards */
+  --bg-elevated: #ffffff; /* Elevated = pure white + shadow */
+  --bg-hover: #f0f1f5;
+
+  /* Borders & dividers */
+  --border-subtle: rgba(0, 0, 0, 0.04);
+  --border-default: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+
+  /* Text */
+  --text-primary: #1a1a2e; /* Near-black for headings */
+  --text-secondary: #4a4a6a; /* Dark gray for body */
+  --text-muted: #8a8aa0; /* Light gray for captions */
+
+  /* Accent (same hue, adjusted for light bg) */
+  --accent: #4f46e5;
+  --accent-hover: #6366f1;
+  --accent-soft: rgba(79, 70, 229, 0.08);
+
+  /* Semantic */
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+  --color-info: #2563eb;
+
+  /* Shadows — more prominent in light mode */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+```
+
+### Per-Tier Color Identity
+
+Each tier has its own vibrant color personality — used for tier cards, progress bars, active module headers, and viz accent colors. These remain the same across both themes.
+
+```css
+:root {
+  /* Tier accent colors — vibrant Brilliant-style palette */
+  --tier-0: #10b981; /* Emerald green — Math Foundations */
+  --tier-0-soft: rgba(16, 185, 129, 0.12);
+  --tier-0-bg: #ecfdf5; /* Light mode tier card bg */
+  --tier-0-bg-dark: #0d2818; /* Dark mode tier card bg */
+
+  --tier-1: #3b82f6; /* Blue — ML Fundamentals */
+  --tier-1-soft: rgba(59, 130, 246, 0.12);
+  --tier-1-bg: #eff6ff;
+  --tier-1-bg-dark: #0c1a2e;
+
+  --tier-2: #8b5cf6; /* Violet — Classical ML */
+  --tier-2-soft: rgba(139, 92, 246, 0.12);
+  --tier-2-bg: #f5f3ff;
+  --tier-2-bg-dark: #1a0e2e;
+
+  --tier-3: #f59e0b; /* Amber — Deep Learning */
+  --tier-3-soft: rgba(245, 158, 11, 0.12);
+  --tier-3-bg: #fffbeb;
+  --tier-3-bg-dark: #2e1f08;
+
+  --tier-4: #ef4444; /* Red — Modern AI */
+  --tier-4-soft: rgba(239, 68, 68, 0.12);
+  --tier-4-bg: #fef2f2;
+  --tier-4-bg-dark: #2e0c0c;
+
+  --tier-5: #6366f1; /* Indigo — Research Frontier */
+  --tier-5-soft: rgba(99, 102, 241, 0.12);
+  --tier-5-bg: #eef2ff;
+  --tier-5-bg-dark: #0e0e2e;
+
+  /* Sizing (shared across themes) */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
+  --radius-xl: 20px; /* Brilliant uses generous rounding */
   --sidebar-width: 280px;
   --sidebar-collapsed: 64px;
   --topnav-height: 64px;
@@ -628,9 +719,9 @@ Full curriculum with all 82 modules defined in [brainstorm.md §2](file:///c:/Us
 
 ```css
 /* Fonts: loaded via next/font in layout.tsx */
---font-heading: 'Plus Jakarta Sans', sans-serif;   /* Tier cards, page titles, module names */
---font-body:    'Inter', sans-serif;                /* All body text, explanations, UI */
---font-math:    KaTeX default (Computer Modern);    /* Rendered by KaTeX, no manual styling */
+--font-heading: 'Plus Jakarta Sans', sans-serif;  /* Bold, friendly — tier cards, page titles */
+--font-body:    'Inter', sans-serif;               /* Clean reading — explanations, UI */
+--font-math:    KaTeX default (Computer Modern);   /* Rendered by KaTeX, no manual styling */
 
 /* Scale */
 h1: 2rem/2.5rem, font-heading, weight 700
@@ -638,35 +729,49 @@ h2: 1.5rem/2rem, font-heading, weight 600
 h3: 1.25rem/1.75rem, font-heading, weight 600
 body: 1rem/1.5rem, font-body, weight 400
 small: 0.875rem/1.25rem, font-body, weight 400
-caption: 0.75rem/1rem, font-body, weight 400, text-secondary
+caption: 0.75rem/1rem, font-body, weight 400, text-muted
 ```
 
-### Glass Card CSS
+### Card Styles (Brilliant-inspired)
+
+Cards use **clean surfaces + shadows** in light mode and **subtle borders** in dark mode. No heavy glassmorphism — keep it clean and approachable.
 
 ```css
-/* The reusable glassmorphic panel — apply via component or utility class */
-.glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-}
-
-.glass-card--elevated {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.glass-card--interactive {
-  cursor: pointer;
+/* Clean card — primary container throughout the app */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   transition: all 0.2s ease;
 }
-.glass-card--interactive:hover {
-  background: var(--glass-hover);
-  transform: scale(1.01);
-  border-color: rgba(255, 255, 255, 0.12);
+
+.card--interactive:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px); /* Subtle lift on hover — Brilliant-style */
+  border-color: var(--border-default);
+}
+
+/* Tier card — colored accent along top or left border */
+.tier-card {
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  border-top: 3px solid var(--tier-color); /* Colored top stripe */
+  box-shadow: var(--shadow-sm);
+}
+
+.tier-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+/* Viz container — where interactive visualizations live */
+.viz-container {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 ```
 
@@ -674,10 +779,10 @@ caption: 0.75rem/1rem, font-body, weight 400, text-secondary
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  [Logo]          Breadcrumb: Tier 0 > Vectors > Step 3    🔥7  │  ← TopNav (64px)
+│  [Logo]     Breadcrumb: Tier 0 > Vectors > Step 3   🔥7 [☀/🌙]│  ← TopNav (64px) + theme toggle
 ├────────┬────────────────────────────────────────────────────────┤
 │        │                                                        │
-│  Step  │        [INTERACTIVE VISUALIZATION]                     │  ← 60% height
+│  Step  │        [INTERACTIVE VISUALIZATION]                     │  ← 60% height, viz-container
 │  List  │                                                        │
 │        ├────────────────────────────────────────────────────────┤
 │  1 ✅  │                                                        │
@@ -690,7 +795,7 @@ caption: 0.75rem/1rem, font-body, weight 400, text-secondary
 │ [≡]    │                    [← Previous]  [Continue →]          │
 │ 280px  │                                                        │
 ├────────┴────────────────────────────────────────────────────────┤
-│  ── progress bar ──────────────────────────── 3/12 steps ──     │
+│  ── progress bar (tier-colored) ──────────── 3/12 steps ──     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -724,6 +829,7 @@ const DEFAULT_PROGRESS: ProgressState = {
   badges: [],
   activityLog: [],
   settings: {
+    theme: "dark",
     goDeeper: "collapsed",
     animationSpeed: "normal",
     sidebarCollapsed: false,
@@ -827,7 +933,8 @@ ai-playground/
 │   │   │   ├── ParamStepper.tsx       # Discrete [-] value [+]
 │   │   │   └── ParamToggle.tsx        # Boolean toggle
 │   │   └── ui/
-│   │       ├── GlassCard.tsx          # Glassmorphic container
+│   │       ├── Card.tsx                # Clean container (replaces GlassCard)
+│   │       ├── ThemeToggle.tsx         # Dark/light mode toggle
 │   │       ├── ProgressBar.tsx        # Gradient-filled bar
 │   │       ├── Badge.tsx              # Achievement badge
 │   │       └── Button.tsx             # Primary/secondary/ghost variants
@@ -1168,15 +1275,15 @@ export const challenges: Challenge[] = [
 
 ### Week 1: Foundation
 
-| #   | Deliverable    | Details                                                                          |
-| --- | -------------- | -------------------------------------------------------------------------------- |
-| 1   | Project init   | `npx create-next-app@latest ./ --typescript --tailwind --app --eslint --src-dir` |
-| 2   | Design system  | `globals.css` with all CSS variables above, glassmorphism utilities              |
-| 3   | Font loading   | Plus Jakarta Sans + Inter via `next/font/google` in `layout.tsx`                 |
-| 4   | Core UI        | `GlassCard`, `ProgressBar`, `Button`, `Badge` components                         |
-| 5   | Layout shell   | `TopNav` (logo, breadcrumb, streak), `Sidebar` (collapsible), `Footer`           |
-| 6   | Dashboard page | 6 × `TierCard` with placeholder data, progress bars, lock states                 |
-| 7   | Types          | `curriculum.ts` and `progress.ts` type files (copy from this plan)               |
+| #   | Deliverable    | Details                                                                                    |
+| --- | -------------- | ------------------------------------------------------------------------------------------ |
+| 1   | Project init   | `npx create-next-app@latest ./ --typescript --tailwind --app --eslint --src-dir`           |
+| 2   | Design system  | `globals.css` with dual-theme CSS variables (`data-theme`), card utilities                 |
+| 3   | Font loading   | Plus Jakarta Sans + Inter via `next/font/google` in `layout.tsx`                           |
+| 4   | Core UI        | `Card`, `ThemeToggle`, `ProgressBar`, `Button`, `Badge` components                         |
+| 5   | Layout shell   | `TopNav` (logo, breadcrumb, streak, theme toggle), `Sidebar` (collapsible), `Footer`       |
+| 6   | Dashboard page | 6 × `TierCard` with placeholder data, tier-colored top stripes, progress bars, lock states |
+| 7   | Types          | `curriculum.ts` and `progress.ts` type files (copy from this plan)                         |
 
 **Week 1 verification**: Dashboard renders at `/`, glassmorphic cards display correctly, dark theme, fonts load, nav bar works.
 
@@ -1283,7 +1390,7 @@ npm run build              # Production build (catches SSR errors)
 ---
 
 ## Brainstorm Cross-Reference Map
- 
+
 When you need deeper context on any decision, reference these brainstorm sections:
 
 | Topic                                           | Brainstorm Section                        |
