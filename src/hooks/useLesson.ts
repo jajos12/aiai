@@ -8,6 +8,7 @@ interface UseLessonOptions {
   tierId: number;
   moduleId: string;
   initialStepIndex?: number;
+  initialCompletedSteps?: string[];
   onCompleteStep?: (stepId: string) => void;
   onAnswerQuiz?: (stepId: string, answerIndex: number) => void;
 }
@@ -50,12 +51,26 @@ export function useLesson({
   tierId,
   moduleId,
   initialStepIndex = 0,
+  initialCompletedSteps = [],
   onCompleteStep,
   onAnswerQuiz,
 }: UseLessonOptions): UseLessonReturn {
   const [currentStepIndex, setCurrentStepIndex] = useState(initialStepIndex);
-  const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
+  const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set(initialCompletedSteps));
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
+
+  // Sync completedSteps when persisted data loads (async from localStorage)
+  const completedKey = JSON.stringify(initialCompletedSteps.slice().sort());
+  useEffect(() => {
+    if (initialCompletedSteps.length > 0) {
+      setCompletedSteps((prev) => {
+        const merged = new Set(prev);
+        for (const id of initialCompletedSteps) merged.add(id);
+        return merged.size !== prev.size ? merged : prev;
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completedKey]);
 
   // Sentinel step used when steps array is empty (during initial load)
   const EMPTY_STEP: Step = {

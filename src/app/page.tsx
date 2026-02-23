@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { TopNav } from '@/components/layout/TopNav';
 import { Footer } from '@/components/layout/Footer';
 import { TierCard } from '@/components/dashboard/TierCard';
 import { StreakCounter } from '@/components/dashboard/StreakCounter';
@@ -82,7 +81,6 @@ export default function DashboardPage() {
         flexDirection: 'column',
       }}
     >
-      <TopNav currentPath="/" />
 
       <main
         style={{

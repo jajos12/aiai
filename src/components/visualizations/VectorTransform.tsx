@@ -43,6 +43,8 @@ interface VectorTransformProps {
   showDecomposition?: boolean;
   scalarMultiplier?: number;
   onVectorsChange?: (vectors: Vec2[]) => void;
+  onParamsChange?: (params: { scalar?: number; c1?: number; c2?: number }) => void;
+  targetMarker?: { x: number; y: number };
 }
 
 // ── Math Helpers ──
@@ -117,34 +119,71 @@ const MemoArrowDefs = memo(function ArrowDefs() {
   );
 });
 
-// ── Grid (memoized — never re-renders) ──
-const MemoGrid = memo(function Grid() {
+// ── Dynamic Grid (renders based on visible area) ──
+function DynamicGrid({ vb }: { vb: { x: number; y: number; w: number; h: number } }) {
   const lines: React.ReactElement[] = [];
-  for (let i = -GRID_RANGE; i <= GRID_RANGE; i++) {
-    const [x1, y1] = toSvg(i, -GRID_RANGE);
-    const [x2, y2] = toSvg(i, GRID_RANGE);
-    const [hx1, hy1] = toSvg(-GRID_RANGE, i);
-    const [hx2, hy2] = toSvg(GRID_RANGE, i);
+
+  // Convert viewBox edges to math coordinates
+  const mathLeft = (vb.x - CENTER) / SCALE;
+  const mathRight = (vb.x + vb.w - CENTER) / SCALE;
+  const mathTop = -(vb.y - CENTER) / SCALE;
+  const mathBottom = -(vb.y + vb.h - CENTER) / SCALE;
+
+  // Pick grid spacing based on zoom level: aim for ~10-20 lines visible
+  const visibleRange = Math.max(mathRight - mathLeft, mathTop - mathBottom);
+  let step = 1;
+  if (visibleRange > 40) step = 10;
+  else if (visibleRange > 20) step = 5;
+  else if (visibleRange > 10) step = 2;
+
+  // Label every N steps (avoid overcrowding)
+  const labelEvery = step >= 5 ? step : step * 2;
+
+  const minI = Math.floor((mathLeft - 1) / step) * step;
+  const maxI = Math.ceil((mathRight + 1) / step) * step;
+  const minJ = Math.floor((mathBottom - 1) / step) * step;
+  const maxJ = Math.ceil((mathTop + 1) / step) * step;
+
+  // Font size scales with viewBox so labels stay readable
+  const fontSize = vb.w / 500 * 9;
+  const labelOffset = vb.w / 500 * 12;
+
+  for (let i = minI; i <= maxI; i += step) {
+    const [x1, y1] = toSvg(i, minJ - step);
+    const [x2, y2] = toSvg(i, maxJ + step);
     const isMain = i === 0;
     lines.push(
       <line key={`v${i}`} x1={x1} y1={y1} x2={x2} y2={y2}
         stroke={isMain ? 'var(--viz-grid-major)' : 'var(--viz-grid-minor)'}
         strokeWidth={isMain ? 1.5 : 0.5} />,
-      <line key={`h${i}`} x1={hx1} y1={hy1} x2={hx2} y2={hy2}
-        stroke={isMain ? 'var(--viz-grid-major)' : 'var(--viz-grid-minor)'}
-        strokeWidth={isMain ? 1.5 : 0.5} />,
     );
-    if (i !== 0 && i % 2 === 0) {
+    if (i !== 0 && i % labelEvery === 0) {
       const [lx] = toSvg(i, 0);
-      const [, ly] = toSvg(0, i);
       lines.push(
-        <text key={`lx${i}`} x={lx} y={CENTER + 14} textAnchor="middle" fontSize="9" fill="var(--viz-axis-label)">{i}</text>,
-        <text key={`ly${i}`} x={CENTER - 12} y={ly + 3} textAnchor="middle" fontSize="9" fill="var(--viz-axis-label)">{i}</text>,
+        <text key={`lx${i}`} x={lx} y={CENTER + labelOffset + fontSize / 2} textAnchor="middle" fontSize={fontSize} fill="var(--viz-axis-label)">{i}</text>,
       );
     }
   }
+
+  for (let j = minJ; j <= maxJ; j += step) {
+    const [hx1, hy1] = toSvg(minI - step, j);
+    const [hx2, hy2] = toSvg(maxI + step, j);
+    const isMain = j === 0;
+    lines.push(
+      <line key={`h${j}`} x1={hx1} y1={hy1} x2={hx2} y2={hy2}
+        stroke={isMain ? 'var(--viz-grid-major)' : 'var(--viz-grid-minor)'}
+        strokeWidth={isMain ? 1.5 : 0.5} />,
+    );
+    if (j !== 0 && j % labelEvery === 0) {
+      const [, ly] = toSvg(0, j);
+      lines.push(
+        <text key={`ly${j}`} x={CENTER - labelOffset} y={ly + fontSize / 3} textAnchor="middle" fontSize={fontSize} fill="var(--viz-axis-label)">{j}</text>,
+      );
+    }
+  }
+
   return <g>{lines}</g>;
-});
+}
 
 // ── Arrow — no transition for primary tracking, soft ease for derived ──
 function Arrow({
@@ -248,13 +287,15 @@ function DragHandle({
       const svg = svgRef.current;
       const rect = svg.getBoundingClientRect();
       // Scale factor: SVG viewBox vs actual rendered size
-      const scaleX = CANVAS_SIZE / rect.width;
-      const scaleY = CANVAS_SIZE / rect.height;
-      const px = (e.clientX - rect.left) * scaleX;
-      const py = (e.clientY - rect.top) * scaleY;
-      // Convert to math coords — continuous, no snapping
-      const x = clamp((px - CENTER) / SCALE);
-      const y = clamp(-(py - CENTER) / SCALE);
+      // We need to read the current viewBox from the svg element
+      const vb = svg.viewBox.baseVal;
+      const scaleX = vb.width / rect.width;
+      const scaleY = vb.height / rect.height;
+      const px = vb.x + (e.clientX - rect.left) * scaleX;
+      const py = vb.y + (e.clientY - rect.top) * scaleY;
+      // Convert to math coords — continuous, no snapping, no clamping
+      const x = (px - CENTER) / SCALE;
+      const y = -(py - CENTER) / SCALE;
       // Store for RAF to pick up (coalesces fast pointer events)
       pending.current = { x, y };
     },
@@ -315,18 +356,23 @@ function AngleArc({ fromAngle, toAngle, radius = 30, color = '#fbbf24' }: {
   fromAngle: number; toAngle: number; radius?: number; color?: string;
 }) {
   const [cx, cy] = toSvg(0, 0);
-  const start = -fromAngle;
-  const end = -toAngle;
-  const sweep = ((end - start + 2 * Math.PI) % (2 * Math.PI));
-  const largeArc = sweep > Math.PI ? 1 : 0;
-  const x1 = cx + radius * Math.cos(start);
-  const y1 = cy + radius * Math.sin(start);
-  const x2 = cx + radius * Math.cos(end);
-  const y2 = cy + radius * Math.sin(end);
+  // Endpoint coordinates in SVG (negate y since SVG y is down)
+  const x1 = cx + radius * Math.cos(fromAngle);
+  const y1 = cy - radius * Math.sin(fromAngle);
+  const x2 = cx + radius * Math.cos(toAngle);
+  const y2 = cy - radius * Math.sin(toAngle);
+
+  // Angle difference in math coordinates (counter-clockwise positive)
+  const diff = ((toAngle - fromAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+  // If diff <= π, the short arc is counter-clockwise in math = sweepFlag 0 in SVG
+  // If diff > π, the short arc is clockwise in math = sweepFlag 1 in SVG
+  const sweepFlag = diff <= Math.PI ? 0 : 1;
+  const shortAngle = diff <= Math.PI ? diff : 2 * Math.PI - diff;
+  const largeArc = shortAngle > Math.PI ? 1 : 0;
 
   return (
     <path
-      d={`M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 0 ${x2} ${y2}`}
+      d={`M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} ${sweepFlag} ${x2} ${y2}`}
       fill="none" stroke={color} strokeWidth={2} opacity={0.7}
     />
   );
@@ -394,6 +440,81 @@ export function VectorTransform(props: VectorTransformProps) {
   const [c1, setC1] = useState(1);
   const [c2, setC2] = useState(1);
   const svgRef = useRef<SVGSVGElement | null>(null);
+
+  // ── ViewBox state (zoom/pan) ──
+  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: CANVAS_SIZE, h: CANVAS_SIZE });
+  const isPanning = useRef(false);
+  const panStart = useRef({ x: 0, y: 0, vbx: 0, vby: 0 });
+
+  // Wheel zoom — zoom toward cursor
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = svg.getBoundingClientRect();
+      // Cursor position as fraction of SVG element
+      const fx = (e.clientX - rect.left) / rect.width;
+      const fy = (e.clientY - rect.top) / rect.height;
+      setViewBox((prev) => {
+        const zoomFactor = e.deltaY > 0 ? 1.08 : 0.93; // scroll down = zoom out
+        const nw = Math.max(100, Math.min(prev.w * zoomFactor, 10000));
+        const nh = Math.max(100, Math.min(prev.h * zoomFactor, 10000));
+        return {
+          x: prev.x + (prev.w - nw) * fx,
+          y: prev.y + (prev.h - nh) * fy,
+          w: nw,
+          h: nh,
+        };
+      });
+    };
+    svg.addEventListener('wheel', handler, { passive: false });
+    return () => svg.removeEventListener('wheel', handler);
+  }, []);
+
+  // Background pan handlers
+  const handleBgPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    // Only start pan if clicking the SVG background (not a drag handle)
+    const target = e.target as SVGElement;
+    if (target.tagName === 'circle' || target.closest('[data-drag-handle]')) return;
+    isPanning.current = true;
+    panStart.current = { x: e.clientX, y: e.clientY, vbx: viewBox.x, vby: viewBox.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [viewBox.x, viewBox.y]);
+
+  const handleBgPointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    if (!isPanning.current || !svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    // Scale pixel delta to viewBox units
+    const scaleX = viewBox.w / rect.width;
+    const scaleY = viewBox.h / rect.height;
+    const dx = (e.clientX - panStart.current.x) * scaleX;
+    const dy = (e.clientY - panStart.current.y) * scaleY;
+    setViewBox((prev) => ({ ...prev, x: panStart.current.vbx - dx, y: panStart.current.vby - dy }));
+  }, [viewBox.w, viewBox.h]);
+
+  const handleBgPointerUp = useCallback(() => {
+    isPanning.current = false;
+  }, []);
+
+  const resetView = useCallback(() => {
+    // Adapt viewBox to container aspect ratio
+    const svg = svgRef.current;
+    if (svg) {
+      const rect = svg.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+      const h = CANVAS_SIZE;
+      const w = CANVAS_SIZE * aspect;
+      setViewBox({ x: (CANVAS_SIZE - w) / 2, y: 0, w, h });
+    } else {
+      setViewBox({ x: 0, y: 0, w: CANVAS_SIZE, h: CANVAS_SIZE });
+    }
+  }, []);
+
+  // Adapt viewBox to container shape on mount
+  useEffect(() => {
+    resetView();
+  }, [resetView]);
 
   // Sync with prop changes (mode switch resets vectors)
   useEffect(() => {
@@ -772,6 +893,13 @@ export function VectorTransform(props: VectorTransformProps) {
         <Arrow key="sb-tail" from={sa} to={linComb} color={bColor} width={2} />,
         <Arrow key="result" from={origin} to={linComb} color="#fb923c" width={3} secondary />,
       );
+      // Drag handle for vector b
+      if (isDraggable) {
+        elements.push(
+          <DragHandle key="drag-b" pos={b} color={bColor}
+            onDrag={(v) => updateVec(1, v)} svgRef={svgRef} />,
+        );
+      }
       if (showParallelogram) {
         const [ox, oy] = toSvg(0, 0);
         const [sax, say] = toSvg(sa.x, sa.y);
@@ -821,19 +949,87 @@ export function VectorTransform(props: VectorTransformProps) {
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}`}
+        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
         style={{
           width: '100%',
           height: '100%',
           background: 'var(--viz-bg-gradient)',
           borderRadius: 'var(--radius-md)',
-          touchAction: 'none', /* Prevent browser gestures from fighting drag */
+          touchAction: 'none',
+          cursor: isPanning.current ? 'grabbing' : 'default',
+          userSelect: 'none',
         }}
+        onPointerDown={handleBgPointerDown}
+        onPointerMove={handleBgPointerMove}
+        onPointerUp={handleBgPointerUp}
+        onPointerCancel={handleBgPointerUp}
       >
         <MemoArrowDefs />
-        {showGrid && <MemoGrid />}
+        {showGrid && <DynamicGrid vb={viewBox} />}
         {renderMode()}
+
+        {/* Challenge target marker */}
+        {props.targetMarker && (() => {
+          const [tx, ty] = toSvg(props.targetMarker.x, props.targetMarker.y);
+          const r = viewBox.w / 500 * 6;
+          return (
+            <g>
+              <circle cx={tx} cy={ty} r={r * 3} fill="none" stroke="rgba(239, 68, 68, 0.3)" strokeWidth={viewBox.w / 500 * 1}>
+                <animate attributeName="r" from={String(r * 2)} to={String(r * 4)} dur="1.5s" repeatCount="indefinite" />
+                <animate attributeName="opacity" from="0.4" to="0" dur="1.5s" repeatCount="indefinite" />
+              </circle>
+              <circle cx={tx} cy={ty} r={r} fill="#ef4444" stroke="white" strokeWidth={viewBox.w / 500 * 2} />
+              <text x={tx + r * 2} y={ty - r * 1.5} fill="#ef4444"
+                fontSize={viewBox.w / 500 * 10} fontWeight="700" fontFamily="monospace">
+                target ({props.targetMarker.x}, {props.targetMarker.y})
+              </text>
+            </g>
+          );
+        })()}
       </svg>
+
+      {/* Zoom controls */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '0.75rem',
+          right: '0.75rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '2px',
+          background: 'var(--viz-panel-bg)',
+          backdropFilter: 'blur(8px)',
+          borderRadius: '8px',
+          border: '1px solid var(--viz-panel-border)',
+          padding: '3px',
+          zIndex: 5,
+        }}
+      >
+        <button onClick={() => setViewBox(prev => {
+          const nw = Math.min(prev.w * 1.15, 10000);
+          const nh = Math.min(prev.h * 1.15, 10000);
+          return { x: prev.x + (prev.w - nw) / 2, y: prev.y + (prev.h - nh) / 2, w: nw, h: nh };
+        })} title="Zoom out" style={{
+          width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent', border: 'none', borderRadius: '4px',
+          color: 'var(--text-secondary)', fontSize: '0.875rem', cursor: 'pointer',
+        }}>−</button>
+        <button onClick={resetView} title="Reset view" style={{
+          height: '26px', padding: '0 5px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent', border: 'none', borderRadius: '4px',
+          color: 'var(--viz-annotation)', fontSize: '9px', fontFamily: 'monospace', fontWeight: 600,
+          cursor: 'pointer', minWidth: '36px',
+        }}>{Math.round((CANVAS_SIZE / viewBox.w) * 100)}%</button>
+        <button onClick={() => setViewBox(prev => {
+          const nw = Math.max(prev.w * 0.87, 100);
+          const nh = Math.max(prev.h * 0.87, 100);
+          return { x: prev.x + (prev.w - nw) / 2, y: prev.y + (prev.h - nh) / 2, w: nw, h: nh };
+        })} title="Zoom in" style={{
+          width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent', border: 'none', borderRadius: '4px',
+          color: 'var(--text-secondary)', fontSize: '0.875rem', cursor: 'pointer',
+        }}>+</button>
+      </div>
 
       {/* Info overlay */}
       {infoItems.length > 0 && (
@@ -889,7 +1085,11 @@ export function VectorTransform(props: VectorTransformProps) {
             max={scalarRange[1]}
             step={0.1}
             value={scalar}
-            onChange={(e) => setScalar(parseFloat(e.target.value))}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              setScalar(v);
+              props.onParamsChange?.({ scalar: v });
+            }}
             style={{ width: '160px', accentColor: '#fb923c' }}
           />
           <span style={{ fontSize: '12px', fontWeight: 700, color: '#fb923c', fontFamily: 'monospace', minWidth: '32px' }}>
@@ -918,14 +1118,22 @@ export function VectorTransform(props: VectorTransformProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '11px', color: aColor, fontFamily: 'monospace' }}>c₁</span>
             <input type="range" min={-3} max={3} step={0.1} value={c1}
-              onChange={(e) => setC1(parseFloat(e.target.value))}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setC1(v);
+                props.onParamsChange?.({ c1: v, c2 });
+              }}
               style={{ width: '100px', accentColor: aColor }} />
             <span style={{ fontSize: '11px', color: aColor, fontFamily: 'monospace', minWidth: '28px' }}>{c1.toFixed(1)}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '11px', color: bColor, fontFamily: 'monospace' }}>c₂</span>
             <input type="range" min={-3} max={3} step={0.1} value={c2}
-              onChange={(e) => setC2(parseFloat(e.target.value))}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setC2(v);
+                props.onParamsChange?.({ c1, c2: v });
+              }}
               style={{ width: '100px', accentColor: bColor }} />
             <span style={{ fontSize: '11px', color: bColor, fontFamily: 'monospace', minWidth: '28px' }}>{c2.toFixed(1)}</span>
           </div>

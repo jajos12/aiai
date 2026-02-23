@@ -20,6 +20,7 @@ interface StepViewerProps {
   canGoNext: boolean;
   canGoBack: boolean;
   isLastStep: boolean;
+  onFinishModule?: () => void;
 }
 
 export function StepViewer({
@@ -35,6 +36,7 @@ export function StepViewer({
   canGoNext,
   canGoBack,
   isLastStep,
+  onFinishModule,
 }: StepViewerProps) {
   // Track direction for step transition animation
   const prevIndex = useRef(stepIndex);
@@ -49,7 +51,9 @@ export function StepViewer({
 
   function handleContinue() {
     onComplete();
-    if (canGoNext) {
+    if (isLastStep && onFinishModule) {
+      onFinishModule();
+    } else if (canGoNext) {
       onNext();
     }
   }
@@ -99,7 +103,7 @@ export function StepViewer({
           position: 'relative',
         }}
       >
-        {/* Active visualization */}
+        {/* Active visualization — zoom/pan is built into the component */}
         {renderVisualization()}
 
         {/* Interaction hint */}
@@ -107,16 +111,18 @@ export function StepViewer({
           <div
             style={{
               position: 'absolute',
-              bottom: '0.75rem',
-              left: '50%',
-              transform: 'translateX(-50%)',
+              top: '0.5rem',
+              right: '0.5rem',
               padding: '0.375rem 0.75rem',
               borderRadius: 'var(--radius-sm)',
               background: 'var(--bg-surface)',
               border: '1px solid var(--border-subtle)',
-              fontSize: '0.75rem',
+              fontSize: '0.7rem',
               color: 'var(--text-muted)',
-              whiteSpace: 'nowrap',
+              maxWidth: '220px',
+              lineHeight: 1.4,
+              zIndex: 4,
+              pointerEvents: 'none',
             }}
           >
             💡 {step.interactionHint}

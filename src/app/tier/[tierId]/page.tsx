@@ -41,7 +41,7 @@ export default function TierOverviewPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '100vh',
+          height: 'calc(100vh - var(--topnav-height))',
           background: 'var(--bg-base)',
           color: 'var(--text-muted)',
         }}

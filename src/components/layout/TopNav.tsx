@@ -1,6 +1,7 @@
 'use client';
 
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { useProgress } from '@/hooks/useProgress';
 
 interface TopNavProps {
   currentPath?: string;
@@ -77,6 +78,9 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
 }
 
 function StreakDisplay() {
+  const { stats, isLoaded } = useProgress();
+  const streakDays = isLoaded ? stats.streak.current : 0;
+
   return (
     <div
       style={{
@@ -85,14 +89,14 @@ function StreakDisplay() {
         gap: '0.375rem',
         padding: '0.375rem 0.75rem',
         borderRadius: 'var(--radius-sm)',
-        background: 'var(--accent-soft)',
+        background: streakDays > 0 ? 'var(--accent-soft)' : 'var(--bg-surface)',
         fontSize: '0.875rem',
         fontWeight: 600,
-        color: 'var(--accent)',
+        color: streakDays > 0 ? 'var(--accent)' : 'var(--text-muted)',
       }}
     >
       <span>🔥</span>
-      <span>0</span>
+      <span>{streakDays}</span>
     </div>
   );
 }

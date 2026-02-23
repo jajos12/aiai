@@ -58,7 +58,7 @@ export default function PlaygroundPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '100vh',
+          height: 'calc(100vh - var(--topnav-height))',
           background: 'var(--bg-base)',
           color: 'var(--text-muted)',
           fontFamily: 'var(--font-heading)',
@@ -102,7 +102,7 @@ export default function PlaygroundPage() {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100vh',
+        height: 'calc(100vh - var(--topnav-height))',
         background: 'var(--bg-base)',
       }}
     >
@@ -152,13 +152,12 @@ export default function PlaygroundPage() {
           style={{
             flex: 1,
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            alignItems: 'stretch',
+            justifyContent: 'stretch',
             position: 'relative',
-            padding: '1rem',
           }}
         >
-          <div style={{ width: '100%', maxWidth: '600px', aspectRatio: '1', position: 'relative' }}>
+          <div style={{ width: '100%', height: '100%', position: 'relative' }}>
             {moduleData.visualizationComponent === 'VectorTransform' ? (
               <VectorTransform {...vizProps} />
             ) : moduleData.visualizationComponent === 'MatrixTransform' ? (

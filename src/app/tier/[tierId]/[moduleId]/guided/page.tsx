@@ -8,6 +8,7 @@ import { useProgress } from '@/hooks/useProgress';
 import { StepViewer } from '@/components/lesson/StepViewer';
 import { LessonSidebar } from '@/components/lesson/LessonSidebar';
 import { ModuleHubSkeleton } from '@/components/ui/Skeleton';
+import { StreakPopup, CompletionPopup } from '@/components/ui/CelebrationPopup';
 import type { Module } from '@/types/curriculum';
 
 export default function GuidedPage() {
@@ -20,8 +21,9 @@ export default function GuidedPage() {
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [showCompletion, setShowCompletion] = useState(false);
 
-  const { completeStep, answerQuiz, getModuleProgress } = useProgress();
+  const { completeStep, answerQuiz, getModuleProgress, completeModule, stats, streakJustEarned, dismissStreakPopup } = useProgress();
 
   // Load module data
   useEffect(() => {
@@ -53,6 +55,7 @@ export default function GuidedPage() {
     tierId,
     moduleId,
     initialStepIndex: 0,
+    initialCompletedSteps: moduleProgress.stepsCompleted,
     onCompleteStep: handleCompleteStep,
     onAnswerQuiz: handleAnswerQuiz,
   });
@@ -68,7 +71,7 @@ export default function GuidedPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '100vh',
+          height: 'calc(100vh - var(--topnav-height))',
           background: 'var(--bg-base)',
           color: 'var(--text-muted)',
         }}
@@ -92,7 +95,7 @@ export default function GuidedPage() {
     <div
       style={{
         display: 'flex',
-        height: '100vh',
+        height: 'calc(100vh - var(--topnav-height))',
         background: 'var(--bg-base)',
         overflow: 'hidden',
       }}
@@ -217,9 +220,30 @@ export default function GuidedPage() {
             canGoNext={lesson.canGoNext}
             canGoBack={lesson.canGoBack}
             isLastStep={lesson.isLastStep}
+            onFinishModule={() => {
+              completeModule(tierId, moduleId);
+              setShowCompletion(true);
+            }}
           />
         </div>
       </div>
+
+      {/* Streak celebration popup */}
+      <StreakPopup
+        streakDays={stats.streak.current}
+        show={streakJustEarned}
+        onClose={dismissStreakPopup}
+      />
+
+      {/* Module completion popup */}
+      <CompletionPopup
+        moduleName={moduleData.title}
+        show={showCompletion}
+        onClose={() => {
+          setShowCompletion(false);
+          router.push(`/tier/${tierId}/${moduleId}`);
+        }}
+      />
     </div>
   );
 }

@@ -62,6 +62,7 @@ function loadProgress(): ProgressState {
 export function useProgress() {
   const [progress, setProgress] = useState<ProgressState>(createDefaultProgress);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [streakJustEarned, setStreakJustEarned] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Load from localStorage on mount
@@ -140,11 +141,18 @@ export function useProgress() {
         };
         // Keep last 500 events to avoid unbounded growth
         const log = [...prev.activityLog, event].slice(-500);
-        return withStreakUpdate({ ...prev, activityLog: log });
+        const updated = withStreakUpdate({ ...prev, activityLog: log });
+        // Fire streak popup if streak was updated (first activity of day)
+        if (updated.streak.lastActiveDate !== prev.streak.lastActiveDate) {
+          setStreakJustEarned(true);
+        }
+        return updated;
       });
     },
     [update, withStreakUpdate],
   );
+
+  const dismissStreakPopup = useCallback(() => setStreakJustEarned(false), []);
 
   // ── Module-level helpers ──
 
@@ -266,6 +274,8 @@ export function useProgress() {
     progress,
     isLoaded,
     stats,
+    streakJustEarned,
+    dismissStreakPopup,
     getModuleProgress,
     updateModule,
     completeStep,

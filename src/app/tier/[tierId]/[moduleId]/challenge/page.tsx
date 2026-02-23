@@ -189,7 +189,9 @@ function ChallengeCanvas({
     ? challenge.completionCriteria.target
     : 0.3;
   const checkTimer = useRef<ReturnType<typeof setInterval>>(null);
-  const latestVecs = useRef<{ x: number; y: number }[]>([]);
+  const latestVecs = useRef<{ x: number; y: number }[]>(
+    ((setup.vizProps.vectors ?? []) as { x: number; y: number }[]).map(v => ({ x: v.x, y: v.y }))
+  );
   const latestParams = useRef<{ scalar?: number; c1?: number; c2?: number }>({});
 
   // Periodic check (not on every render — every 100ms is fine)
@@ -224,52 +226,21 @@ function ChallengeCanvas({
       ? '#fbbf24'
       : 'var(--text-muted)';
 
+  const handleParamsChange = useCallback((params: { scalar?: number; c1?: number; c2?: number }) => {
+    latestParams.current = { ...latestParams.current, ...params };
+  }, []);
+
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      {/* Viz */}
+      {/* Viz with integrated target marker */}
       <div style={{ width: '100%', height: '100%', position: 'relative' }}>
         <VectorTransform
           {...setup.vizProps}
           mode={setup.mode}
           onVectorsChange={handleVectorsChange}
+          onParamsChange={handleParamsChange}
+          targetMarker={showTarget ? setup.target : undefined}
         />
-
-        {/* Red target dot overlay */}
-        {showTarget && (
-          <svg
-            viewBox="0 0 500 500"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              pointerEvents: 'none',
-            }}
-          >
-            {/* Target rings */}
-            <circle
-              cx={250 + setup.target.x * (500 / 12)}
-              cy={250 - setup.target.y * (500 / 12)}
-              r={18} fill="none" stroke="rgba(239, 68, 68, 0.2)" strokeWidth={1}
-            >
-              <animate attributeName="r" from="12" to="24" dur="1.5s" repeatCount="indefinite" />
-              <animate attributeName="opacity" from="0.4" to="0" dur="1.5s" repeatCount="indefinite" />
-            </circle>
-            <circle
-              cx={250 + setup.target.x * (500 / 12)}
-              cy={250 - setup.target.y * (500 / 12)}
-              r={6} fill="#ef4444" stroke="white" strokeWidth={2}
-            />
-            <text
-              x={250 + setup.target.x * (500 / 12) + 12}
-              y={250 - setup.target.y * (500 / 12) - 10}
-              fill="#ef4444" fontSize="10" fontWeight="700" fontFamily="monospace"
-            >
-              target ({setup.target.x}, {setup.target.y})
-            </text>
-          </svg>
-        )}
       </div>
 
       {/* Distance indicator */}
@@ -523,7 +494,7 @@ export default function ChallengePage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '100vh',
+          height: 'calc(100vh - var(--topnav-height))',
           background: 'var(--bg-base)',
           color: 'var(--text-muted)',
           fontFamily: 'var(--font-heading)',
@@ -545,7 +516,7 @@ export default function ChallengePage() {
         style={{
           display: 'flex',
           flexDirection: 'column',
-          height: '100vh',
+          height: 'calc(100vh - var(--topnav-height))',
           background: 'var(--bg-base)',
         }}
       >

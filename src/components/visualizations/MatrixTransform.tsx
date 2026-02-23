@@ -138,43 +138,76 @@ const MemoDefs = memo(function MatrixDefs() {
   );
 });
 
-// ── Original Grid (memoized) ──
-const MemoOriginalGrid = memo(function OriginalGrid() {
+// ── Dynamic Grid (renders based on visible area) ──
+function DynGrid({ vb }: { vb: { x: number; y: number; w: number; h: number } }) {
   const lines: React.ReactElement[] = [];
-  for (let i = -GRID_RANGE; i <= GRID_RANGE; i++) {
-    const [x1, y1] = toSvg(i, -GRID_RANGE);
-    const [x2, y2] = toSvg(i, GRID_RANGE);
-    const [hx1, hy1] = toSvg(-GRID_RANGE, i);
-    const [hx2, hy2] = toSvg(GRID_RANGE, i);
+  const mathLeft = (vb.x - CENTER) / SCALE;
+  const mathRight = (vb.x + vb.w - CENTER) / SCALE;
+  const mathTop = -(vb.y - CENTER) / SCALE;
+  const mathBottom = -(vb.y + vb.h - CENTER) / SCALE;
+  const visibleRange = Math.max(mathRight - mathLeft, mathTop - mathBottom);
+  let step = 1;
+  if (visibleRange > 40) step = 10;
+  else if (visibleRange > 20) step = 5;
+  else if (visibleRange > 10) step = 2;
+  const labelEvery = step >= 5 ? step : step * 2;
+  const minI = Math.floor((mathLeft - 1) / step) * step;
+  const maxI = Math.ceil((mathRight + 1) / step) * step;
+  const minJ = Math.floor((mathBottom - 1) / step) * step;
+  const maxJ = Math.ceil((mathTop + 1) / step) * step;
+  const fontSize = vb.w / 500 * 9;
+  const labelOffset = vb.w / 500 * 12;
+  for (let i = minI; i <= maxI; i += step) {
+    const [x1, y1] = toSvg(i, minJ - step);
+    const [x2, y2] = toSvg(i, maxJ + step);
     const isMain = i === 0;
     lines.push(
       <line key={`v${i}`} x1={x1} y1={y1} x2={x2} y2={y2}
         stroke={isMain ? 'var(--viz-grid-major)' : 'var(--viz-grid-minor)'}
         strokeWidth={isMain ? 1.5 : 0.5} />,
-      <line key={`h${i}`} x1={hx1} y1={hy1} x2={hx2} y2={hy2}
+    );
+    if (i !== 0 && i % labelEvery === 0) {
+      const [lx] = toSvg(i, 0);
+      lines.push(
+        <text key={`lx${i}`} x={lx} y={CENTER + labelOffset + fontSize / 2} textAnchor="middle" fontSize={fontSize} fill="var(--viz-axis-label)">{i}</text>,
+      );
+    }
+  }
+  for (let j = minJ; j <= maxJ; j += step) {
+    const [hx1, hy1] = toSvg(minI - step, j);
+    const [hx2, hy2] = toSvg(maxI + step, j);
+    const isMain = j === 0;
+    lines.push(
+      <line key={`h${j}`} x1={hx1} y1={hy1} x2={hx2} y2={hy2}
         stroke={isMain ? 'var(--viz-grid-major)' : 'var(--viz-grid-minor)'}
         strokeWidth={isMain ? 1.5 : 0.5} />,
     );
-    if (i !== 0 && i % 2 === 0) {
-      const [lx] = toSvg(i, 0);
-      const [, ly] = toSvg(0, i);
+    if (j !== 0 && j % labelEvery === 0) {
+      const [, ly] = toSvg(0, j);
       lines.push(
-        <text key={`lx${i}`} x={lx} y={CENTER + 14} textAnchor="middle" fontSize="9" fill="var(--viz-axis-label)">{i}</text>,
-        <text key={`ly${i}`} x={CENTER - 12} y={ly + 3} textAnchor="middle" fontSize="9" fill="var(--viz-axis-label)">{i}</text>,
+        <text key={`ly${j}`} x={CENTER - labelOffset} y={ly + fontSize / 3} textAnchor="middle" fontSize={fontSize} fill="var(--viz-axis-label)">{j}</text>,
       );
     }
   }
   return <g>{lines}</g>;
-});
+}
 
 // ── Transformed Grid ──
-function TransformedGrid({ matrix }: { matrix: Mat2 }) {
+function TransformedGrid({ matrix, vb }: { matrix: Mat2; vb: { x: number; y: number; w: number; h: number } }) {
   const lines: React.ReactElement[] = [];
 
-  // Vertical lines: x = i, y varies from -GRID_RANGE to GRID_RANGE
-  for (let i = -GRID_RANGE; i <= GRID_RANGE; i++) {
+  // Compute the visible math-coordinate range from the viewBox
+  const mathLeft = (vb.x - CENTER) / SCALE;
+  const mathRight = (vb.x + vb.w - CENTER) / SCALE;
+  const mathTop = -(vb.y - CENTER) / SCALE;
+  const mathBottom = -(vb.y + vb.h - CENTER) / SCALE;
+  const rangeMin = Math.floor(Math.min(mathLeft, mathBottom)) - 1;
+  const rangeMax = Math.ceil(Math.max(mathRight, mathTop)) + 1;
+
+  // Vertical lines: x = i, y varies
+  for (let i = rangeMin; i <= rangeMax; i++) {
     const points: string[] = [];
-    for (let t = -GRID_RANGE; t <= GRID_RANGE; t += 0.5) {
+    for (let t = rangeMin; t <= rangeMax; t += 0.5) {
       const transformed = matMul(matrix, { x: i, y: t });
       const [sx, sy] = toSvg(transformed.x, transformed.y);
       points.push(`${sx},${sy}`);
@@ -186,9 +219,9 @@ function TransformedGrid({ matrix }: { matrix: Mat2 }) {
   }
 
   // Horizontal lines: y = i, x varies
-  for (let i = -GRID_RANGE; i <= GRID_RANGE; i++) {
+  for (let i = rangeMin; i <= rangeMax; i++) {
     const points: string[] = [];
-    for (let t = -GRID_RANGE; t <= GRID_RANGE; t += 0.5) {
+    for (let t = rangeMin; t <= rangeMax; t += 0.5) {
       const transformed = matMul(matrix, { x: t, y: i });
       const [sx, sy] = toSvg(transformed.x, transformed.y);
       points.push(`${sx},${sy}`);
@@ -256,12 +289,13 @@ function DragHandle({
       if (!dragging.current || !svgRef.current) return;
       const svg = svgRef.current;
       const rect = svg.getBoundingClientRect();
-      const scaleX = CANVAS_SIZE / rect.width;
-      const scaleY = CANVAS_SIZE / rect.height;
-      const px = (e.clientX - rect.left) * scaleX;
-      const py = (e.clientY - rect.top) * scaleY;
-      const x = clamp((px - CENTER) / SCALE);
-      const y = clamp(-(py - CENTER) / SCALE);
+      const vb = svg.viewBox.baseVal;
+      const scaleX = vb.width / rect.width;
+      const scaleY = vb.height / rect.height;
+      const px = vb.x + (e.clientX - rect.left) * scaleX;
+      const py = vb.y + (e.clientY - rect.top) * scaleY;
+      const x = (px - CENTER) / SCALE;
+      const y = -(py - CENTER) / SCALE;
       pending.current = { x, y };
     },
     [svgRef],
@@ -423,6 +457,70 @@ export function MatrixTransform(props: MatrixTransformProps) {
   const [mat, setMat] = useState<Mat2>(initialMatrix ?? defaultMatrix());
   const svgRef = useRef<SVGSVGElement | null>(null);
 
+  // ── ViewBox state (zoom/pan) ──
+  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: CANVAS_SIZE, h: CANVAS_SIZE });
+  const isPanning = useRef(false);
+  const panStart = useRef({ x: 0, y: 0, vbx: 0, vby: 0 });
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = svg.getBoundingClientRect();
+      const fx = (e.clientX - rect.left) / rect.width;
+      const fy = (e.clientY - rect.top) / rect.height;
+      setViewBox((prev) => {
+        const zoomFactor = e.deltaY > 0 ? 1.08 : 0.93;
+        const nw = Math.max(100, Math.min(prev.w * zoomFactor, 10000));
+        const nh = Math.max(100, Math.min(prev.h * zoomFactor, 10000));
+        return { x: prev.x + (prev.w - nw) * fx, y: prev.y + (prev.h - nh) * fy, w: nw, h: nh };
+      });
+    };
+    svg.addEventListener('wheel', handler, { passive: false });
+    return () => svg.removeEventListener('wheel', handler);
+  }, []);
+
+  const handleBgPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    const target = e.target as SVGElement;
+    if (target.tagName === 'circle' || target.closest('[data-drag-handle]')) return;
+    isPanning.current = true;
+    panStart.current = { x: e.clientX, y: e.clientY, vbx: viewBox.x, vby: viewBox.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [viewBox.x, viewBox.y]);
+
+  const handleBgPointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    if (!isPanning.current || !svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const scaleX = viewBox.w / rect.width;
+    const scaleY = viewBox.h / rect.height;
+    const dx = (e.clientX - panStart.current.x) * scaleX;
+    const dy = (e.clientY - panStart.current.y) * scaleY;
+    setViewBox((prev) => ({ ...prev, x: panStart.current.vbx - dx, y: panStart.current.vby - dy }));
+  }, [viewBox.w, viewBox.h]);
+
+  const handleBgPointerUp = useCallback(() => {
+    isPanning.current = false;
+  }, []);
+
+  const resetView = useCallback(() => {
+    const svg = svgRef.current;
+    if (svg) {
+      const rect = svg.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+      const h = CANVAS_SIZE;
+      const w = CANVAS_SIZE * aspect;
+      setViewBox({ x: (CANVAS_SIZE - w) / 2, y: 0, w, h });
+    } else {
+      setViewBox({ x: 0, y: 0, w: CANVAS_SIZE, h: CANVAS_SIZE });
+    }
+  }, []);
+
+  // Adapt viewBox to container shape on mount
+  useEffect(() => {
+    resetView();
+  }, [resetView]);
+
   // Reset when mode changes
   useEffect(() => {
     setMat(initialMatrix ?? defaultMatrix());
@@ -519,16 +617,16 @@ export function MatrixTransform(props: MatrixTransformProps) {
 
     // Transformed grid
     if (showTransformedGrid) {
-      elements.push(<TransformedGrid key="tgrid" matrix={mat} />);
-    }
+        elements.push(<TransformedGrid key="tgrid" matrix={mat} vb={viewBox} />);
+      }
 
-    // Unit circle and transformed ellipse
-    if (showUnitCircle || mode === 'rotation') {
-      elements.push(<UnitCircle key="ucircle" />);
-    }
-    if (showTransformedCircle || mode === 'rotation' || mode === 'scale') {
-      elements.push(<TransformedCircle key="tcircle" matrix={mat} />);
-    }
+      // Unit circle and transformed ellipse
+      if (showUnitCircle || mode === 'rotation') {
+        elements.push(<UnitCircle key="ucircle" />);
+      }
+      if (showTransformedCircle || mode === 'rotation' || mode === 'scale') {
+        elements.push(<TransformedCircle key="tcircle" matrix={mat} />);
+      }
 
     // Determinant area
     if (showDeterminant || mode === 'determinant') {
@@ -679,19 +777,68 @@ export function MatrixTransform(props: MatrixTransformProps) {
     <div style={{ width: '100%', height: '100%', position: 'relative', background: 'var(--viz-bg-gradient)', borderRadius: 'var(--radius-md)' }}>
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}`}
+        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
         style={{
           width: '100%',
           height: '100%',
           background: 'radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.03), transparent 70%)',
           borderRadius: 'var(--radius-md)',
           touchAction: 'none',
+          cursor: isPanning.current ? 'grabbing' : 'default',
+          userSelect: 'none',
         }}
+        onPointerDown={handleBgPointerDown}
+        onPointerMove={handleBgPointerMove}
+        onPointerUp={handleBgPointerUp}
+        onPointerCancel={handleBgPointerUp}
       >
         <MemoDefs />
-        {showGrid && <MemoOriginalGrid />}
+        {showGrid && <DynGrid vb={viewBox} />}
         {renderMode()}
       </svg>
+
+      {/* Zoom controls */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '0.75rem',
+          right: '0.75rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '2px',
+          background: 'var(--viz-panel-bg)',
+          backdropFilter: 'blur(8px)',
+          borderRadius: '8px',
+          border: '1px solid var(--viz-panel-border)',
+          padding: '3px',
+          zIndex: 5,
+        }}
+      >
+        <button onClick={() => setViewBox(prev => {
+          const nw = Math.min(prev.w * 1.15, 10000);
+          const nh = Math.min(prev.h * 1.15, 10000);
+          return { x: prev.x + (prev.w - nw) / 2, y: prev.y + (prev.h - nh) / 2, w: nw, h: nh };
+        })} title="Zoom out" style={{
+          width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent', border: 'none', borderRadius: '4px',
+          color: 'var(--text-secondary)', fontSize: '0.875rem', cursor: 'pointer',
+        }}>−</button>
+        <button onClick={resetView} title="Reset view" style={{
+          height: '26px', padding: '0 5px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent', border: 'none', borderRadius: '4px',
+          color: 'var(--viz-annotation)', fontSize: '9px', fontFamily: 'monospace', fontWeight: 600,
+          cursor: 'pointer', minWidth: '36px',
+        }}>{Math.round((CANVAS_SIZE / viewBox.w) * 100)}%</button>
+        <button onClick={() => setViewBox(prev => {
+          const nw = Math.max(prev.w * 0.87, 100);
+          const nh = Math.max(prev.h * 0.87, 100);
+          return { x: prev.x + (prev.w - nw) / 2, y: prev.y + (prev.h - nh) / 2, w: nw, h: nh };
+        })} title="Zoom in" style={{
+          width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent', border: 'none', borderRadius: '4px',
+          color: 'var(--text-secondary)', fontSize: '0.875rem', cursor: 'pointer',
+        }}>+</button>
+      </div>
 
       {/* Info overlay */}
       {infoItems.length > 0 && (

@@ -134,8 +134,8 @@
   --transition-base: var(--transition-normal);
 
   /* Visualization SVG colors */
-  --viz-grid-major: rgba(0, 0, 0, 0.22);
-  --viz-grid-minor: rgba(0, 0, 0, 0.09);
+  --viz-grid-major: rgba(0, 0, 0, 0.35);
+  --viz-grid-minor: rgba(0, 0, 0, 0.18);
   --viz-axis-label: rgba(0, 0, 0, 0.5);
   --viz-dashed: rgba(0, 0, 0, 0.2);
   --viz-arrowhead: rgba(0, 0, 0, 0.6);
@@ -440,6 +440,32 @@ p {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ── Celebration Popups ── */
+@keyframes popupScaleIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes popupScaleOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.85); }
+}
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes streakPulse {
+  0% { transform: scale(0.6); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes streakBarFill {
+  from { width: 0; }
+}
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
 }
 
 /* ── Skeleton Shimmer ── */
