@@ -100,6 +100,7 @@ export interface Challenge {
   title: string;
   description: string;
   component: string;
+  props?: Record<string, unknown>;
   completionCriteria: {
     type: 'threshold' | 'exact' | 'custom';
     target: number | string;

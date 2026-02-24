@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getModule } from '@/content/registry';
 import { useProgress } from '@/hooks/useProgress';
-import { LazyVectorTransform as VectorTransform, LazyMatrixTransform as MatrixTransform } from '@/components/visualizations/lazy';
+import { LazyVectorTransform as VectorTransform, LazyMatrixTransform as MatrixTransform, LazyEigenTransform as EigenTransform } from '@/components/visualizations/lazy';
 import type { Module, Challenge } from '@/types/curriculum';
 
 // ── Matrix types (mirroring MatrixTransform) ──
@@ -171,6 +171,307 @@ function getMatrixChallengeSetup(challengeId: string): MatrixChallengeSetup {
         check: () => 999,
       };
   }
+}
+
+// ── Eigen challenge configurations ──
+interface EigenChallengeSetup {
+  vizProps: Record<string, unknown>;
+  /** Returns distance-to-win from the matrix state. 0 = perfect. */
+  check: (mat: Mat2) => number;
+}
+
+function getEigenChallengeSetup(challengeId: string): EigenChallengeSetup {
+  switch (challengeId) {
+    case 'find-eigenvectors': {
+      // Target: eigenvectors along (1,1) and (1,-1)
+      return {
+        vizProps: {
+          showDotCloud: true,
+          showTransformedGrid: true,
+          showBasisVectors: true,
+          showEigenspaceLines: true,
+          showScalingIndicators: true,
+          showCharacteristicEq: true,
+          showMatrixControls: true,
+          showPresets: true,
+          showAnimation: true,
+          highlightEigenDots: true,
+          interactive: true,
+        },
+        check: (m) => {
+          // Compute eigenvectors and measure angle error to (1,1) and (1,-1)
+          const tr = m.a + m.d;
+          const det = m.a * m.d - m.b * m.c;
+          const disc = tr * tr - 4 * det;
+          if (disc < 0) return 999; // complex eigenvalues = no real eigenvectors
+          const s = Math.sqrt(disc);
+          const l1 = (tr + s) / 2;
+          const l2 = (tr - s) / 2;
+          if (Math.abs(l1 - l2) < 0.01) return 999; // repeated = degenerate
+
+          const getVec = (lambda: number) => {
+            const ax = m.a - lambda, bx = m.b;
+            if (Math.abs(bx) > 0.001) return { x: -bx, y: ax };
+            if (Math.abs(ax) > 0.001) return { x: 0, y: 1 };
+            return { x: 1, y: 0 };
+          };
+
+          const v1 = getVec(l1);
+          const v2 = getVec(l2);
+
+          // Target directions: (1,1) and (1,-1)
+          const t1 = { x: 1, y: 1 };
+          const t2 = { x: 1, y: -1 };
+
+          // Angular error (using absolute cross product / magnitudes)
+          const angleErr = (a: {x:number,y:number}, b: {x:number,y:number}) => {
+            const cross = Math.abs(a.x * b.y - a.y * b.x);
+            const ma = Math.sqrt(a.x*a.x + a.y*a.y);
+            const mb = Math.sqrt(b.x*b.x + b.y*b.y);
+            return ma > 0.01 && mb > 0.01 ? cross / (ma * mb) : 999;
+          };
+
+          // Try both assignments (v1→t1, v2→t2) and (v1→t2, v2→t1)
+          const err1 = angleErr(v1, t1) + angleErr(v2, t2);
+          const err2 = angleErr(v1, t2) + angleErr(v2, t1);
+          return Math.min(err1, err2);
+        },
+      };
+    }
+
+    case 'make-rotation': {
+      // Target: complex eigenvalues (discriminant < 0)
+      return {
+        vizProps: {
+          mode: 'animate',
+          showDotCloud: true,
+          showTransformedGrid: true,
+          showBasisVectors: true,
+          showEigenspaceLines: true,
+          showCharacteristicEq: true,
+          showAnimation: true,
+          showMatrixControls: true,
+          showPresets: true,
+          highlightEigenDots: true,
+          interactive: true,
+        },
+        check: (m) => {
+          const tr = m.a + m.d;
+          const det = m.a * m.d - m.b * m.c;
+          const disc = tr * tr - 4 * det;
+          // disc < 0 = complex eigenvalues = win. Return 0 if complex.
+          return disc < 0 ? 0 : disc;
+        },
+      };
+    }
+
+    case 'positive-definite-challenge': {
+      // Target: symmetric + both eigenvalues > 0
+      return {
+        vizProps: {
+          mode: 'symmetric',
+          showDotCloud: true,
+          showTransformedGrid: true,
+          showBasisVectors: true,
+          showEigenspaceLines: true,
+          showUnitCircle: true,
+          showDeterminantArea: true,
+          showCharacteristicEq: true,
+          showScalingIndicators: true,
+          showMatrixControls: true,
+          showPresets: true,
+          highlightEigenDots: true,
+          interactive: true,
+          symmetricOnly: true,
+        },
+        check: (m) => {
+          const tr = m.a + m.d;
+          const det = m.a * m.d - m.b * m.c;
+          const disc = tr * tr - 4 * det;
+          if (disc < 0) return 999; // complex
+          const s = Math.sqrt(disc);
+          const l1 = (tr + s) / 2;
+          const l2 = (tr - s) / 2;
+          const minEig = Math.min(l1, l2);
+          // Win when min eigenvalue > 0. Distance = how far from positive.
+          return minEig > 0.1 ? 0 : 0.1 - minEig;
+        },
+      };
+    }
+
+    case 'fast-convergence': {
+      // Target: |λ₁/λ₂| > 5
+      return {
+        vizProps: {
+          mode: 'power-iteration',
+          showPowerIteration: true,
+          showDotCloud: true,
+          showTransformedGrid: true,
+          showBasisVectors: true,
+          showEigenspaceLines: true,
+          showScalingIndicators: true,
+          showCharacteristicEq: true,
+          showMatrixControls: true,
+          showPresets: true,
+          highlightEigenDots: true,
+          interactive: true,
+        },
+        check: (m) => {
+          const tr = m.a + m.d;
+          const det = m.a * m.d - m.b * m.c;
+          const disc = tr * tr - 4 * det;
+          if (disc < 0) return 999; // complex
+          const s = Math.sqrt(disc);
+          const l1 = (tr + s) / 2;
+          const l2 = (tr - s) / 2;
+          const absL1 = Math.abs(l1);
+          const absL2 = Math.abs(l2);
+          if (absL2 < 0.001) return 0; // infinite ratio = instant convergence
+          const ratio = Math.max(absL1, absL2) / Math.min(absL1, absL2);
+          // Win when ratio > 5. Distance = how far from 5.
+          return ratio >= 5 ? 0 : 5 - ratio;
+        },
+      };
+    }
+
+    default:
+      return {
+        vizProps: { showMatrixControls: true, showPresets: true, interactive: true },
+        check: () => 999,
+      };
+  }
+}
+
+// ── Eigen Challenge Canvas ──
+function EigenChallengeCanvas({
+  challenge,
+  onComplete,
+}: {
+  challenge: Challenge;
+  onComplete: () => void;
+}) {
+  const setup = getEigenChallengeSetup(challenge.id);
+  const [distance, setDistance] = useState(999);
+  const [won, setWon] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const threshold = typeof challenge.completionCriteria.target === 'number'
+    ? challenge.completionCriteria.target
+    : 0.3;
+  const latestMat = useRef<Mat2>({ a: 1, b: 0, c: 0, d: 1 });
+  const checkTimer = useRef<ReturnType<typeof setInterval>>(null);
+
+  useEffect(() => {
+    checkTimer.current = setInterval(() => {
+      const d = setup.check(latestMat.current);
+      setDistance(d);
+      if (d <= threshold && !won) {
+        setWon(true);
+        setShowSuccess(true);
+        onComplete();
+      }
+    }, 100);
+    return () => { if (checkTimer.current) clearInterval(checkTimer.current); };
+  }, [setup, threshold, won, onComplete]);
+
+  const handleMatrixChange = useCallback((m: Mat2) => {
+    latestMat.current = m;
+  }, []);
+
+  const progressColor = won
+    ? '#34d399'
+    : distance < threshold * 3
+      ? '#fbbf24'
+      : 'var(--text-muted)';
+
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+        <EigenTransform
+          {...setup.vizProps}
+          onMatrixChange={handleMatrixChange}
+        />
+      </div>
+
+      {/* Distance indicator */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '0.5rem',
+          right: '0.5rem',
+          background: 'rgba(15, 17, 23, 0.85)',
+          backdropFilter: 'blur(8px)',
+          borderRadius: '8px',
+          border: '1px solid rgba(255,255,255,0.08)',
+          padding: '6px 10px',
+          fontFamily: 'monospace',
+          fontSize: '11px',
+          pointerEvents: 'none',
+        }}
+      >
+        <div>
+          <span style={{ color: 'rgba(255,255,255,0.4)' }}>distance: </span>
+          <span style={{ color: progressColor, fontWeight: 600 }}>
+            {distance < 999 ? distance.toFixed(3) : '—'}
+          </span>
+        </div>
+        <div>
+          <span style={{ color: 'rgba(255,255,255,0.4)' }}>threshold: </span>
+          <span style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>
+            ≤ {threshold}
+          </span>
+        </div>
+      </div>
+
+      {/* Success overlay */}
+      {showSuccess && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(15, 17, 23, 0.7)',
+            backdropFilter: 'blur(4px)',
+            borderRadius: 'var(--radius-md)',
+            animation: 'fadeIn 0.3s ease',
+          }}
+          onClick={() => setShowSuccess(false)}
+        >
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '2rem',
+              background: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--success)',
+              boxShadow: '0 0 40px rgba(52, 211, 153, 0.15)',
+              maxWidth: '300px',
+            }}
+          >
+            <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🎉</div>
+            <h3
+              style={{
+                fontFamily: 'var(--font-heading)',
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                color: '#34d399',
+                margin: '0 0 0.5rem 0',
+              }}
+            >
+              Challenge Complete!
+            </h3>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Distance: {distance.toFixed(4)} (threshold: {threshold})
+            </p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
+              Click to dismiss
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Target marker rendered as an SVG overlay via a wrapper ──
@@ -580,7 +881,12 @@ export default function ChallengePage() {
             }}
           >
             <div style={{ width: '100%', maxWidth: '550px', aspectRatio: '1', position: 'relative' }}>
-              {selectedChallenge.component === 'MatrixTransform' ? (
+              {selectedChallenge.component === 'EigenTransform' ? (
+                <EigenChallengeCanvas
+                  challenge={selectedChallenge}
+                  onComplete={handleChallengeComplete}
+                />
+              ) : selectedChallenge.component === 'MatrixTransform' ? (
                 <MatrixChallengeCanvas
                   challenge={selectedChallenge}
                   onComplete={handleChallengeComplete}

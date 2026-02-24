@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getModule } from '@/content/registry';
 import { useProgress } from '@/hooks/useProgress';
-import { LazyVectorTransform as VectorTransform, LazyMatrixTransform as MatrixTransform } from '@/components/visualizations/lazy';
+import { LazyVectorTransform as VectorTransform, LazyMatrixTransform as MatrixTransform, LazyEigenTransform as EigenTransform } from '@/components/visualizations/lazy';
 import type { Module } from '@/types/curriculum';
 
 export default function PlaygroundPage() {
@@ -173,6 +173,26 @@ export default function PlaygroundPage() {
                 showUnitCircle={paramValues.showUnitCircle as boolean ?? false}
                 showTransformedCircle={paramValues.showTransformedCircle as boolean ?? false}
                 showInverse={paramValues.showInverse as boolean ?? false}
+              />
+            ) : moduleData.visualizationComponent === 'EigenTransform' ? (
+              <EigenTransform
+                mode="explore"
+                interactive
+                showDotCloud={paramValues.showDotCloud as boolean ?? true}
+                showTransformedGrid={paramValues.showTransformedGrid as boolean ?? true}
+                showBasisVectors={paramValues.showBasisVectors as boolean ?? true}
+                showEigenspaceLines={paramValues.showEigenspaceLines as boolean ?? true}
+                showScalingIndicators={paramValues.showScalingIndicators as boolean ?? true}
+                showCharacteristicEq={paramValues.showCharacteristicEq as boolean ?? true}
+                showTraceDetRelation={paramValues.showTraceDetRelation as boolean ?? true}
+                showDeterminantArea={paramValues.showDeterminantArea as boolean ?? true}
+                showUnitCircle={paramValues.showUnitCircle as boolean ?? false}
+                showAnimation={paramValues.showAnimation as boolean ?? true}
+                showPowerIteration={paramValues.showPowerIteration as boolean ?? false}
+                showDecomposition={paramValues.showDecomposition as boolean ?? false}
+                showMatrixControls={paramValues.showMatrixControls as boolean ?? true}
+                showPresets={paramValues.showPresets as boolean ?? true}
+                highlightEigenDots={paramValues.highlightEigenDots as boolean ?? true}
               />
             ) : (
               <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
