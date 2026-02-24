@@ -8,6 +8,7 @@ const moduleRegistry: Record<string, () => Promise<Module>> = {
   matrices: () => import('@/content/tier0/matrices/module').then((m) => m.default),
   // Future modules:
   'vector-spaces': () => import('@/content/tier0/vector-spaces/module').then(m => m.default),
+  eigenvalues: () => import('@/content/tier0/eigenvalues/module').then(m => m.default),
 };
 
 export async function getModule(moduleId: string): Promise<Module | null> {
@@ -65,5 +66,16 @@ export const MODULE_META: ModuleMeta[] = [
     estimatedMinutes: 30,
     prerequisites: ['vectors', 'vector-spaces'],
     difficulty: 'beginner',
+  },
+  {
+    id: 'eigenvalues',
+    tierId: 0,
+    clusterId: 'linear-algebra',
+    title: 'Eigenvalues & Eigenvectors',
+    description:
+      'The special directions that survive a transformation — the key to PCA, PageRank, and modern ML.',
+    estimatedMinutes: 45,
+    prerequisites: ['vectors', 'vector-spaces', 'matrices'],
+    difficulty: 'intermediate',
   },
 ];

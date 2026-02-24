@@ -24,3 +24,11 @@ export const LazyMatrixTransform = dynamic(
     loading: () => <VizSkeleton />,
   },
 );
+
+export const LazyEigenTransform = dynamic(
+  () => import('@/components/visualizations/EigenTransform').then(m => m.EigenTransform),
+  {
+    ssr: false,
+    loading: () => <VizSkeleton />,
+  },
+);
