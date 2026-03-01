@@ -1,6 +1,6 @@
 'use client';
 
-import type { Step } from '@/types/curriculum';
+import type { Step } from '@/core/types';
 
 interface LessonSidebarProps {
   steps: Step[];

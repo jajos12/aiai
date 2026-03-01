@@ -1,6 +1,6 @@
-import type { Module } from '@/types/curriculum';
+import type { ModuleData } from '@/core/types';
 
-const matricesModule: Module = {
+const matricesModule: ModuleData = {
   id: 'matrices',
   tierId: 0,
   clusterId: 'linear-algebra',
@@ -11,14 +11,13 @@ const matricesModule: Module = {
   prerequisites: ['vectors'],
   difficulty: 'beginner',
   estimatedMinutes: 35,
-  visualizationComponent: 'MatrixTransform',
   steps: [
     {
       id: 'what-is-a-matrix',
       title: 'What Is a Matrix?',
-      visualization: {
-        component: 'MatrixTransform',
-        props: { mode: 'identity', interactive: false },
+      visualizationProps: {
+        mode: 'identity',
+        interactive: false,
       },
       content: {
         text: "A matrix is a grid of numbers that encodes a transformation of space. This 2×2 identity matrix does nothing — every point stays where it is. Watch the grid: it's perfectly aligned.",
@@ -34,14 +33,16 @@ const matricesModule: Module = {
     {
       id: 'matrix-as-transform',
       title: 'A Matrix Is a Transformation',
-      visualization: {
-        component: 'MatrixTransform',
-        props: { mode: 'scale', showTransformedGrid: true, showUnitCircle: true, showTransformedCircle: true },
+      visualizationProps: {
+        mode: 'scale',
+        showTransformedGrid: true,
+        showUnitCircle: true,
+        showTransformedCircle: true,
       },
       content: {
         text: "Every 2×2 matrix transforms the entire plane. Look at the faint grid lines — they show the original coordinate system. The solid indigo lines show where the matrix sends them. The unit circle stretches into an ellipse.",
         goDeeper: {
-          math: 'T(\\vec{v}) = A\\vec{v} = \\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix} \\begin{bmatrix} x \\\\ y \\end{bmatrix} = \\begin{bmatrix} ax + by \\\\ cx + dy \\end{bmatrix}',
+          math: 'T(\vec{v}) = A\vec{v} = \\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix} \\begin{bmatrix} x \\\\ y \\end{bmatrix} = \\begin{bmatrix} ax + by \\\\ cx + dy \\end{bmatrix}',
           explanation: 'A linear transformation maps vectors via matrix-vector multiplication. The key property: T(αu + βv) = αT(u) + βT(v). Linearity means grid lines stay evenly spaced and parallel after transformation.',
         },
       },
@@ -50,9 +51,11 @@ const matricesModule: Module = {
     {
       id: 'basis-vectors',
       title: 'Where Do the Basis Vectors Go?',
-      visualization: {
-        component: 'MatrixTransform',
-        props: { mode: 'custom', interactive: true, showBasisVectors: true, showTransformedBasis: true },
+      visualizationProps: {
+        mode: 'custom',
+        interactive: true,
+        showBasisVectors: true,
+        showTransformedBasis: true,
       },
       content: {
         text: "The columns of the matrix tell you where the basis vectors land. Column 1 (red) = where î goes. Column 2 (blue) = where ĵ goes. Drag the red and blue handles to define your own transformation!",
@@ -67,9 +70,11 @@ const matricesModule: Module = {
     {
       id: 'scaling',
       title: 'Scaling',
-      visualization: {
-        component: 'MatrixTransform',
-        props: { mode: 'scale', interactive: true, showTransformedCircle: true, showUnitCircle: true },
+      visualizationProps: {
+        mode: 'scale',
+        interactive: true,
+        showTransformedCircle: true,
+        showUnitCircle: true,
       },
       content: {
         text: "A diagonal matrix scales the x and y axes independently. Try dragging the red dot horizontally and the blue dot vertically to see pure scaling in action.",
@@ -88,9 +93,10 @@ const matricesModule: Module = {
     {
       id: 'rotation',
       title: 'Rotation',
-      visualization: {
-        component: 'MatrixTransform',
-        props: { mode: 'rotation', showUnitCircle: true, showTransformedCircle: true },
+      visualizationProps: {
+        mode: 'rotation',
+        showUnitCircle: true,
+        showTransformedCircle: true,
       },
       content: {
         text: "A rotation matrix spins the entire plane around the origin. The unit circle stays a circle (its radius doesn't change). Notice how both basis vectors rotate by the same angle θ.",
@@ -112,9 +118,10 @@ const matricesModule: Module = {
     {
       id: 'shear',
       title: 'Shearing',
-      visualization: {
-        component: 'MatrixTransform',
-        props: { mode: 'shear', interactive: true, showTransformedGrid: true },
+      visualizationProps: {
+        mode: 'shear',
+        interactive: true,
+        showTransformedGrid: true,
       },
       content: {
         text: "A shear slides one axis along the other. The x-axis stays fixed, but each horizontal line slides by an amount proportional to its height. Think of pushing the top of a deck of cards.",
@@ -127,9 +134,11 @@ const matricesModule: Module = {
     {
       id: 'reflection',
       title: 'Reflection',
-      visualization: {
-        component: 'MatrixTransform',
-        props: { mode: 'reflection', showTransformedGrid: true, showBasisVectors: true, showTransformedBasis: true },
+      visualizationProps: {
+        mode: 'reflection',
+        showTransformedGrid: true,
+        showBasisVectors: true,
+        showTransformedBasis: true,
       },
       content: {
         text: "This matrix reflects across the x-axis. Notice the blue basis vector flips downward while red stays put. The grid 'flips' — the orientation is reversed.",
@@ -148,9 +157,10 @@ const matricesModule: Module = {
     {
       id: 'determinant',
       title: 'The Determinant',
-      visualization: {
-        component: 'MatrixTransform',
-        props: { mode: 'determinant', interactive: true, showDeterminant: true },
+      visualizationProps: {
+        mode: 'determinant',
+        interactive: true,
+        showDeterminant: true,
       },
       content: {
         text: "The determinant measures how much a matrix scales area. The green parallelogram shows the image of the unit square. Drag the basis vectors and watch the parallelogram area change — that area IS the determinant.",
@@ -166,36 +176,13 @@ const matricesModule: Module = {
       interactionHint: 'Drag the basis vectors to make the area zero — that\'s when the matrix is singular!',
     },
     {
-      id: 'eigenvectors',
-      title: 'Eigenvectors & Eigenvalues',
-      visualization: {
-        component: 'MatrixTransform',
-        props: { mode: 'eigenvectors', interactive: true, showEigenvectors: true, showTransformedGrid: true },
-      },
-      content: {
-        text: "Eigenvectors are the special directions that DON'T change when you apply the matrix — they only get scaled. The yellow and orange arrows show the eigenvectors. The dashed arrows show where they land: same direction, just scaled by λ.",
-        goDeeper: {
-          math: 'A\\vec{v} = \\lambda \\vec{v}',
-          explanation: 'An eigenvector v satisfies Av = λv: the matrix just scales it by λ (the eigenvalue). This is enormously important: eigenvectors reveal the "natural axes" of a transformation. In ML, PCA uses eigenvectors to find the directions of maximum variance.',
-          references: [
-            { title: 'Essence of Linear Algebra Ch. 14', author: '3Blue1Brown', url: 'https://www.youtube.com/watch?v=PFDu9oVAE-g', year: 2016 },
-          ],
-        },
-        authorNote: 'Eigenvectors are everywhere in ML: PCA, spectral clustering, Google PageRank, graph neural networks, quantum computing...',
-      },
-      interactionHint: 'Drag the basis vectors and watch the eigenvectors shift — they always point along the "natural axes" of the transformation.',
-    },
-    {
       id: 'matrix-multiplication',
       title: 'Matrix Multiplication = Composition',
-      visualization: {
-        component: 'MatrixTransform',
-        props: {
-          mode: 'compose',
-          showComposition: true,
-          secondMatrix: { a: 0, b: -1, c: 1, d: 0 },
-          showTransformedGrid: true,
-        },
+      visualizationProps: {
+        mode: 'compose',
+        showComposition: true,
+        secondMatrix: { a: 0, b: -1, c: 1, d: 0 },
+        showTransformedGrid: true,
       },
       content: {
         text: "Multiplying two matrices gives you a single matrix that performs both transformations in sequence. The orange/purple arrows show where the composed transformation BA sends the basis vectors.",
@@ -214,9 +201,10 @@ const matricesModule: Module = {
     {
       id: 'inverse',
       title: 'The Inverse Matrix',
-      visualization: {
-        component: 'MatrixTransform',
-        props: { mode: 'inverse', interactive: true, showInverse: true },
+      visualizationProps: {
+        mode: 'inverse',
+        interactive: true,
+        showInverse: true,
       },
       content: {
         text: "The inverse matrix A⁻¹ undoes the transformation. The purple dashed arrows show where A⁻¹ sends the basis vectors — it's the reverse mapping. If you compose A with A⁻¹, you get the identity.",
@@ -228,28 +216,9 @@ const matricesModule: Module = {
       },
       interactionHint: 'Try to make the matrix singular (non-invertible) by aligning the basis vectors.',
     },
-    {
-      id: 'ai-applications',
-      title: 'Matrices in AI',
-      visualization: {
-        component: 'MatrixTransform',
-        props: { mode: 'ai-applications', showTransformedGrid: true, interactive: true },
-      },
-      content: {
-        text: "In AI, matrices are everywhere. Neural network layers are matrix multiplications. CNNs use small matrices (kernels) as filters. Attention in transformers? Matrix operations. Every colored dot is a data point being transformed through a layer.",
-        goDeeper: {
-          explanation: 'A neural network layer computes y = σ(Wx + b). The weight matrix W is a learned linear transformation. Training = finding the right matrix entries. Deeper networks = composing many matrix transforms with nonlinearities in between.',
-          references: [
-            { title: 'Deep Learning', author: 'Goodfellow, Bengio, Courville', url: 'https://www.deeplearningbook.org/', year: 2016 },
-          ],
-        },
-        authorNote: 'Every AI model you\'ve ever used — GPT, DALL-E, Stable Diffusion — is fundamentally chains of matrix multiplications.',
-      },
-    },
   ],
   playground: {
     description: 'Full MatrixTransform playground — drag basis vectors to define any 2×2 matrix.',
-    component: 'MatrixTransform',
     parameters: [
       { id: 'showGrid', label: 'Show original grid', type: 'toggle', default: true },
       { id: 'showTransformedGrid', label: 'Show transformed grid', type: 'toggle', default: true },
@@ -273,7 +242,7 @@ const matricesModule: Module = {
       id: 'make-rotation',
       title: 'Pure Rotation',
       description: 'Set up a 90° counter-clockwise rotation matrix.',
-      component: 'MatrixTransform',
+      props: { mode: 'custom', interactive: true },
       completionCriteria: { type: 'threshold', target: 0.15, metric: 'distance_to_rotation_90' },
       hints: [
         'Cos(90°) = 0, Sin(90°) = 1.',
@@ -284,7 +253,7 @@ const matricesModule: Module = {
       id: 'zero-determinant',
       title: 'Collapse to a Line',
       description: 'Make the determinant exactly zero — squish 2D space into a line.',
-      component: 'MatrixTransform',
+      props: { mode: 'custom', interactive: true, showDeterminant: true },
       completionCriteria: { type: 'threshold', target: 0.05, metric: 'abs_determinant' },
       hints: [
         'det(A) = ad - bc. Make one column a scalar multiple of the other.',
@@ -295,7 +264,7 @@ const matricesModule: Module = {
       id: 'double-area',
       title: 'Double the Area',
       description: 'Make a matrix with determinant exactly 2.',
-      component: 'MatrixTransform',
+      props: { mode: 'custom', interactive: true, showDeterminant: true },
       completionCriteria: { type: 'threshold', target: 0.1, metric: 'distance_det_to_2' },
       hints: [
         'det = ad - bc. The simplest: [[2,0],[0,1]].',

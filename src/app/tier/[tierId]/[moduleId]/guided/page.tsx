@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getModule } from '@/content/registry';
+import { getModule } from '@/core/registry';
 import { useLesson } from '@/hooks/useLesson';
 import { useProgress } from '@/hooks/useProgress';
 import { StepViewer } from '@/components/lesson/StepViewer';
 import { LessonSidebar } from '@/components/lesson/LessonSidebar';
 import { ModuleHubSkeleton } from '@/components/ui/Skeleton';
 import { StreakPopup, CompletionPopup } from '@/components/ui/CelebrationPopup';
-import type { Module } from '@/types/curriculum';
+import type { Module } from '@/core/types';
 
 export default function GuidedPage() {
   const params = useParams();
@@ -209,6 +209,7 @@ export default function GuidedPage() {
           <StepViewer
             key={`step-${lesson.currentStepIndex}`}
             step={lesson.currentStep}
+            Visualization={moduleData.Visualization}
             stepIndex={lesson.currentStepIndex}
             totalSteps={lesson.totalSteps}
             isCompleted={lesson.completedSteps.has(lesson.currentStep.id)}

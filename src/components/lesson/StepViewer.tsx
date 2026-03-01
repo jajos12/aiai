@@ -1,14 +1,14 @@
 'use client';
 
 import { useRef } from 'react';
-import type { Step } from '@/types/curriculum';
+import type { Step, Module } from '@/core/types';
 import { GoDeeper } from '@/components/lesson/GoDeeper';
 import { AuthorNote } from '@/components/lesson/AuthorNote';
 import { QuizBlock } from '@/components/lesson/QuizBlock';
-import { LazyVectorTransform as VectorTransform, LazyMatrixTransform as MatrixTransform, LazyEigenTransform as EigenTransform } from '@/components/visualizations/lazy';
 
 interface StepViewerProps {
   step: Step;
+  Visualization: Module['Visualization'];
   stepIndex: number;
   totalSteps: number;
   isCompleted: boolean;
@@ -25,6 +25,7 @@ interface StepViewerProps {
 
 export function StepViewer({
   step,
+  Visualization,
   stepIndex,
   totalSteps,
   isCompleted,
@@ -58,26 +59,18 @@ export function StepViewer({
     }
   }
 
-  // Resolve which visualization component to render
+  // Resolve which visualization component to render.
+  // Steps can declare a `component` key in visualizationProps to select an
+  // alternate renderer. The primary Visualization prop is the module default.
   function renderVisualization() {
-    const { component, props } = step.visualization;
-    if (component === 'VectorTransform') {
-      return <VectorTransform {...(props as Record<string, unknown>)} />;
+    if (!Visualization) return null;
+    const { component, ...vizProps } = step.visualizationProps as { component?: string } & Record<string, unknown>;
+    // If no component override — use module default
+    if (!component || component === (Visualization as any).displayName) {
+      return <Visualization {...vizProps} />;
     }
-    if (component === 'MatrixTransform') {
-      return <MatrixTransform {...(props as Record<string, unknown>)} />;
-    }
-    if (component === 'EigenTransform') {
-      return <EigenTransform {...(props as Record<string, unknown>)} />;
-    }
-    // Fallback placeholder for unknown components
-    return (
-      <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
-        <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📐</div>
-        <p style={{ fontSize: '0.875rem', margin: 0 }}><strong>{component}</strong></p>
-        <p style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>Coming soon</p>
-      </div>
-    );
+    // Pass component name as a prop; Visualization implementations can switch on it
+    return <Visualization {...step.visualizationProps} />;
   }
 
   return (
@@ -109,23 +102,24 @@ export function StepViewer({
         {/* Active visualization — zoom/pan is built into the component */}
         {renderVisualization()}
 
-        {/* Interaction hint */}
+        {/* Interaction hint — placed bottom-left to avoid overlapping viz header buttons */}
         {step.interactionHint && (
           <div
             style={{
               position: 'absolute',
-              top: '0.5rem',
-              right: '0.5rem',
-              padding: '0.375rem 0.75rem',
+              bottom: '0.5rem',
+              left: '0.5rem',
+              padding: '0.35rem 0.65rem',
               borderRadius: 'var(--radius-sm)',
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border-subtle)',
-              fontSize: '0.7rem',
+              background: 'rgba(10,14,39,0.82)',
+              border: '1px solid rgba(99,102,241,0.2)',
+              fontSize: '0.68rem',
               color: 'var(--text-muted)',
-              maxWidth: '220px',
-              lineHeight: 1.4,
+              maxWidth: '260px',
+              lineHeight: 1.45,
               zIndex: 4,
               pointerEvents: 'none',
+              backdropFilter: 'blur(6px)',
             }}
           >
             💡 {step.interactionHint}

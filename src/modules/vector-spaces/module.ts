@@ -1,6 +1,6 @@
-import type { Module } from '@/types/curriculum';
+import type { ModuleData } from '@/core/types';
 
-const vectorSpacesModule: Module = {
+const vectorSpacesModule: ModuleData = {
   id: 'vector-spaces',
   tierId: 0,
   clusterId: 'linear-algebra',
@@ -11,21 +11,16 @@ const vectorSpacesModule: Module = {
   prerequisites: ['vectors'],
   difficulty: 'beginner',
   estimatedMinutes: 30,
-  visualizationComponent: 'VectorTransform',
   steps: [
-    // ── 1. What Is a Vector Space? ──
     {
       id: 'what-is-a-space',
       title: 'What Is a Vector Space?',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'static',
-          vectors: [
-            { x: 3, y: 1, color: '#6366f1', label: 'a' },
-            { x: -1, y: 2, color: '#06b6d4', label: 'b' },
-          ],
-        },
+      visualizationProps: {
+        mode: 'static',
+        vectors: [
+          { x: 3, y: 1, color: '#6366f1', label: 'a' },
+          { x: -1, y: 2, color: '#06b6d4', label: 'b' },
+        ],
       },
       content: {
         text: "A vector space is a collection of vectors that you can add together and scale freely — and the result always stays in the collection. ℝ² (this 2D plane) is the simplest example: any arrow you draw here, scaled or added, stays on the plane.",
@@ -40,22 +35,17 @@ const vectorSpacesModule: Module = {
         },
       },
     },
-
-    // ── 2. Closure: The One Rule ──
     {
       id: 'closure',
       title: 'Closure: The One Rule',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'addition',
-          vectors: [
-            { x: 2, y: 1, color: '#6366f1', label: 'a' },
-            { x: 1, y: 2, color: '#06b6d4', label: 'b' },
-          ],
-          draggable: true,
-          showSum: true,
-        },
+      visualizationProps: {
+        mode: 'addition',
+        vectors: [
+          { x: 2, y: 1, color: '#6366f1', label: 'a' },
+          { x: 1, y: 2, color: '#06b6d4', label: 'b' },
+        ],
+        draggable: true,
+        showSum: true,
       },
       content: {
         text: "The fundamental rule: if you add two vectors in the space, the result must also be in the space. Same with scaling. Drag these arrows anywhere — the sum always stays on the 2D plane. That's closure.",
@@ -73,20 +63,15 @@ const vectorSpacesModule: Module = {
       },
       interactionHint: 'Drag both vectors freely — the sum (dashed) always stays on the plane.',
     },
-
-    // ── 3. The Span of One Vector ──
     {
       id: 'span-one-vector',
       title: 'The Span of One Vector',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'scalar',
-          vectors: [{ x: 2, y: 1, color: '#6366f1', label: 'v' }],
-          draggable: true,
-          showScalarSlider: true,
-          scalarRange: [-3, 3],
-        },
+      visualizationProps: {
+        mode: 'scalar',
+        vectors: [{ x: 2, y: 1, color: '#6366f1', label: 'v' }],
+        draggable: true,
+        showScalarSlider: true,
+        scalarRange: [-3, 3],
       },
       content: {
         text: "Take one vector and scale it by every possible number. The set of all results is called its span. For a single vector, the span is a line through the origin. Slide the scalar — you can reach any point on that line, but nothing off it.",
@@ -98,23 +83,18 @@ const vectorSpacesModule: Module = {
       },
       interactionHint: 'Drag the vector to change direction. Use the slider below to scale.',
     },
-
-    // ── 4. Span of Two Vectors ──
     {
       id: 'span-two-vectors',
       title: 'Span of Two Vectors',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'linear-combination',
-          vectors: [
-            { x: 2, y: 1, color: '#6366f1', label: 'v₁' },
-            { x: -1, y: 2, color: '#06b6d4', label: 'v₂' },
-          ],
-          draggable: true,
-          showSliders: true,
-          showParallelogram: true,
-        },
+      visualizationProps: {
+        mode: 'linear-combination',
+        vectors: [
+          { x: 2, y: 1, color: '#6366f1', label: 'v₁' },
+          { x: -1, y: 2, color: '#06b6d4', label: 'v₂' },
+        ],
+        draggable: true,
+        showSliders: true,
+        showParallelogram: true,
       },
       content: {
         text: "Now take two non-parallel vectors. By combining them with any scalars, you can reach every point on the plane. The span of two independent vectors in ℝ² is all of ℝ². Adjust c₁ and c₂ to hit any spot.",
@@ -126,23 +106,18 @@ const vectorSpacesModule: Module = {
       },
       interactionHint: 'Drag the vectors and adjust c₁/c₂ sliders to reach any point.',
     },
-
-    // ── 5. Linear Dependence ──
     {
       id: 'linear-dependence',
       title: 'Linear Dependence',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'linear-combination',
-          vectors: [
-            { x: 2, y: 1, color: '#6366f1', label: 'v₁' },
-            { x: 4, y: 2, color: '#06b6d4', label: 'v₂' },
-          ],
-          draggable: true,
-          showSliders: true,
-          showParallelogram: true,
-        },
+      visualizationProps: {
+        mode: 'linear-combination',
+        vectors: [
+          { x: 2, y: 1, color: '#6366f1', label: 'v₁' },
+          { x: 4, y: 2, color: '#06b6d4', label: 'v₂' },
+        ],
+        draggable: true,
+        showSliders: true,
+        showParallelogram: true,
       },
       content: {
         text: "Now v₂ is exactly 2× v₁ — they're parallel. No matter how you combine them, you can only reach points on one line. These vectors are linearly dependent: one is redundant.",
@@ -160,23 +135,18 @@ const vectorSpacesModule: Module = {
           "Linear dependence means one vector is a scalar multiple of another. The magnitudes don't matter — they point in the same (or opposite) direction, so they span only a line.",
       },
     },
-
-    // ── 6. Linear Independence ──
     {
       id: 'linear-independence',
       title: 'Linear Independence',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'linear-combination',
-          vectors: [
-            { x: 2, y: 0, color: '#6366f1', label: 'v₁' },
-            { x: 0, y: 2, color: '#06b6d4', label: 'v₂' },
-          ],
-          draggable: true,
-          showSliders: true,
-          showParallelogram: true,
-        },
+      visualizationProps: {
+        mode: 'linear-combination',
+        vectors: [
+          { x: 2, y: 0, color: '#6366f1', label: 'v₁' },
+          { x: 0, y: 2, color: '#06b6d4', label: 'v₂' },
+        ],
+        draggable: true,
+        showSliders: true,
+        showParallelogram: true,
       },
       content: {
         text: "These two vectors point in completely different directions — neither is a scalar multiple of the other. They're linearly independent. Together they can reach any point in ℝ². Every direction in the plane is accessible.",
@@ -187,22 +157,17 @@ const vectorSpacesModule: Module = {
       },
       interactionHint: 'Drag the vectors and use c₁/c₂ sliders — both vectors are needed to reach every corner.',
     },
-
-    // ── 7. What Is a Basis? ──
     {
       id: 'basis',
       title: 'What Is a Basis?',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'static',
-          vectors: [
-            { x: 1, y: 0, color: '#ef4444', label: 'ê₁' },
-            { x: 0, y: 1, color: '#3b82f6', label: 'ê₂' },
-          ],
-          showBasisVectors: true,
-          showCoordinates: true,
-        },
+      visualizationProps: {
+        mode: 'static',
+        vectors: [
+          { x: 1, y: 0, color: '#ef4444', label: 'ê₁' },
+          { x: 0, y: 1, color: '#3b82f6', label: 'ê₂' },
+        ],
+        showBasisVectors: true,
+        showCoordinates: true,
       },
       content: {
         text: "A basis is the smallest set of independent vectors that spans the entire space. For ℝ², the standard basis is ê₁ = (1,0) and ê₂ = (0,1). Every vector is a unique combination of the basis vectors — that's what coordinates mean.",
@@ -220,23 +185,18 @@ const vectorSpacesModule: Module = {
           'ℝ² is 2-dimensional, so every basis has exactly 2 vectors. This is true regardless of which basis you choose — the number of basis vectors equals the dimension.',
       },
     },
-
-    // ── 8. Building a Custom Basis ──
     {
       id: 'custom-basis',
       title: 'Building a Custom Basis',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'linear-combination',
-          vectors: [
-            { x: 1, y: 1, color: '#6366f1', label: 'b₁' },
-            { x: -1, y: 1, color: '#06b6d4', label: 'b₂' },
-          ],
-          draggable: true,
-          showSliders: true,
-          showParallelogram: true,
-        },
+      visualizationProps: {
+        mode: 'linear-combination',
+        vectors: [
+          { x: 1, y: 1, color: '#6366f1', label: 'b₁' },
+          { x: -1, y: 1, color: '#06b6d4', label: 'b₂' },
+        ],
+        draggable: true,
+        showSliders: true,
+        showParallelogram: true,
       },
       content: {
         text: "Any two non-parallel vectors form a valid basis. Here, b₁ = (1,1) and b₂ = (-1,1) are a perfectly good basis — rotated 45° from the standard one. The grid looks different, but you can still reach any point with the right combination.",
@@ -249,20 +209,15 @@ const vectorSpacesModule: Module = {
       },
       interactionHint: 'Drag the basis vectors to create your own coordinate system. Adjust c₁ and c₂ to explore.',
     },
-
-    // ── 9. Dimension ──
     {
       id: 'dimension',
       title: 'Dimension',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'static',
-          vectors: [
-            { x: 3, y: 0, color: '#6366f1', label: 'ℝ¹ ➜' },
-            { x: 0, y: 3, color: '#06b6d4', label: '↑ ℝ²' },
-          ],
-        },
+      visualizationProps: {
+        mode: 'static',
+        vectors: [
+          { x: 3, y: 0, color: '#6366f1', label: 'ℝ¹ ➜' },
+          { x: 0, y: 3, color: '#06b6d4', label: '↑ ℝ²' },
+        ],
       },
       content: {
         text: "The dimension of a vector space is the number of vectors in any basis. ℝ¹ is a line (1 basis vector). ℝ² is a plane (2 basis vectors). ℝ³ needs 3. In AI, word embeddings might live in ℝ³⁰⁰ — 300-dimensional space!",
@@ -280,20 +235,15 @@ const vectorSpacesModule: Module = {
           'The dimension equals the number of basis vectors. Every basis for the same space has the same count, so 5 basis vectors means dimension 5.',
       },
     },
-
-    // ── 10. Subspaces ──
     {
       id: 'subspaces',
       title: 'Subspaces',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'scalar',
-          vectors: [{ x: 2, y: 1, color: '#f59e0b', label: 'subspace' }],
-          draggable: true,
-          showScalarSlider: true,
-          scalarRange: [-3, 3],
-        },
+      visualizationProps: {
+        mode: 'scalar',
+        vectors: [{ x: 2, y: 1, color: '#f59e0b', label: 'subspace' }],
+        draggable: true,
+        showScalarSlider: true,
+        scalarRange: [-3, 3],
       },
       content: {
         text: "A subspace is a vector space living inside a bigger one. This line through the origin is a 1D subspace of ℝ². It contains the zero vector, and any combination of vectors on it stays on it. Not every line is a subspace — only those through the origin.",
@@ -307,22 +257,17 @@ const vectorSpacesModule: Module = {
       },
       interactionHint: 'Drag the vector to pick a direction. Slide the scalar — every point stays on this line.',
     },
-
-    // ── 11. Change of Basis ──
     {
       id: 'change-of-basis',
       title: 'Change of Basis',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'linear-combination',
-          vectors: [
-            { x: 2, y: 1, color: '#6366f1', label: 'b₁' },
-            { x: -1, y: 2, color: '#06b6d4', label: 'b₂' },
-          ],
-          showSliders: true,
-          showParallelogram: true,
-        },
+      visualizationProps: {
+        mode: 'linear-combination',
+        vectors: [
+          { x: 2, y: 1, color: '#6366f1', label: 'b₁' },
+          { x: -1, y: 2, color: '#06b6d4', label: 'b₂' },
+        ],
+        showSliders: true,
+        showParallelogram: true,
       },
       content: {
         text: "The same point in space gets different coordinates depending on your basis. In standard coordinates, a point might be (3, 4). In a rotated basis, it could be (2.5, 1.1). The vector hasn't moved — only the description changed.",
@@ -340,22 +285,17 @@ const vectorSpacesModule: Module = {
           'Changing basis is like switching languages. The arrow in space stays put — only the numbers describing it change. This is fundamental to understanding representation learning in AI.',
       },
     },
-
-    // ── 12. Vector Spaces in AI ──
     {
       id: 'ai-connection',
       title: 'Vector Spaces in AI',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'static',
-          vectors: [
-            { x: 3, y: 2, color: '#6366f1', label: 'king' },
-            { x: 1, y: 3, color: '#06b6d4', label: 'queen' },
-            { x: 2.5, y: -0.5, color: '#f59e0b', label: 'man' },
-            { x: 0.5, y: 0.5, color: '#ef4444', label: 'woman' },
-          ],
-        },
+      visualizationProps: {
+        mode: 'static',
+        vectors: [
+          { x: 3, y: 2, color: '#6366f1', label: 'king' },
+          { x: 1, y: 3, color: '#06b6d4', label: 'queen' },
+          { x: 2.5, y: -0.5, color: '#f59e0b', label: 'man' },
+          { x: 0.5, y: 0.5, color: '#ef4444', label: 'woman' },
+        ],
       },
       content: {
         text: "In AI, everything lives in vector spaces. Words become 300D vectors where king − man + woman ≈ queen. Images are vectors in million-dimensional space. The concepts you just learned — span, basis, independence — are the reason these models work.",
@@ -372,10 +312,8 @@ const vectorSpacesModule: Module = {
       },
     },
   ],
-
   playground: {
     description: 'Explore vector spaces interactively — span, independence, and basis in action.',
-    component: 'VectorTransform',
     parameters: [
       { id: 'vectorCount', label: 'Vector count', type: 'stepper', min: 1, max: 4, step: 1, default: 2 },
       { id: 'showGrid', label: 'Show grid', type: 'toggle', default: true },
@@ -392,13 +330,12 @@ const vectorSpacesModule: Module = {
       'Find a basis where the combination coefficients are both whole numbers for a target point.',
     ],
   },
-
   challenges: [
     {
       id: 'span-builder',
       title: 'Span Builder',
       description: 'Express the target as a linear combination of the given basis vectors.',
-      component: 'VectorTransform',
+      props: { mode: 'linear-combination', showSliders: true, showTarget: true, target: { x: 4, y: 2 } },
       completionCriteria: { type: 'threshold', target: 0.2, metric: 'distance_combination_to_target' },
       hints: [
         'Adjust both c₁ and c₂ sliders to combine the basis vectors.',
@@ -409,7 +346,7 @@ const vectorSpacesModule: Module = {
       id: 'independence-check',
       title: 'Independence Check',
       description: 'Drag vector b so it is NOT parallel to vector a — make them independent!',
-      component: 'VectorTransform',
+      props: { mode: 'linear-combination', draggable: true, showDotProduct: true },
       completionCriteria: { type: 'threshold', target: 0.05, metric: 'abs_dot_product' },
       hints: [
         'Two vectors are dependent if they point in the same (or opposite) direction.',
@@ -420,7 +357,7 @@ const vectorSpacesModule: Module = {
       id: 'basis-finder',
       title: 'Basis Finder',
       description: 'Drag two vectors to form a basis that makes the target coordinates whole numbers.',
-      component: 'VectorTransform',
+      props: { mode: 'addition', draggable: true, showSum: true, showTarget: true, target: { x: 3, y: 3 } },
       completionCriteria: { type: 'threshold', target: 0.3, metric: 'distance_sum_to_target' },
       hints: [
         'The target can be reached by integer combinations of the right basis.',

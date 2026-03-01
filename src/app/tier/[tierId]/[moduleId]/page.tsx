@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getModule } from '@/content/registry';
+import { getModule } from '@/core/registry';
 import { useProgress } from '@/hooks/useProgress';
 import { ModuleHubSkeleton } from '@/components/ui/Skeleton';
-import type { Module } from '@/types/curriculum';
+import type { Module } from '@/core/types';
 
 export default function ModuleHubPage() {
   const params = useParams();

@@ -1,6 +1,6 @@
-import type { Module } from '@/types/curriculum';
+import type { ModuleData } from '@/core/types';
 
-const vectorsModule: Module = {
+const vectorsModule: ModuleData = {
   id: 'vectors',
   tierId: 0,
   clusterId: 'linear-algebra',
@@ -11,14 +11,13 @@ const vectorsModule: Module = {
   prerequisites: [],
   difficulty: 'beginner',
   estimatedMinutes: 30,
-  visualizationComponent: 'VectorTransform',
   steps: [
     {
       id: 'what-is-a-vector',
       title: 'What is a Vector?',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'static', vectors: [{ x: 3, y: 2, color: 'var(--accent)' }] },
+      visualizationProps: {
+        mode: 'static',
+        vectors: [{ x: 3, y: 2, color: 'var(--accent)' }],
       },
       content: {
         text: "A vector is just an arrow. It has a direction and a length. This one says 'go 3 right, 2 up.' That's it.",
@@ -35,9 +34,10 @@ const vectorsModule: Module = {
     {
       id: 'components-coordinates',
       title: 'Components & Coordinates',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'components', vectors: [{ x: 3, y: 2 }], showComponentLines: true },
+      visualizationProps: {
+        mode: 'components',
+        vectors: [{ x: 3, y: 2 }],
+        showComponentLines: true,
       },
       content: {
         text: 'The horizontal part (3) is the x-component, vertical part (2) is the y-component. Together, they fully describe the vector.',
@@ -57,9 +57,10 @@ const vectorsModule: Module = {
     {
       id: 'drag-to-explore',
       title: 'Drag to Explore',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'interactive', draggable: true, showCoordinates: true },
+      visualizationProps: {
+        mode: 'interactive',
+        draggable: true,
+        showCoordinates: true,
       },
       content: {
         text: "Drag the tip. Watch the coordinates change in real time. The arrow IS the coordinates — there's no hidden information.",
@@ -75,9 +76,11 @@ const vectorsModule: Module = {
     {
       id: 'magnitude',
       title: 'Magnitude (Length)',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'magnitude', draggable: true, showMagnitude: true, showPythagorean: true },
+      visualizationProps: {
+        mode: 'magnitude',
+        draggable: true,
+        showMagnitude: true,
+        showPythagorean: true,
       },
       content: {
         text: 'How long is this arrow? Draw a right triangle underneath it. Pythagoras gives us: length = √(x² + y²). Drag and watch it update.',
@@ -97,9 +100,11 @@ const vectorsModule: Module = {
     {
       id: 'direction-angle',
       title: 'Direction & Angle',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'angle', draggable: true, showAngle: true, showArc: true },
+      visualizationProps: {
+        mode: 'angle',
+        draggable: true,
+        showAngle: true,
+        showArc: true,
       },
       content: {
         text: 'Direction = the angle the arrow makes with the horizontal. Every vector has both a magnitude AND a direction.',
@@ -112,9 +117,10 @@ const vectorsModule: Module = {
     {
       id: 'unit-vectors',
       title: 'Unit Vectors',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'unit', showUnitVector: true, showOriginal: true },
+      visualizationProps: {
+        mode: 'unit',
+        showUnitVector: true,
+        showOriginal: true,
       },
       content: {
         text: "A unit vector keeps the direction but scales to length 1. It answers 'which way?' without 'how far?' Think of it as the 'pure direction.'",
@@ -133,17 +139,14 @@ const vectorsModule: Module = {
     {
       id: 'adding-vectors',
       title: 'Adding Vectors',
-      visualization: {
-        component: 'VectorTransform',
-        props: {
-          mode: 'addition',
-          vectors: [
-            { x: 2, y: 1, color: '#60a5fa', label: 'a' },
-            { x: 1, y: 3, color: '#34d399', label: 'b' },
-          ],
-          showSum: true,
-          draggable: true,
-        },
+      visualizationProps: {
+        mode: 'addition',
+        vectors: [
+          { x: 2, y: 1, color: '#60a5fa', label: 'a' },
+          { x: 1, y: 3, color: '#34d399', label: 'b' },
+        ],
+        showSum: true,
+        draggable: true,
       },
       content: {
         text: 'Place the tail of b at the tip of a. The sum goes from the start of a to the end of b. Drag either and watch the sum move.',
@@ -163,9 +166,10 @@ const vectorsModule: Module = {
     {
       id: 'subtracting-vectors',
       title: 'Subtracting Vectors',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'subtraction', draggable: true, showDifference: true },
+      visualizationProps: {
+        mode: 'subtraction',
+        draggable: true,
+        showDifference: true,
       },
       content: {
         text: "Subtraction = 'how do I get from b to a?' The result points from the tip of b to the tip of a.",
@@ -178,9 +182,11 @@ const vectorsModule: Module = {
     {
       id: 'scalar-multiplication',
       title: 'Scalar Multiplication',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'scalar', draggable: false, showScalarSlider: true, scalarRange: [-3, 3] },
+      visualizationProps: {
+        mode: 'scalar',
+        draggable: false,
+        showScalarSlider: true,
+        scalarRange: [-3, 3],
       },
       content: {
         text: 'Multiply by 2 → twice as long. By 0.5 → half. By −1 → flips direction. Drag the slider and experiment.',
@@ -200,9 +206,10 @@ const vectorsModule: Module = {
     {
       id: 'linear-combinations-preview',
       title: 'Linear Combinations (Preview)',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'linear-combination', showSliders: true, showParallelogram: true },
+      visualizationProps: {
+        mode: 'linear-combination',
+        showSliders: true,
+        showParallelogram: true,
       },
       content: {
         text: "Any point in 2D can be reached by combining two non-parallel vectors with the right scalars. These scalars are the 'recipe.' We'll explore this much deeper in the next module.",
@@ -221,9 +228,11 @@ const vectorsModule: Module = {
     {
       id: 'dot-product',
       title: 'The Dot Product',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'dot-product', draggable: true, showDotProduct: true, showAngle: true },
+      visualizationProps: {
+        mode: 'dot-product',
+        draggable: true,
+        showDotProduct: true,
+        showAngle: true,
       },
       content: {
         text: "The dot product measures how much two vectors 'agree' in direction. Same direction = large positive. Perpendicular = zero. Opposite = negative.",
@@ -242,9 +251,11 @@ const vectorsModule: Module = {
     {
       id: 'perpendicularity',
       title: 'Perpendicularity',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'perpendicular', draggable: true, showDotProduct: true, showRightAngle: true },
+      visualizationProps: {
+        mode: 'perpendicular',
+        draggable: true,
+        showDotProduct: true,
+        showRightAngle: true,
       },
       content: {
         text: 'When the dot product equals zero, the vectors are perpendicular (at 90°). Drag b until you see the square appear.',
@@ -257,9 +268,10 @@ const vectorsModule: Module = {
     {
       id: 'projection',
       title: 'Projection',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'projection', draggable: true, showProjection: true },
+      visualizationProps: {
+        mode: 'projection',
+        draggable: true,
+        showProjection: true,
       },
       content: {
         text: "How much of a goes in the direction of b? That's the projection — the shadow one vector casts onto another.",
@@ -272,9 +284,10 @@ const vectorsModule: Module = {
     {
       id: 'standard-basis',
       title: 'The Standard Basis',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'basis', showBasisVectors: true, showDecomposition: true },
+      visualizationProps: {
+        mode: 'basis',
+        showBasisVectors: true,
+        showDecomposition: true,
       },
       content: {
         text: "î and ĵ are the standard basis vectors — every 2D vector is just a combination of these two. They're why we can use coordinates at all.",
@@ -293,9 +306,8 @@ const vectorsModule: Module = {
     {
       id: 'why-vectors-matter',
       title: 'Why Vectors Matter for AI',
-      visualization: {
-        component: 'VectorTransform',
-        props: { mode: 'ai-applications' },
+      visualizationProps: {
+        mode: 'ai-applications',
       },
       content: {
         text: "In AI, everything becomes vectors. Words, images, sounds — all represented as lists of numbers in high-dimensional space. The operations you just learned? They're the language of machine learning.",
@@ -309,7 +321,6 @@ const vectorsModule: Module = {
   ],
   playground: {
     description: 'Full VectorTransform playground with all parameters exposed.',
-    component: 'VectorTransform',
     parameters: [
       { id: 'vectorCount', label: 'Vector count', type: 'stepper', min: 1, max: 4, step: 1, default: 2 },
       { id: 'showGrid', label: 'Show grid', type: 'toggle', default: true },
@@ -333,7 +344,7 @@ const vectorsModule: Module = {
       id: 'reach-the-target',
       title: 'Reach the Target',
       description: 'Drag vectors a and b so their sum lands on the red target.',
-      component: 'VectorTransform',
+      props: { mode: 'addition', draggable: true, showSum: true, showTarget: true, target: { x: 4, y: 3 } },
       completionCriteria: { type: 'threshold', target: 0.3, metric: 'distance_sum_to_target' },
       hints: [
         'Think of it as a tip-to-tail path.',
@@ -344,7 +355,7 @@ const vectorsModule: Module = {
       id: 'scalar-sniper',
       title: 'Scalar Sniper',
       description: 'Find the scalar that maps the blue vector to the green target.',
-      component: 'VectorTransform',
+      props: { mode: 'scalar', draggable: false, showScalarSlider: true, showTarget: true, target: { x: 3, y: 3 } },
       completionCriteria: { type: 'threshold', target: 0.1, metric: 'distance_scaled_to_target' },
       hints: [
         'Divide the target length by the original length.',
@@ -355,7 +366,7 @@ const vectorsModule: Module = {
       id: 'right-angle',
       title: 'Right Angle',
       description: 'Drag b to be perpendicular to a.',
-      component: 'VectorTransform',
+      props: { mode: 'perpendicular', draggable: true, showDotProduct: true },
       completionCriteria: { type: 'threshold', target: 0.05, metric: 'abs_dot_product' },
       hints: [
         'Perpendicular means the dot product is zero.',
@@ -366,7 +377,7 @@ const vectorsModule: Module = {
       id: 'basis-builder',
       title: 'Basis Builder',
       description: 'Express the target as a linear combination of the custom basis vectors.',
-      component: 'VectorTransform',
+      props: { mode: 'linear-combination', showSliders: true, showTarget: true, target: { x: 5, y: 2 } },
       completionCriteria: { type: 'threshold', target: 0.2, metric: 'distance_combination_to_target' },
       hints: [
         'Adjust the scalar sliders for each basis vector.',

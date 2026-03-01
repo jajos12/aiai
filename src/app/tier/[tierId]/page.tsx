@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { MODULE_META } from '@/content/registry';
+import { MODULE_META } from '@/core/registry';
 import { useProgress } from '@/hooks/useProgress';
 
 // Tier metadata (will be centralized later)

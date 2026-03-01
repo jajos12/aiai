@@ -1,6 +1,6 @@
-import type { Module } from '@/types/curriculum';
+import type { ModuleData } from '@/core/types';
 
-const eigenvaluesModule: Module = {
+const eigenvaluesModule: ModuleData = {
   id: 'eigenvalues',
   tierId: 0,
   clusterId: 'linear-algebra',
@@ -11,27 +11,23 @@ const eigenvaluesModule: Module = {
   prerequisites: ['vectors', 'vector-spaces', 'matrices'],
   difficulty: 'intermediate',
   estimatedMinutes: 45,
-  visualizationComponent: 'EigenTransform',
   steps: [
     // ── 1. What Eigenvectors Are ──
     {
       id: 'what-are-eigenvectors',
       title: 'What Eigenvectors Are',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'animate',
-          matrix: { a: 2, b: 1, c: 0, d: 3 },
-          showDotCloud: true,
-          showTransformedGrid: true,
-          showBasisVectors: true,
-          showEigenspaceLines: true,
-          showAnimation: true,
-          showMatrixControls: true,
-          showPresets: true,
-          highlightEigenDots: true,
-          interactive: true,
-        },
+      visualizationProps: {
+        mode: 'animate',
+        matrix: { a: 2, b: 1, c: 0, d: 3 },
+        showDotCloud: true,
+        showTransformedGrid: true,
+        showBasisVectors: true,
+        showEigenspaceLines: true,
+        showAnimation: true,
+        showMatrixControls: true,
+        showPresets: true,
+        highlightEigenDots: true,
+        interactive: true,
       },
       content: {
         text: "Enter any matrix and press ▶ Play. Watch 200+ dots transform — the whole grid warps. But dots on the golden and orange lines only slide, they never leave their line. Those stable directions are the eigenvectors. Try different presets: Scale, Shear, Reflect. Every matrix has its own special surviving directions.",
@@ -51,20 +47,17 @@ const eigenvaluesModule: Module = {
     {
       id: 'eigenvalue-equation',
       title: 'The Equation: Av = λv',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'eigenvectors-only',
-          matrix: { a: 2, b: 1, c: 0, d: 3 },
-          showTransformedGrid: true,
-          showBasisVectors: true,
-          showEigenspaceLines: true,
-          showScalingIndicators: true,
-          showCharacteristicEq: true,
-          showMatrixControls: true,
-          showPresets: true,
-          interactive: true,
-        },
+      visualizationProps: {
+        mode: 'eigenvectors-only',
+        matrix: { a: 2, b: 1, c: 0, d: 3 },
+        showTransformedGrid: true,
+        showBasisVectors: true,
+        showEigenspaceLines: true,
+        showScalingIndicators: true,
+        showCharacteristicEq: true,
+        showMatrixControls: true,
+        showPresets: true,
+        interactive: true,
       },
       content: {
         text: "The solid arrows are the eigenvectors. The dashed arrows show where the matrix sends them — same direction, just scaled by λ. Drag the matrix entries or pick presets — eigenvalues and eigenvectors update live. The warped grid shows how everything else deforms while eigenvectors hold firm.",
@@ -91,22 +84,19 @@ const eigenvaluesModule: Module = {
     {
       id: 'trace-det-eigenvalues',
       title: 'Trace & Determinant from Eigenvalues',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'explore',
-          matrix: { a: 3, b: 1, c: 0, d: 2 },
-          showTransformedGrid: true,
-          showDotCloud: true,
-          showEigenspaceLines: true,
-          showTraceDetRelation: true,
-          showCharacteristicEq: true,
-          showDeterminantArea: true,
-          showMatrixControls: true,
-          showPresets: true,
-          interactive: true,
-          highlightEigenDots: true,
-        },
+      visualizationProps: {
+        mode: 'explore',
+        matrix: { a: 3, b: 1, c: 0, d: 2 },
+        showTransformedGrid: true,
+        showDotCloud: true,
+        showEigenspaceLines: true,
+        showTraceDetRelation: true,
+        showCharacteristicEq: true,
+        showDeterminantArea: true,
+        showMatrixControls: true,
+        showPresets: true,
+        interactive: true,
+        highlightEigenDots: true,
       },
       content: {
         text: "Two beautiful identities: trace(A) = λ₁ + λ₂, and det(A) = λ₁ × λ₂. Drag any matrix entry and watch the equation panel — the sum and product of eigenvalues ALWAYS match. The green parallelogram shows the determinant area. Try Scale preset: det = λ₁·λ₂ = 2·0.5 = 1.",
@@ -122,21 +112,18 @@ const eigenvaluesModule: Module = {
     {
       id: 'characteristic-equation',
       title: 'The Characteristic Equation',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'characteristic',
-          matrix: { a: 2, b: 1, c: 1, d: 3 },
-          showTransformedGrid: true,
-          showDotCloud: true,
-          showCharacteristicEq: true,
-          showTraceDetRelation: true,
-          showEigenspaceLines: true,
-          showMatrixControls: true,
-          showPresets: true,
-          interactive: true,
-          highlightEigenDots: true,
-        },
+      visualizationProps: {
+        mode: 'characteristic',
+        matrix: { a: 2, b: 1, c: 1, d: 3 },
+        showTransformedGrid: true,
+        showDotCloud: true,
+        showCharacteristicEq: true,
+        showTraceDetRelation: true,
+        showEigenspaceLines: true,
+        showMatrixControls: true,
+        showPresets: true,
+        interactive: true,
+        highlightEigenDots: true,
       },
       content: {
         text: "To find eigenvalues, solve det(A - λI) = 0. For 2×2 matrices: λ² - tr(A)λ + det(A) = 0. Drag entries and watch the discriminant: positive → 2 real eigenvalues (golden lines appear), zero → 1 repeated, negative → complex pair (no lines, purple spiral). Try the Rotate preset!",
@@ -161,20 +148,17 @@ const eigenvaluesModule: Module = {
     {
       id: 'finding-eigenvectors',
       title: 'Finding Eigenvectors',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'eigenvectors-only',
-          matrix: { a: 4, b: 2, c: 1, d: 3 },
-          showTransformedGrid: true,
-          showBasisVectors: true,
-          showEigenspaceLines: true,
-          showScalingIndicators: true,
-          showCharacteristicEq: true,
-          showMatrixControls: true,
-          showPresets: true,
-          interactive: true,
-        },
+      visualizationProps: {
+        mode: 'eigenvectors-only',
+        matrix: { a: 4, b: 2, c: 1, d: 3 },
+        showTransformedGrid: true,
+        showBasisVectors: true,
+        showEigenspaceLines: true,
+        showScalingIndicators: true,
+        showCharacteristicEq: true,
+        showMatrixControls: true,
+        showPresets: true,
+        interactive: true,
       },
       content: {
         text: "Once you know λ, plug it into (A - λI)v = 0. The solutions form a line through the origin — the eigenspace. Enter different matrices to see eigenspaces change direction. Compare the red/blue basis vectors (Ae₁, Ae₂) with the golden/orange eigen-lines: eigenvectors are special precisely because they don't rotate.",
@@ -190,21 +174,18 @@ const eigenvaluesModule: Module = {
     {
       id: 'animate-transformation',
       title: 'Watch the Grid Warp',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'animate',
-          matrix: { a: 2, b: 1, c: 0, d: 3 },
-          showDotCloud: true,
-          showTransformedGrid: true,
-          showBasisVectors: true,
-          showAnimation: true,
-          showEigenspaceLines: true,
-          showMatrixControls: true,
-          showPresets: true,
-          highlightEigenDots: true,
-          interactive: true,
-        },
+      visualizationProps: {
+        mode: 'animate',
+        matrix: { a: 2, b: 1, c: 0, d: 3 },
+        showDotCloud: true,
+        showTransformedGrid: true,
+        showBasisVectors: true,
+        showAnimation: true,
+        showEigenspaceLines: true,
+        showMatrixControls: true,
+        showPresets: true,
+        highlightEigenDots: true,
+        interactive: true,
       },
       content: {
         text: "This is the showcase. Enter any matrix, press ▶ Play, and watch the grid + 200 dots transform smoothly. The grid lines warp, basis vectors stretch and rotate — but dots on eigenvector lines ONLY slide. Try every preset: Scale (diagonal stretch), Shear (one eigenvector), Rotate 45° (no survivors!), Reflect (flip).",
@@ -220,22 +201,19 @@ const eigenvaluesModule: Module = {
     {
       id: 'symmetric-matrices',
       title: 'Symmetric Matrices: The Best Kind',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'symmetric',
-          matrix: { a: 3, b: 1, c: 1, d: 2 },
-          showTransformedGrid: true,
-          showDotCloud: true,
-          showEigenspaceLines: true,
-          showUnitCircle: true,
-          showScalingIndicators: true,
-          showMatrixControls: true,
-          showPresets: true,
-          interactive: true,
-          symmetricOnly: true,
-          highlightEigenDots: true,
-        },
+      visualizationProps: {
+        mode: 'symmetric',
+        matrix: { a: 3, b: 1, c: 1, d: 2 },
+        showTransformedGrid: true,
+        showDotCloud: true,
+        showEigenspaceLines: true,
+        showUnitCircle: true,
+        showScalingIndicators: true,
+        showMatrixControls: true,
+        showPresets: true,
+        interactive: true,
+        symmetricOnly: true,
+        highlightEigenDots: true,
       },
       content: {
         text: "Symmetric matrices (A = Aᵀ) are special: eigenvalues are always real, eigenvectors are always perpendicular. Change the matrix entries — b and c stay locked (symmetric!), and the golden/orange lines are always at 90°. The unit circle transforms into an axis-aligned ellipse along the eigenvectors.",
@@ -261,22 +239,19 @@ const eigenvaluesModule: Module = {
     {
       id: 'complex-eigenvalues',
       title: 'Complex Eigenvalues = Rotation',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'animate',
-          matrix: { a: 0, b: -1, c: 1, d: 0 },
-          showDotCloud: true,
-          showTransformedGrid: true,
-          showBasisVectors: true,
-          showAnimation: true,
-          showEigenspaceLines: true,
-          showCharacteristicEq: true,
-          showMatrixControls: true,
-          showPresets: true,
-          highlightEigenDots: true,
-          interactive: true,
-        },
+      visualizationProps: {
+        mode: 'animate',
+        matrix: { a: 0, b: -1, c: 1, d: 0 },
+        showDotCloud: true,
+        showTransformedGrid: true,
+        showBasisVectors: true,
+        showAnimation: true,
+        showEigenspaceLines: true,
+        showCharacteristicEq: true,
+        showMatrixControls: true,
+        showPresets: true,
+        highlightEigenDots: true,
+        interactive: true,
       },
       content: {
         text: "When eigenvalues are complex (λ = a ± bi), no real eigenvector exists — the matrix rotates everything. Press ▶ Play with this rotation matrix: every dot moves in a circular arc, no line survives. The purple spiral indicates rotation. Now change the matrix to [[2,0],[0,3]] — instantly see eigenvectors appear!",
@@ -298,25 +273,22 @@ const eigenvaluesModule: Module = {
     {
       id: 'repeated-eigenvalues',
       title: 'Repeated Eigenvalues',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'animate',
-          matrix: { a: 2, b: 0, c: 0, d: 2 },
-          showDotCloud: true,
-          showTransformedGrid: true,
-          showBasisVectors: true,
-          showAnimation: true,
-          showEigenspaceLines: true,
-          showCharacteristicEq: true,
-          showMatrixControls: true,
-          showPresets: true,
-          highlightEigenDots: true,
-          interactive: true,
-        },
+      visualizationProps: {
+        mode: 'animate',
+        matrix: { a: 2, b: 0, c: 0, d: 2 },
+        showDotCloud: true,
+        showTransformedGrid: true,
+        showBasisVectors: true,
+        showAnimation: true,
+        showEigenspaceLines: true,
+        showCharacteristicEq: true,
+        showMatrixControls: true,
+        showPresets: true,
+        highlightEigenDots: true,
+        interactive: true,
       },
       content: {
-        text: "When λ₁ = λ₂ (repeated), things get interesting. This is 2I — press ▶ Play: everything scales uniformly, EVERY direction is an eigenvector! Now enter [[2,1],[0,2]]: same eigenvalue λ=2 twice, but only one eigenvector direction. That's a defective matrix. Watch the animation — it shears, revealing the asymmetry.",
+        text: "When λ₁ = λ₂ (repeated), things get interesting. This is 2I — press ▶ Play: everything scales uniformly, EVERY direction is an eigenvector! Now enter [[2,1],[0,2]]: same eigenvalue λ=2 twice, but only one eigenvector direction. That\'s a defective matrix. Watch the animation — it shears, revealing the asymmetry.",
         goDeeper: {
           math: '\\text{Algebraic multiplicity} \\geq \\text{Geometric multiplicity}',
           explanation: 'Algebraic multiplicity = how many times λ appears as a root. Geometric multiplicity = dimension of the eigenspace. When geometric < algebraic, the matrix is "defective" — it can\'t be diagonalized. The matrix [[2,1],[0,2]] is the classic example.',
@@ -340,23 +312,20 @@ const eigenvaluesModule: Module = {
     {
       id: 'positive-definite',
       title: 'Positive Definite Matrices',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'symmetric',
-          matrix: { a: 3, b: 1, c: 1, d: 2 },
-          showTransformedGrid: true,
-          showDotCloud: true,
-          showEigenspaceLines: true,
-          showUnitCircle: true,
-          showDeterminantArea: true,
-          showCharacteristicEq: true,
-          showMatrixControls: true,
-          showPresets: true,
-          interactive: true,
-          symmetricOnly: true,
-          highlightEigenDots: true,
-        },
+      visualizationProps: {
+        mode: 'symmetric',
+        matrix: { a: 3, b: 1, c: 1, d: 2 },
+        showTransformedGrid: true,
+        showDotCloud: true,
+        showEigenspaceLines: true,
+        showUnitCircle: true,
+        showDeterminantArea: true,
+        showCharacteristicEq: true,
+        showMatrixControls: true,
+        showPresets: true,
+        interactive: true,
+        symmetricOnly: true,
+        highlightEigenDots: true,
       },
       content: {
         text: "A symmetric matrix is positive definite when ALL eigenvalues are positive — the transformation only stretches, never flips. The determinant parallelogram stays green. Try to make an eigenvalue negative — the area turns red (orientation flips). In ML, positive definite = 'bowl-shaped' loss surface = gradient descent works.",
@@ -372,17 +341,14 @@ const eigenvaluesModule: Module = {
     {
       id: 'diagonalization',
       title: 'Diagonalization: A = PDP⁻¹',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'decomposition',
-          matrix: { a: 2, b: 1, c: 0, d: 3 },
-          showDecomposition: true,
-          showEigenspaceLines: true,
-          showMatrixControls: true,
-          showPresets: true,
-          interactive: true,
-        },
+      visualizationProps: {
+        mode: 'decomposition',
+        matrix: { a: 2, b: 1, c: 0, d: 3 },
+        showDecomposition: true,
+        showEigenspaceLines: true,
+        showMatrixControls: true,
+        showPresets: true,
+        interactive: true,
       },
       content: {
         text: "Every diagonalizable matrix = three simple steps: (1) P⁻¹ rotates to eigenbasis, (2) D scales along axes by eigenvalues, (3) P rotates back. Press 'Next Stage' to see each phase. Enter a different matrix — the decomposition updates live. This is A = PDP⁻¹, the most important factorization in ML.",
@@ -402,18 +368,15 @@ const eigenvaluesModule: Module = {
     {
       id: 'power-iteration',
       title: 'Power Iteration',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'power-iteration',
-          matrix: { a: 3, b: 1, c: 0, d: 1.5 },
-          showPowerIteration: true,
-          showTransformedGrid: true,
-          showEigenspaceLines: true,
-          showMatrixControls: true,
-          showPresets: true,
-          interactive: true,
-        },
+      visualizationProps: {
+        mode: 'power-iteration',
+        matrix: { a: 3, b: 1, c: 0, d: 1.5 },
+        showPowerIteration: true,
+        showTransformedGrid: true,
+        showEigenspaceLines: true,
+        showMatrixControls: true,
+        showPresets: true,
+        interactive: true,
       },
       content: {
         text: "Power iteration: start with any random vector, multiply by A, normalize, repeat. Click 'Iterate' — watch the golden arrow swing toward the dominant eigenvector (green dashed line). Usually converges in 5-10 steps. Enter a matrix with widely separated eigenvalues (like [[10,0],[0,1]]) — it converges in 2-3 steps!",
@@ -444,19 +407,16 @@ const eigenvaluesModule: Module = {
     {
       id: 'pca-connection',
       title: 'Eigenvectors in PCA',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'pca',
-          matrix: { a: 3, b: 1.5, c: 1.5, d: 2 },
-          showDotCloud: true,
-          showTransformedGrid: true,
-          showEigenspaceLines: true,
-          showScalingIndicators: true,
-          showMatrixControls: true,
-          showPresets: true,
-          interactive: true,
-        },
+      visualizationProps: {
+        mode: 'pca',
+        matrix: { a: 3, b: 1.5, c: 1.5, d: 2 },
+        showDotCloud: true,
+        showTransformedGrid: true,
+        showEigenspaceLines: true,
+        showScalingIndicators: true,
+        showMatrixControls: true,
+        showPresets: true,
+        interactive: true,
       },
       content: {
         text: "PCA computes the eigenvectors of the data's covariance matrix. The golden line (first PC) points along maximum variance. The orange line (second PC) is perpendicular. Drag the matrix entries to reshape the data ellipse and watch principal components rotate to follow the longest axis. This is dimensionality reduction in action.",
@@ -487,23 +447,20 @@ const eigenvaluesModule: Module = {
     {
       id: 'pagerank',
       title: 'PageRank: The Billion-Dollar Eigenvector',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'animate',
-          matrix: { a: 0.5, b: 0.5, c: 0.3, d: 0.7 },
-          showDotCloud: true,
-          showTransformedGrid: true,
-          showBasisVectors: true,
-          showAnimation: true,
-          showEigenspaceLines: true,
-          showScalingIndicators: true,
-          showCharacteristicEq: true,
-          showMatrixControls: true,
-          showPresets: true,
-          highlightEigenDots: true,
-          interactive: true,
-        },
+      visualizationProps: {
+        mode: 'animate',
+        matrix: { a: 0.5, b: 0.5, c: 0.3, d: 0.7 },
+        showDotCloud: true,
+        showTransformedGrid: true,
+        showBasisVectors: true,
+        showAnimation: true,
+        showEigenspaceLines: true,
+        showScalingIndicators: true,
+        showCharacteristicEq: true,
+        showMatrixControls: true,
+        showPresets: true,
+        highlightEigenDots: true,
+        interactive: true,
       },
       content: {
         text: "Google's PageRank: model the web as a stochastic matrix (columns sum ≈ 1). The dominant eigenvector (λ=1) gives every page's importance. Enter [[0.5,0.5],[0.3,0.7]] and press ▶ Play — watch dots converge along the eigenvector. The golden line IS the web's importance ranking. This eigenvector built a $2 trillion company.",
@@ -520,23 +477,20 @@ const eigenvaluesModule: Module = {
     {
       id: 'full-picture',
       title: 'The Full Picture',
-      visualization: {
-        component: 'EigenTransform',
-        props: {
-          mode: 'explore',
-          showDotCloud: true,
-          showTransformedGrid: true,
-          showBasisVectors: true,
-          showEigenspaceLines: true,
-          showScalingIndicators: true,
-          showCharacteristicEq: true,
-          showTraceDetRelation: true,
-          showDeterminantArea: true,
-          showMatrixControls: true,
-          showPresets: true,
-          interactive: true,
-          highlightEigenDots: true,
-        },
+      visualizationProps: {
+        mode: 'explore',
+        showDotCloud: true,
+        showTransformedGrid: true,
+        showBasisVectors: true,
+        showEigenspaceLines: true,
+        showScalingIndicators: true,
+        showCharacteristicEq: true,
+        showTraceDetRelation: true,
+        showDeterminantArea: true,
+        showMatrixControls: true,
+        showPresets: true,
+        interactive: true,
+        highlightEigenDots: true,
       },
       content: {
         text: "You now have the full eigenvalue toolkit. Enter any matrix, pick presets, explore freely. Try: a symmetric matrix (perpendicular eigenvectors!), a rotation (complex eigenvalues!), a shear (one eigenvector!), the projection [[1,0],[0,0]] (λ=0 means collapse!). Every concept connects here.",
@@ -550,7 +504,6 @@ const eigenvaluesModule: Module = {
   ],
   playground: {
     description: 'Full EigenTransform playground — explore any 2×2 matrix with grid warp, dot cloud, eigenspaces, decomposition, power iteration, and more. Everything is toggleable.',
-    component: 'EigenTransform',
     parameters: [
       { id: 'showDotCloud', label: 'Dot cloud (225 points)', type: 'toggle', default: true },
       { id: 'showTransformedGrid', label: 'Warped grid lines', type: 'toggle', default: true },
@@ -583,7 +536,6 @@ const eigenvaluesModule: Module = {
       id: 'find-eigenvectors',
       title: 'Find the Eigenvectors',
       description: 'Set the matrix so its eigenvectors align with the directions (1, 1) and (1, -1). The golden and orange lines must point at exactly 45° and -45°.',
-      component: 'EigenTransform',
       props: {
         showDotCloud: true,
         showTransformedGrid: true,
@@ -608,7 +560,6 @@ const eigenvaluesModule: Module = {
       id: 'make-rotation',
       title: 'Make It Rotate',
       description: 'Set the matrix so that both eigenvalues are complex — pure rotation, no real eigenvectors exist. The purple spiral should appear and all eigenspace lines should vanish.',
-      component: 'EigenTransform',
       props: {
         mode: 'animate',
         showDotCloud: true,
@@ -633,7 +584,6 @@ const eigenvaluesModule: Module = {
       id: 'positive-definite-challenge',
       title: 'Build Positive Definite',
       description: 'Create a symmetric matrix where BOTH eigenvalues are strictly positive. The determinant area must stay green, the unit circle must become a stretched ellipse (no flips).',
-      component: 'EigenTransform',
       props: {
         mode: 'symmetric',
         showDotCloud: true,
@@ -661,7 +611,6 @@ const eigenvaluesModule: Module = {
       id: 'fast-convergence',
       title: 'Power Iteration Speedrun',
       description: 'Set a matrix where power iteration converges in ≤ 3 clicks. You need |λ₁/λ₂| > 5 — a huge gap between eigenvalues makes convergence nearly instant.',
-      component: 'EigenTransform',
       props: {
         mode: 'power-iteration',
         showPowerIteration: true,
@@ -687,4 +636,3 @@ const eigenvaluesModule: Module = {
 };
 
 export default eigenvaluesModule;
-

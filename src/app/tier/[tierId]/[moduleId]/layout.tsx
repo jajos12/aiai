@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { MODULE_META } from '@/content/registry';
+import { MODULE_META } from '@/core/registry';
 
 type Props = {
   params: Promise<{ tierId: string; moduleId: string }>;

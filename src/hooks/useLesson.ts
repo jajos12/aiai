@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import type { Step } from '@/types/curriculum';
+import type { Step } from '@/core/types';
 
 interface UseLessonOptions {
   steps: Step[];
@@ -76,7 +76,7 @@ export function useLesson({
   const EMPTY_STEP: Step = {
     id: '__loading__',
     title: 'Loading...',
-    visualization: { component: '', props: {} },
+    visualizationProps: {},
     content: { text: '' },
   };
 

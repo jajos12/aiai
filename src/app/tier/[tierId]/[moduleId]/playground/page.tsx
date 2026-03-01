@@ -2,10 +2,18 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getModule } from '@/content/registry';
+import { getModule } from '@/core/registry';
 import { useProgress } from '@/hooks/useProgress';
-import { LazyVectorTransform as VectorTransform, LazyMatrixTransform as MatrixTransform, LazyEigenTransform as EigenTransform } from '@/components/visualizations/lazy';
-import type { Module } from '@/types/curriculum';
+import type { Module } from '@/core/types';
+
+// Graph presets available in the playground
+const GRAPH_PRESETS = [
+  { id: 'single', label: '(3x+2)⁴', description: 'Single chain' },
+  { id: 'double', label: 'sin(eˣ²)', description: 'Two levels deep' },
+  { id: 'mini-net', label: 'L=(wx−y)²', description: 'Mini neural net' },
+  { id: 'multipath', label: 'x²+sin(x)', description: 'Fan-out paths' },
+  { id: 'deep', label: 'Deep chain', description: '10 operations' },
+];
 
 export default function PlaygroundPage() {
   const params = useParams();
@@ -16,382 +24,170 @@ export default function PlaygroundPage() {
 
   const [moduleData, setModuleData] = useState<Module | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Dynamic parameter values — keyed by param.id
-  const [paramValues, setParamValues] = useState<Record<string, number | boolean>>({});
+  const [paramValues, setParamValues] = useState<Record<string, number | boolean | string>>({});
+  const [selectedGraph, setSelectedGraph] = useState('single');
 
   useEffect(() => {
     setLoading(true);
-    getModule(moduleId).then((mod) => {
+    getModule(moduleId).then(mod => {
       setModuleData(mod);
       if (!mod) { setLoading(false); return; }
-      // Initialize param values from defaults
-      const defaults: Record<string, number | boolean> = {};
-      mod.playground.parameters.forEach((p) => {
-        if (typeof p.default === 'number' || typeof p.default === 'boolean') {
-          defaults[p.id] = p.default;
-        }
+      const defaults: Record<string, number | boolean | string> = {};
+      mod.playground.parameters.forEach(p => {
+        if (p.default !== undefined) defaults[p.id] = p.default as number | boolean | string;
       });
       setParamValues(defaults);
       setLoading(false);
     });
   }, [moduleId]);
 
-  // Mark playground as visited
   useEffect(() => {
     if (!loading) {
-      updateModule(tierId, moduleId, (mod) => ({
-        ...mod,
-        playgroundVisited: true,
-      }));
+      updateModule(tierId, moduleId, mod => ({ ...mod, playgroundVisited: true }));
     }
   }, [loading, tierId, moduleId, updateModule]);
 
-  const setParam = useCallback((id: string, value: number | boolean) => {
-    setParamValues((prev) => ({ ...prev, [id]: value }));
+  const setParam = useCallback((id: string, value: number | boolean | string) => {
+    setParamValues(prev => ({ ...prev, [id]: value }));
   }, []);
 
   if (loading || !moduleData) {
     return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: 'calc(100vh - var(--topnav-height))',
-          background: 'var(--bg-base)',
-          color: 'var(--text-muted)',
-          fontFamily: 'var(--font-heading)',
-        }}
-      >
-        Loading playground...
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - var(--topnav-height))', background: 'var(--bg-base)', color: 'var(--text-muted)', flexDirection: 'column', gap: '0.75rem' }}>
+        <div style={{ width: 40, height: 40, border: '2px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+        Loading playground…
       </div>
     );
   }
 
-  const basePath = `/tier/${tierId}/${moduleId}`;
-
-  // Build VectorTransform props from paramValues
-  const vizProps: Record<string, unknown> = {
-    mode: 'interactive',
-    draggable: true,
-    showGrid: paramValues.showGrid ?? true,
-    showCoordinates: paramValues.showCoordinates ?? true,
-    showMagnitude: paramValues.showMagnitude ?? false,
-    showAngle: paramValues.showAngle ?? false,
-    showDotProduct: paramValues.showDotProduct ?? false,
-    showProjection: paramValues.showProjection ?? false,
-    showUnitVector: paramValues.showUnitVectors ?? false,
-    scalarMultiplier: (paramValues.scalarMultiplier as number) ?? 1,
-    vectors: [
-      { x: 3, y: 2, color: '#6366f1', label: 'a' },
-      ...(Number(paramValues.vectorCount ?? 2) >= 2
-        ? [{ x: -1, y: 3, color: '#34d399', label: 'b' }]
-        : []),
-      ...(Number(paramValues.vectorCount ?? 2) >= 3
-        ? [{ x: -2, y: -1, color: '#fb923c', label: 'c' }]
-        : []),
-      ...(Number(paramValues.vectorCount ?? 2) >= 4
-        ? [{ x: 1, y: -2, color: '#f87171', label: 'd' }]
-        : []),
-    ],
-  };
+  const isChainRule = moduleId === 'chain-rule';
+  const vizProps = isChainRule
+    ? { ...paramValues, component: 'ComputationGraph', graphId: selectedGraph, showForward: true, showBackward: true, showEdgeDerivatives: paramValues.showEdgeDerivatives ?? true, showGradientValues: paramValues.showGradientValues ?? true, showPaths: paramValues.showPaths ?? false, animateForward: paramValues.animateForward ?? true, animateBackward: paramValues.animateBackward ?? true, interactive: true }
+    : { ...paramValues, interactive: true };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: 'calc(100vh - var(--topnav-height))',
-        background: 'var(--bg-base)',
-      }}
-    >
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--topnav-height))', background: 'var(--bg-base)' }}>
       {/* Top bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0.75rem 1.5rem',
-          borderBottom: '1px solid var(--border-subtle)',
-          background: 'var(--bg-surface)',
-          flexShrink: 0,
-        }}
-      >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 1.25rem', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button
-            onClick={() => router.push(basePath)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              padding: '0.25rem 0',
-            }}
-          >
+          <button onClick={() => router.push(`/tier/${tierId}/${moduleId}`)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.875rem' }}>
             ← {moduleData.title}
           </button>
           <span style={{ color: 'var(--border-default)' }}>/</span>
-          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent)' }}>
-            🧪 Playground
-          </span>
+          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent)' }}>🧪 Playground</span>
+        </div>
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', maxWidth: 400, lineHeight: 1.4, textAlign: 'right', fontStyle: 'italic' }}>
+          {moduleData.playground.description}
         </div>
       </div>
 
-      {/* Main content area */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          minHeight: 0,
-        }}
-      >
-        {/* Canvas — full-height VectorTransform */}
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'stretch',
-            justifyContent: 'stretch',
-            position: 'relative',
-          }}
-        >
+      {/* Main content */}
+      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        {/* Visualization canvas */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'stretch', position: 'relative' }}>
           <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-            {moduleData.visualizationComponent === 'VectorTransform' ? (
-              <VectorTransform {...vizProps} />
-            ) : moduleData.visualizationComponent === 'MatrixTransform' ? (
-              <MatrixTransform
-                mode="custom"
-                interactive
-                showGrid={paramValues.showGrid as boolean ?? true}
-                showTransformedGrid={paramValues.showTransformedGrid as boolean ?? true}
-                showBasisVectors={paramValues.showBasisVectors as boolean ?? true}
-                showTransformedBasis={paramValues.showTransformedBasis as boolean ?? true}
-                showDeterminant={paramValues.showDeterminant as boolean ?? false}
-                showEigenvectors={paramValues.showEigenvectors as boolean ?? false}
-                showUnitCircle={paramValues.showUnitCircle as boolean ?? false}
-                showTransformedCircle={paramValues.showTransformedCircle as boolean ?? false}
-                showInverse={paramValues.showInverse as boolean ?? false}
-              />
-            ) : moduleData.visualizationComponent === 'EigenTransform' ? (
-              <EigenTransform
-                mode="explore"
-                interactive
-                showDotCloud={paramValues.showDotCloud as boolean ?? true}
-                showTransformedGrid={paramValues.showTransformedGrid as boolean ?? true}
-                showBasisVectors={paramValues.showBasisVectors as boolean ?? true}
-                showEigenspaceLines={paramValues.showEigenspaceLines as boolean ?? true}
-                showScalingIndicators={paramValues.showScalingIndicators as boolean ?? true}
-                showCharacteristicEq={paramValues.showCharacteristicEq as boolean ?? true}
-                showTraceDetRelation={paramValues.showTraceDetRelation as boolean ?? true}
-                showDeterminantArea={paramValues.showDeterminantArea as boolean ?? true}
-                showUnitCircle={paramValues.showUnitCircle as boolean ?? false}
-                showAnimation={paramValues.showAnimation as boolean ?? true}
-                showPowerIteration={paramValues.showPowerIteration as boolean ?? false}
-                showDecomposition={paramValues.showDecomposition as boolean ?? false}
-                showMatrixControls={paramValues.showMatrixControls as boolean ?? true}
-                showPresets={paramValues.showPresets as boolean ?? true}
-                highlightEigenDots={paramValues.highlightEigenDots as boolean ?? true}
-              />
+            {moduleData.Visualization ? (
+              <moduleData.Visualization {...vizProps as any} />
             ) : (
-              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
-                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🧪</div>
-                <p>Visualization coming soon — {moduleData.visualizationComponent}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', gap: '1rem' }}>
+                <div style={{ fontSize: '4rem' }}>🧪</div>
+                <p>Visualization coming soon — {moduleData.id}</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Control panel (right sidebar) */}
-        <div
-          style={{
-            width: '280px',
-            background: 'var(--bg-surface)',
-            borderLeft: '1px solid var(--border-subtle)',
-            padding: '1rem',
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
-          }}
-        >
-          <h3
-            style={{
-              fontFamily: 'var(--font-heading)',
-              fontSize: '0.8125rem',
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              margin: 0,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            Parameters
-          </h3>
+        {/* Right sidebar */}
+        <div style={{ width: '290px', background: 'var(--bg-surface)', borderLeft: '1px solid var(--border-subtle)', padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0 }}>
 
-          {moduleData.playground.parameters.map((param) => (
-            <div
-              key={param.id}
-              style={{
-                padding: '0.625rem 0.75rem',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--bg-base)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: param.type === 'slider' || param.type === 'stepper' ? '0.375rem' : 0,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '0.8125rem',
-                    fontWeight: 500,
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  {param.label}
-                </span>
-
-                {/* Toggle */}
-                {param.type === 'toggle' && (
+          {/* Chain-rule: graph preset picker */}
+          {isChainRule && (
+            <div>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Graph Preset</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {GRAPH_PRESETS.map(g => (
                   <button
-                    onClick={() => setParam(param.id, !paramValues[param.id])}
-                    style={{
-                      width: '36px',
-                      height: '20px',
-                      borderRadius: '10px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      position: 'relative',
-                      background: paramValues[param.id]
-                        ? 'var(--accent)'
-                        : 'rgba(255,255,255,0.1)',
-                      transition: 'background 0.2s ease',
-                    }}
+                    key={g.id}
+                    onClick={() => setSelectedGraph(g.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.5rem 0.75rem', borderRadius: 7, border: `1px solid ${selectedGraph === g.id ? 'rgba(99,102,241,0.6)' : 'var(--border-subtle)'}`, background: selectedGraph === g.id ? 'rgba(99,102,241,0.12)' : 'transparent', cursor: 'pointer', textAlign: 'left', transition: 'all 0.12s' }}
                   >
-                    <div
-                      style={{
-                        width: '16px',
-                        height: '16px',
-                        borderRadius: '50%',
-                        background: 'white',
-                        position: 'absolute',
-                        top: '2px',
-                        left: paramValues[param.id] ? '18px' : '2px',
-                        transition: 'left 0.2s ease',
-                      }}
-                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: selectedGraph === g.id ? '#a5b4fc' : 'var(--text-primary)', fontWeight: selectedGraph === g.id ? 700 : 400 }}>{g.label}</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{g.description}</div>
+                    </div>
+                    {selectedGraph === g.id && <span style={{ color: '#6366f1', fontSize: '0.8rem' }}>✓</span>}
                   </button>
-                )}
-
-                {/* Stepper value */}
-                {param.type === 'stepper' && (
-                  <span style={{ fontFamily: 'monospace', fontSize: '0.8125rem', color: 'var(--accent)', fontWeight: 600 }}>
-                    {String(paramValues[param.id] ?? param.default)}
-                  </span>
-                )}
-
-                {/* Slider value */}
-                {param.type === 'slider' && (
-                  <span style={{ fontFamily: 'monospace', fontSize: '0.8125rem', color: 'var(--accent)', fontWeight: 600 }}>
-                    {Number(paramValues[param.id] ?? param.default).toFixed(1)}
-                  </span>
-                )}
+                ))}
               </div>
-
-              {/* Stepper buttons */}
-              {param.type === 'stepper' && (
-                <div style={{ display: 'flex', gap: '0.375rem' }}>
-                  <button
-                    onClick={() =>
-                      setParam(param.id, Math.max(param.min ?? 1, Number(paramValues[param.id] ?? param.default) - (param.step ?? 1)))
-                    }
-                    style={{
-                      flex: 1,
-                      padding: '0.25rem',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'var(--bg-hover)',
-                      color: 'var(--text-secondary)',
-                      cursor: 'pointer',
-                      fontSize: '0.8125rem',
-                    }}
-                  >
-                    −
-                  </button>
-                  <button
-                    onClick={() =>
-                      setParam(param.id, Math.min(param.max ?? 10, Number(paramValues[param.id] ?? param.default) + (param.step ?? 1)))
-                    }
-                    style={{
-                      flex: 1,
-                      padding: '0.25rem',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'var(--bg-hover)',
-                      color: 'var(--text-secondary)',
-                      cursor: 'pointer',
-                      fontSize: '0.8125rem',
-                    }}
-                  >
-                    +
-                  </button>
-                </div>
-              )}
-
-              {/* Slider */}
-              {param.type === 'slider' && (
-                <input
-                  type="range"
-                  min={param.min ?? 0}
-                  max={param.max ?? 1}
-                  step={param.step ?? 0.1}
-                  value={Number(paramValues[param.id] ?? param.default)}
-                  onChange={(e) => setParam(param.id, parseFloat(e.target.value))}
-                  style={{ width: '100%', accentColor: 'var(--accent)' }}
-                />
-              )}
             </div>
-          ))}
+          )}
+
+          {/* Parameters */}
+          <div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Parameters</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {moduleData.playground.parameters.map(param => (
+                <div key={param.id} style={{ padding: '0.625rem 0.75rem', borderRadius: 8, background: 'var(--bg-base)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: param.type === 'slider' || param.type === 'stepper' ? '0.4rem' : 0 }}>
+                    <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{param.label}</span>
+
+                    {/* Toggle */}
+                    {param.type === 'toggle' && (
+                      <button
+                        onClick={() => setParam(param.id, !paramValues[param.id])}
+                        style={{ width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer', position: 'relative', background: paramValues[param.id] ? 'var(--accent)' : 'rgba(255,255,255,0.1)', transition: 'background 0.2s' }}
+                      >
+                        <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'white', position: 'absolute', top: 2, left: paramValues[param.id] ? 18 : 2, transition: 'left 0.2s' }} />
+                      </button>
+                    )}
+
+                    {/* Slider value */}
+                    {param.type === 'slider' && (
+                      <span style={{ fontFamily: 'monospace', fontSize: '0.8125rem', color: 'var(--accent)', fontWeight: 600 }}>
+                        {Number(paramValues[param.id] ?? param.default).toFixed(2)}
+                      </span>
+                    )}
+                    {/* Stepper value */}
+                    {param.type === 'stepper' && (
+                      <span style={{ fontFamily: 'monospace', fontSize: '0.8125rem', color: 'var(--accent)', fontWeight: 600 }}>
+                        {String(paramValues[param.id] ?? param.default)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Slider */}
+                  {param.type === 'slider' && (
+                    <input type="range" min={param.min ?? 0} max={param.max ?? 1} step={param.step ?? 0.01} value={Number(paramValues[param.id] ?? param.default)}
+                      onChange={e => setParam(param.id, parseFloat(e.target.value))}
+                      style={{ width: '100%', accentColor: 'var(--accent)' }} />
+                  )}
+
+                  {/* Stepper */}
+                  {param.type === 'stepper' && (
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button onClick={() => setParam(param.id, Math.max(param.min ?? 1, Number(paramValues[param.id] ?? param.default) - (param.step ?? 1)))}
+                        style={{ flex: 1, padding: '0.25rem', border: '1px solid var(--border-subtle)', borderRadius: 5, background: 'var(--bg-hover)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.825rem' }}>−</button>
+                      <button onClick={() => setParam(param.id, Math.min(param.max ?? 100, Number(paramValues[param.id] ?? param.default) + (param.step ?? 1)))}
+                        style={{ flex: 1, padding: '0.25rem', border: '1px solid var(--border-subtle)', borderRadius: 5, background: 'var(--bg-hover)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.825rem' }}>+</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* Try This */}
           {moduleData.playground.tryThis && moduleData.playground.tryThis.length > 0 && (
-            <>
-              <h3
-                style={{
-                  fontFamily: 'var(--font-heading)',
-                  fontSize: '0.8125rem',
-                  fontWeight: 700,
-                  color: 'var(--text-primary)',
-                  margin: '0.5rem 0 0 0',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                }}
-              >
-                💡 Try This
-              </h3>
-              {moduleData.playground.tryThis.map((item, i) => (
-                <p
-                  key={i}
-                  style={{
-                    fontSize: '0.8125rem',
-                    color: 'var(--text-secondary)',
-                    margin: 0,
-                    paddingLeft: '0.75rem',
-                    borderLeft: '2px solid var(--accent-soft)',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {item}
-                </p>
-              ))}
-            </>
+            <div>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>💡 Try This</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {moduleData.playground.tryThis.map((item, i) => (
+                  <div key={i} style={{ padding: '0.5rem 0.75rem', borderRadius: 7, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)', borderLeft: '3px solid rgba(99,102,241,0.5)', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>

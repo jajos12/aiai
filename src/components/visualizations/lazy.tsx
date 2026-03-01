@@ -32,3 +32,11 @@ export const LazyEigenTransform = dynamic(
     loading: () => <VizSkeleton />,
   },
 );
+
+export const LazyLossLandscape3D = dynamic(
+  () => import('@/components/visualizations/LossLandscape3D').then(m => m.LossLandscape3D),
+  {
+    ssr: false,
+    loading: () => <VizSkeleton />,
+  },
+);
