@@ -33,7 +33,7 @@ const optimizationModule: ModuleData = {
           explanation: "L(θ) maps model parameters θ to a scalar measuring prediction error. For MSE loss, it's the average squared difference between predictions and targets. The surface you see is L plotted over 2D parameter space (θ₁, θ₂).",
         },
       },
-      interactionHint: 'Orbit the terrain — drag to rotate, scroll to zoom. Click any point to pin its loss value.',
+      interactionHint: 'Orbit the terrain — drag to rotate, scroll to zoom. The lowest point on the surface is the model minimum.',
     },
 
     // ─────────────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ const optimizationModule: ModuleData = {
           explanation: "∂L/∂θ₁ is literally the slope of L if we walk only in the θ₁ direction, with θ₂ frozen. Every parameter has its own partial derivative. Put them all together and you get the gradient vector.",
         },
       },
-      interactionHint: 'Toggle the axis buttons to switch which dimension you slice. Drag the ball to different positions and watch the partial derivative value update.',
+      interactionHint: 'Toggle the axis buttons to switch between θ₁ and θ₂ slices. Drag the point along the slice to see the partial derivative change.',
     },
 
     // ─────────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ const optimizationModule: ModuleData = {
         correctIndex: 1,
         explanation: "GD moves in direction −∇L = [−2, 3]. We negate the gradient to go downhill instead of uphill. Each component tells us how to adjust the corresponding parameter.",
       },
-      interactionHint: 'Drag the ball anywhere on the surface — the sidebar updates ∂L/∂θ₁, ∂L/∂θ₂, and ∇L live.',
+      interactionHint: 'Drag the gradient ball anywhere on the surface — the sidebar updates ∂L/∂θ₁, ∂L/∂θ₂, and |∇L| live. The cursor turns to a grab hand over the ball.',
     },
 
     // ─────────────────────────────────────────────────────────────
@@ -186,7 +186,7 @@ const optimizationModule: ModuleData = {
           explanation: "This is the first-order Taylor approximation. The dot product ∇L · Δθ tells us how much L changes if we move by Δθ. To decrease L, we need ∇L · Δθ < 0, which is exactly what −η∇L achieves. The approximation breaks down if Δθ is too large — hence the need for controlled learning rates.",
         },
       },
-      interactionHint: 'Drag the ball and watch the tangent plane update. Notice it perfectly matches the surface curvature locally, but drifts away further out.',
+      interactionHint: 'Drag the ball around the surface to see how the gradient arrows (red) and live gradient panel update with position. Orbit to view from different angles.',
     },
 
     // ─────────────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ const optimizationModule: ModuleData = {
           explanation: "This is the complete gradient descent algorithm — one line of math, repeated thousands of times. In a real neural network, θ might be 175 billion numbers (GPT-4), the gradient is computed by backpropagation, and η is tuned by a scheduler. But the update rule is identical.",
         },
       },
-      interactionHint: 'Use the Step Calculator sidebar — click "Next Step" to step manually and follow the arithmetic. Then click "Run" to animate.',
+      interactionHint: 'Drag the ball to set a starting position, then click "Next Step →" in the Step Calculator to advance one step at a time and watch the ball move.',
     },
 
     // ─────────────────────────────────────────────────────────────
@@ -235,7 +235,7 @@ const optimizationModule: ModuleData = {
           explanation: "The optimal LR depends on the loss landscape's curvature. Steep regions need small steps; flat regions can handle larger steps. This mismatch is exactly the problem that adaptive optimizers (RMSProp, Adam) were invented to solve — they tune the effective LR per-parameter automatically.",
         },
       },
-      interactionHint: 'Press ▶ Play, then drag the LR slider. Try η = 0.001 (slow) and η = 2.0 (diverge).',
+      interactionHint: '▶ Play, then drag the LR slider while it runs. Try η = 0.001 (slow crawl) and η = 2.0 (watch it explode). Drag the ball to reset position.',
     },
 
     // ─────────────────────────────────────────────────────────────

@@ -477,7 +477,7 @@ const SaddleMarkers = memo(function SaddleMarkers({
   );
 });
 
-// ── Optimizer Ball ──
+// ── Optimizer Ball (fixed drag: window-level pointer listeners) ──
 function OptimizerBall({
   state,
   landscape,
@@ -485,6 +485,8 @@ function OptimizerBall({
   label,
   showLRPulse,
   lr,
+  orbitRef,
+  onDrag,
 }: {
   state: OptimizerState;
   landscape: LandscapeFn;
@@ -492,34 +494,93 @@ function OptimizerBall({
   label: string;
   showLRPulse?: boolean;
   lr?: number;
+  orbitRef?: React.MutableRefObject<any>;
+  onDrag?: (x: number, y: number) => void;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
+  const { camera, gl } = useThree();
   const x = state.pos[0];
   const y = state.pos[1];
   const z = landscape.f(x, y) * landscape.heightScale + 0.12;
-  const radius = showLRPulse ? 0.08 + Math.min((lr ?? 0.01) * 0.5, 0.15) : 0.1;
+  const radius = showLRPulse ? 0.08 + Math.min((lr ?? 0.01) * 0.5, 0.15) : 0.14;
 
   useFrame(() => {
     if (meshRef.current) {
-      // Smooth lerp to target
-      meshRef.current.position.lerp(new THREE.Vector3(x, z, y), 0.15);
+      meshRef.current.position.lerp(new THREE.Vector3(x, z, y), 0.2);
     }
   });
 
+  // Convert a DOM MouseEvent/PointerEvent to terrain-plane XZ world coordinates
+  const toWorldXZ = useCallback((clientX: number, clientY: number): [number, number] | null => {
+    const el = gl.domElement;
+    const rect = el.getBoundingClientRect();
+    const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const hit = new THREE.Vector3();
+    raycaster.ray.intersectPlane(plane, hit);
+    if (!hit || isNaN(hit.x)) return null;
+    const cx = Math.max(-landscape.range, Math.min(landscape.range, hit.x));
+    const cy = Math.max(-landscape.range, Math.min(landscape.range, hit.z));
+    return [cx, cy];
+  }, [camera, gl, landscape]);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (!onDrag) return;
+    e.stopPropagation();
+
+    // Disable orbit so camera doesn't rotate while we drag
+    if (orbitRef?.current) orbitRef.current.enabled = false;
+    gl.domElement.style.cursor = 'grabbing';
+
+    // Attach window-level listeners — these fire everywhere on screen
+    const handleMove = (ev: PointerEvent) => {
+      const pos = toWorldXZ(ev.clientX, ev.clientY);
+      if (pos) onDrag(pos[0], pos[1]);
+    };
+
+    const handleUp = () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+      if (orbitRef?.current) orbitRef.current.enabled = true;
+      gl.domElement.style.cursor = 'grab';
+    };
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+  }, [onDrag, orbitRef, gl, toWorldXZ]);
+
   return (
     <group>
-      <mesh ref={meshRef} position={[x, z, y]}>
-        <sphereGeometry args={[radius, 24, 24]} />
+      {/* Glow ring beneath ball */}
+      <mesh position={[x, z - 0.04, y]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[radius + 0.05, radius + 0.22, 32]} />
+        <meshBasicMaterial color={color} transparent opacity={0.22} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* Main ball — only needs onPointerDown + hover cursor */}
+      <mesh
+        ref={meshRef}
+        position={[x, z, y]}
+        onPointerDown={onDrag ? handlePointerDown : undefined}
+        onPointerEnter={() => { if (onDrag) gl.domElement.style.cursor = 'grab'; }}
+        onPointerLeave={() => { gl.domElement.style.cursor = 'default'; }}
+      >
+        <sphereGeometry args={[radius, 32, 32]} />
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={0.6}
-          roughness={0.3}
-          metalness={0.2}
+          emissiveIntensity={0.8}
+          roughness={0.1}
+          metalness={0.4}
         />
       </mesh>
+
+      {/* Label */}
       <Text
-        position={[x, z + 0.25, y]}
+        position={[x, z + radius + 0.22, y]}
         fontSize={0.15}
         color={color}
         anchorX="center"
@@ -533,6 +594,7 @@ function OptimizerBall({
 }
 
 // ── Path Trail ──
+// TubeGeometry + waypoint dots so the path is visible over ANY terrain colour
 function PathTrail({
   trail,
   landscape,
@@ -542,25 +604,36 @@ function PathTrail({
   landscape: LandscapeFn;
   color: string;
 }) {
-  const points = useMemo(() => {
-    return trail.map(([x, y]) => {
-      const z = landscape.f(x, y) * landscape.heightScale + 0.05;
+  const points = useMemo(() =>
+    trail.map(([x, y]) => {
+      const z = landscape.f(x, y) * landscape.heightScale + 0.07;
       return new THREE.Vector3(x, z, y);
-    });
-  }, [trail, landscape]);
+    }),
+    [trail, landscape]
+  );
 
-  const lineGeo = useMemo(() => {
+  const tube = useMemo(() => {
     if (points.length < 2) return null;
-    return new THREE.BufferGeometry().setFromPoints(points);
+    const curve = new THREE.CatmullRomCurve3(points);
+    return new THREE.TubeGeometry(curve, Math.max(points.length * 3, 12), 0.03, 6, false);
   }, [points]);
 
-  if (!lineGeo) return null;
-
   return (
-    <line>
-      <bufferGeometry attach="geometry" {...lineGeo} />
-      <lineBasicMaterial color={color} linewidth={2} transparent opacity={0.7} />
-    </line>
+    <group>
+      {/* Tube line */}
+      {tube && (
+        <mesh geometry={tube}>
+          <meshBasicMaterial color={color} transparent opacity={0.9} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+      {/* Bright waypoint dots at each step */}
+      {points.map((p, i) => (
+        <mesh key={i} position={p}>
+          <sphereGeometry args={[i === 0 ? 0.055 : 0.035, 8, 8]} />
+          <meshBasicMaterial color={i === 0 ? '#ffffff' : color} transparent opacity={0.85} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
@@ -753,6 +826,25 @@ export function LossLandscape3D(props: LossLandscape3DProps) {
     });
   }, []);
 
+  // ─── OrbitControls ref for disabling during ball drag ───
+  const orbitRef = useRef<any>(null);
+
+  // Drag handler — teleport ball to dragged position and reset trail+step
+  const handleBallDrag = useCallback((newX: number, newY: number) => {
+    const firstOpt = activeOptimizers[0];
+    if (!firstOpt) return;
+    setIsPlaying(false);
+    const newPos: [number, number] = [newX, newY];
+    const newLoss = land.f(newX, newY);
+    setOptimizerStates(prev => ({
+      ...prev,
+      [firstOpt]: { ...makeInitialState(newPos, newLoss) },
+    }));
+    setTrails(prev => ({ ...prev, [firstOpt]: [newPos] }));
+    setLosses(prev => ({ ...prev, [firstOpt]: [newLoss] }));
+    setStepCount(0);
+  }, [activeOptimizers, land]);
+
   // ═══════════════════════════════════════════════════════════════
   // Render
   // ═══════════════════════════════════════════════════════════════
@@ -779,6 +871,7 @@ export function LossLandscape3D(props: LossLandscape3DProps) {
 
         <CameraSetup range={land.range} />
         <OrbitControls
+          ref={orbitRef}
           enableDamping
           dampingFactor={0.05}
           minDistance={2}
@@ -817,6 +910,8 @@ export function LossLandscape3D(props: LossLandscape3DProps) {
               label={OPTIMIZER_LABELS[opt]}
               showLRPulse={showLRPulse}
               lr={lr}
+              orbitRef={orbitRef}
+              onDrag={interactive && i === 0 ? handleBallDrag : undefined}
             />
           );
         })}
@@ -831,6 +926,67 @@ export function LossLandscape3D(props: LossLandscape3DProps) {
           />
         ))}
       </Canvas>
+
+      {/* ── 2D Mini-Map Position Picker ── shown when interactive */}
+      {interactive && (
+        <div
+          title="Click to reposition the ball"
+          style={{ position: 'absolute', top: '0.6rem', right: '0.6rem', zIndex: 15, width: 90, height: 90 }}
+        >
+          {/* Label */}
+          <div style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 2, fontFamily: 'monospace', letterSpacing: '0.04em' }}>
+            Click to move
+          </div>
+          <svg
+            width={86} height={86}
+            viewBox={`${-land.range} ${-land.range} ${land.range * 2} ${land.range * 2}`}
+            style={{ display: 'block', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', cursor: 'crosshair', background: '#0f1630' }}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const px = ((e.clientX - rect.left) / rect.width) * land.range * 2 - land.range;
+              const py = -((e.clientY - rect.top) / rect.height) * land.range * 2 + land.range;
+              handleBallDrag(px, py);
+            }}
+          >
+            {/* Simple heatmap: 12×12 grid of colored rects */}
+            {Array.from({ length: 12 }, (_, row) =>
+              Array.from({ length: 12 }, (_, col) => {
+                const wx = -land.range + (col / 12) * land.range * 2;
+                const wy = land.range - (row / 12) * land.range * 2;
+                const loss = land.f(wx, wy);
+                const g = land.grad(wx, wy);
+                const gm = Math.sqrt(g[0] * g[0] + g[1] * g[1]);
+                const maxGm = land.range * 3;
+                const t = Math.min(gm / maxGm, 1);
+                const r = Math.round(t * 200);
+                const b = Math.round((1 - t * 0.5) * 220);
+                return (
+                  <rect
+                    key={`${row}-${col}`}
+                    x={wx} y={-wy - land.range * 2 / 12}
+                    width={land.range * 2 / 12}
+                    height={land.range * 2 / 12}
+                    fill={`rgb(${r},30,${b})`}
+                    opacity={0.85}
+                  />
+                );
+              })
+            )}
+            {/* Ball dot */}
+            {activeOptimizers.map(opt => {
+              const st = optimizerStates[opt];
+              if (!st) return null;
+              const color = OPTIMIZER_COLORS[opt];
+              return (
+                <g key={opt}>
+                  <circle cx={st.pos[0]} cy={-st.pos[1]} r={land.range * 0.09} fill={color} opacity={0.9} />
+                  <circle cx={st.pos[0]} cy={-st.pos[1]} r={land.range * 0.15} fill={color} opacity={0.25} />
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      )}
 
       {/* ── 2D Overlay: Controls ── */}
       <div style={{
