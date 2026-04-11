@@ -1,225 +1,103 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { Text, Float, RoundedBox, Box, Line, Sphere, PointMaterial, Points } from '@react-three/drei';
+import * as THREE from 'three';
+import Stage3D from '@/components/shared/Stage3D';
 
 interface Point {
   x: number;
   y: number;
+  z: number;
 }
 
-interface KMeansVisualizationProps {
-  mode?: string;
-  points?: Point[];
-  centroids?: Point[];
-  k?: number;
-  draggableCentroids?: boolean;
-  showAssignments?: boolean;
-  showVoronoi?: boolean;
-  showUpdateAnimation?: boolean;
-  onCentroidsChange?: (centroids: Point[]) => void;
-  interactive?: boolean; // For playground clicking to add points
-}
+export default function KMeansVisualization({ k = 3 }: { k?: number }) {
+  const [centroids, setCentroids] = useState<Point[]>([
+    { x: 2, y: 2, z: 2 },
+    { x: 7, y: 7, z: 7 },
+    { x: 2, y: 7, z: 2 },
+  ]);
 
-export default function KMeansVisualization(props: KMeansVisualizationProps) {
-  const {
-    mode = 'scatter-only',
-    points: initialPoints = [{ x: 5, y: 5 }, { x: 6, y: 6 }],
-    centroids: initialCentroids = [{ x: 4, y: 4 }, { x: 7, y: 7 }],
-    k = 2,
-    draggableCentroids = false,
-    showAssignments = false,
-    showUpdateAnimation = false,
-    onCentroidsChange,
-    interactive = false,
-  } = props;
+  const points: Point[] = useMemo(() => {
+    const pts: Point[] = [];
+    for (let i = 0; i < 100; i++) {
+       pts.push({
+          x: Math.random() * 10,
+          y: Math.random() * 10,
+          z: Math.random() * 10,
+       });
+    }
+    return pts;
+  }, []);
 
-  const [points, setPoints] = useState<Point[]>(initialPoints);
-  const [centroids, setCentroids] = useState<Point[]>(initialCentroids);
-  const [assignments, setAssignments] = useState<number[]>([]);
-  
-  const svgRef = useRef<SVGSVGElement | null>(null);
-  const draggingCentroid = useRef<number | null>(null);
-
-  // Colors for up to 5 clusters
   const clusterColors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
 
-  useEffect(() => {
-    if (props.points) {
-      const frame = requestAnimationFrame(() => setPoints(props.points!));
-      return () => cancelAnimationFrame(frame);
-    }
-  }, [props.points]);
-
-  useEffect(() => {
-    if (props.centroids && !draggingCentroid.current) {
-      const frame = requestAnimationFrame(() => setCentroids(props.centroids!));
-      return () => cancelAnimationFrame(frame);
-    }
-  }, [props.centroids]);
-
-  // Compute Assignments
-  useEffect(() => {
-    if (!showAssignments && mode !== 'challenge') {
-      requestAnimationFrame(() => setAssignments(points.map(() => -1)));
-      return;
-    }
-    
-    // Find closest centroid for each point
-    const newAssignments = points.map(p => {
-      let minDist = Infinity;
-      let minIdx = -1;
-      centroids.forEach((c, i) => {
-        const distSq = (p.x - c.x) ** 2 + (p.y - c.y) ** 2;
-        if (distSq < minDist) {
-          minDist = distSq;
-          minIdx = i;
-        }
-      });
-      return minIdx;
+  const assignments = useMemo(() => {
+    return points.map(p => {
+       let minDist = Infinity;
+       let minIdx = 0;
+       centroids.forEach((c, i) => {
+          const d = (p.x - c.x)**2 + (p.y - c.y)**2 + (p.z - c.z)**2;
+          if (d < minDist) {
+             minDist = d;
+             minIdx = i;
+          }
+       });
+       return minIdx;
     });
-    
-    requestAnimationFrame(() => setAssignments(newAssignments));
-  }, [points, centroids, showAssignments, mode]);
-
-  // Handle Dragging Centroids
-  const handlePointerDown = (e: React.PointerEvent, idx: number) => {
-    if (!draggableCentroids) return;
-    draggingCentroid.current = idx;
-    (e.target as SVGElement).setPointerCapture(e.pointerId);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (draggingCentroid.current === null || !svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    
-    // Map bounding box to 0-10 Cartesian
-    const x = ((e.clientX - rect.left) / rect.width) * 10;
-    const y = 10 - ((e.clientY - rect.top) / rect.height) * 10;
-
-    const newCentroids = [...centroids];
-    newCentroids[draggingCentroid.current] = { x: Math.max(0, Math.min(10, x)), y: Math.max(0, Math.min(10, y)) };
-    
-    setCentroids(newCentroids);
-    if (onCentroidsChange) onCentroidsChange(newCentroids);
-  };
-
-  const handlePointerUp = () => {
-    draggingCentroid.current = null;
-  };
-  
-  // Calculate total inertia (variance)
-  let inertia = 0;
-  if (assignments.length === points.length && centroids.length > 0) {
-     points.forEach((p, i) => {
-        const cIdx = assignments[i];
-        if (cIdx >= 0 && centroids[cIdx]) {
-           inertia += (p.x - centroids[cIdx].x)**2 + (p.y - centroids[cIdx].y)**2;
-        }
-     });
-  }
+  }, [points, centroids]);
 
   return (
-    <div className="w-full flex flex-col md:flex-row gap-6 items-center justify-center p-6 bg-slate-900 rounded-xl max-w-4xl mx-auto">
-      
-      {/* Visualization Canvas */}
-      <div className="relative w-full max-w-[400px] aspect-square shrink-0 bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
-        <svg
-          ref={svgRef}
-          viewBox="0 0 100 100" // 0-10 domain mapped to 0-100 svg units
-          className="w-full h-full"
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-        >
-          {/* Background Grid */}
-          <g opacity="0.1">
-            {[2,4,6,8].map(i => (
-              <React.Fragment key={i}>
-                <line x1={i*10} y1="0" x2={i*10} y2="100" stroke="#fff" />
-                <line x1="0" y1={i*10} x2="100" y2={i*10} stroke="#fff" />
-              </React.Fragment>
-            ))}
-          </g>
-
-          {/* Lines indicating assignments */}
-          {showAssignments && points.map((p, i) => {
-             const cIdx = assignments[i];
-             if (cIdx < 0 || !centroids[cIdx]) return null;
-             return (
-               <line 
-                 key={`assign-${i}`}
-                 x1={p.x * 10} y1={100 - p.y * 10}
-                 x2={centroids[cIdx].x * 10} y2={100 - centroids[cIdx].y * 10}
-                 stroke={clusterColors[cIdx % clusterColors.length]}
-                 strokeWidth="0.5"
-                 strokeDasharray="1,1"
-                 opacity="0.5"
-               />
-             );
-          })}
-
+    <div className="w-full h-full flex flex-col gap-4">
+      <Stage3D cameraPosition={[15, 15, 15]}>
+        <group>
+          {/* 3D Grid */}
+          <gridHelper args={[20, 20, 0x475569, 0x1e293b]} />
+          
           {/* Points */}
-          {points.map((p, i) => {
-             const cIdx = assignments[i];
-             const color = cIdx >= 0 ? clusterColors[cIdx % clusterColors.length] : '#94a3b8';
-             return (
-               <circle 
-                 key={`pt-${i}`}
-                 cx={p.x * 10} cy={100 - p.y * 10} r="1.5" 
-                 fill={color} 
-                 stroke="#fff" strokeWidth="0.3"
-               />
-             );
-          })}
+          {points.map((p, i) => (
+             <mesh key={i} position={[p.x, p.y, p.z]}>
+                <sphereGeometry args={[0.1, 8, 8]} />
+                <meshStandardMaterial color={clusterColors[assignments[i] % clusterColors.length]} />
+             </mesh>
+          ))}
 
           {/* Centroids */}
-          {(mode !== 'scatter-only') && centroids.map((c, i) => {
-             const cx = c.x * 10;
-             const cy = 100 - c.y * 10;
-             const color = clusterColors[i % clusterColors.length];
-             return (
-               <g 
-                 key={`centroid-${i}`} 
-                 transform={`translate(${cx}, ${cy})`}
-                 className={draggableCentroids ? 'cursor-move' : ''}
-                 onPointerDown={(e) => handlePointerDown(e, i)}
-               >
-                 {/* Invisible hit box for easier dragging */}
-                 {draggableCentroids && <circle cx="0" cy="0" r="8" fill="transparent" />}
-                 {/* Star shape for centroid */}
-                 <polygon 
-                   points="0,-4 1,-1 4,-1 1.5,1 2.5,4 0,2 -2.5,4 -1.5,1 -4,-1 -1,-1" 
-                   fill={color} stroke="#fff" strokeWidth="0.5" 
-                 />
-               </g>
-             );
-          })}
-        </svg>
-      </div>
+          {centroids.map((c, i) => (
+             <Float key={i} speed={2} rotationIntensity={0.5}>
+                <mesh position={[c.x, c.y, c.z]}>
+                   <octahedronGeometry args={[0.4, 0]} />
+                   <meshStandardMaterial 
+                      color={clusterColors[i % clusterColors.length]} 
+                      emissive={clusterColors[i % clusterColors.length]} 
+                      emissiveIntensity={2} 
+                   />
+                   <Text position={[0, 0.6, 0]} fontSize={0.2} color="white">CENTROID {i}</Text>
+                </mesh>
+             </Float>
+          ))}
 
-      {/* Info Panel */}
-      <div className="flex flex-col gap-4 w-full max-w-sm font-mono text-slate-300">
-        <div className="p-4 bg-slate-800 rounded border border-slate-700 flex flex-col gap-4">
-           
-           <h3 className="text-blue-400 font-bold uppercase tracking-wider text-xs border-b border-slate-700 pb-2">Clustering Metrics</h3>
-           
-           <div className="flex justify-between items-center text-sm">
-             <span>Number of Clusters (K):</span> <span className="text-white font-bold">{k}</span>
-           </div>
-           
-           <div className="flex justify-between items-center text-sm">
-             <span>Data Points:</span> <span className="text-white font-bold">{points.length}</span>
-           </div>
+          {/* Assignment Beams */}
+          {points.map((p, i) => (
+             <Line 
+                key={i} 
+                points={[[p.x, p.y, p.z], [centroids[assignments[i]].x, centroids[assignments[i]].y, centroids[assignments[i]].z]]} 
+                color={clusterColors[assignments[i] % clusterColors.length]} 
+                lineWidth={0.5} 
+                opacity={0.1} 
+                transparent 
+             />
+          ))}
 
-           {(showAssignments || mode === 'challenge') && (
-               <div className="mt-4 flex justify-between items-center text-lg bg-slate-900 border border-slate-700 p-3 rounded">
-                  <span className="text-slate-400 text-xs uppercase tracking-wider tooltip" title="Sum of squared distances from points to their closest centroid (Inertia)">Total Variance</span> 
-                  <span className="text-amber-400 font-bold">
-                    {inertia.toFixed(2)}
-                  </span>
-               </div>
-           )}
-        </div>
+          <Text position={[5, -2, 5]} fontSize={0.4} color="#475569">
+            K-Means: Partitioning N observations into K clusters.
+          </Text>
+        </group>
+      </Stage3D>
+
+      <div className="flex gap-4 justify-center bg-slate-900 p-4 rounded-xl border border-slate-800">
+         <Text fontSize={12} color="white">Drag centroids to re-cluster (Logic implementation pending UI binding)</Text>
       </div>
     </div>
   );

@@ -8,9 +8,10 @@ import 'katex/dist/katex.min.css';
 interface GoDeeperProps {
   data: GoDeeperType;
   defaultExpanded?: boolean;
+  hideExplanation?: boolean;
 }
 
-export function GoDeeper({ data, defaultExpanded = false }: GoDeeperProps) {
+export function GoDeeper({ data, defaultExpanded = false, hideExplanation = false }: GoDeeperProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   // Render LaTeX to HTML string (memoized)
@@ -100,16 +101,18 @@ export function GoDeeper({ data, defaultExpanded = false }: GoDeeperProps) {
           )}
 
           {/* Explanation */}
-          <p
-            style={{
-              fontSize: '0.875rem',
-              color: 'var(--text-secondary)',
-              lineHeight: 1.7,
-              margin: 0,
-            }}
-          >
-            {data.explanation}
-          </p>
+          {!hideExplanation && (
+            <p
+              style={{
+                fontSize: '0.875rem',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.7,
+                margin: 0,
+              }}
+            >
+              {data.explanation}
+            </p>
+          )}
 
           {/* References */}
           {data.references && data.references.length > 0 && (

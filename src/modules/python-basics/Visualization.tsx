@@ -1,26 +1,136 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-
-/* ═══════════════════════════════════════════════════════════════════
-   Python Basics Visualization — Premium Interactive Syntax Lab
-   ═══════════════════════════════════════════════════════════════════ */
+import React, { useMemo, useState } from 'react';
 
 interface PythonVizProps {
   mode?: string;
+  stage?: number;
 }
 
 export default function PythonVisualization({ mode = 'code-highlight' }: PythonVizProps) {
   const [listData, setListData] = useState([1, 2, 3, 4, 5]);
   const [transform, setTransform] = useState('x * 2');
-  const output = React.useMemo(() => {
+  const output = useMemo(() => {
     try {
       const fn = new Function('x', `return ${transform}`);
       return listData.map(x => fn(x));
-    } catch (e) {
+    } catch {
       return [];
     }
   }, [listData, transform]);
+
+  const card =
+    'rounded-xl border border-slate-700 bg-slate-900/70 p-4 shadow-xl backdrop-blur-sm';
+
+  const renderRoadmap = () => (
+    <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-4">
+      {[
+        {
+          title: 'Stage 1',
+          subtitle: 'Syntax + Types',
+          img: 'https://upload.wikimedia.org/wikipedia/commons/c/c3/Python-logo-notext.svg',
+          points: ['Variables', 'Control flow', 'Functions'],
+        },
+        {
+          title: 'Stage 2',
+          subtitle: 'Data Handling',
+          img: 'https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=800&q=80&auto=format&fit=crop',
+          points: ['Lists + dicts', 'Comprehensions', 'Validation'],
+        },
+        {
+          title: 'Stage 3',
+          subtitle: 'Mini Projects',
+          img: 'https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=800&q=80&auto=format&fit=crop',
+          points: ['Cleaner script', 'Feature builder', 'End-to-end pipeline'],
+        },
+      ].map((item) => (
+        <div key={item.title} className={card}>
+          <div className="h-28 rounded-lg overflow-hidden border border-slate-700 bg-slate-950 mb-3 flex items-center justify-center">
+            <img src={item.img} alt={item.subtitle} className="h-full w-full object-cover" />
+          </div>
+          <p className="text-[11px] uppercase tracking-widest text-indigo-300">{item.title}</p>
+          <h4 className="text-white font-semibold mt-1">{item.subtitle}</h4>
+          <ul className="text-xs text-slate-300 mt-2 space-y-1">
+            {item.points.map((p) => (
+              <li key={p}>• {p}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderTypesLab = () => (
+    <div className={`${card} w-full max-w-2xl`}>
+      <p className="text-xs uppercase tracking-widest text-indigo-300 mb-3">Type Inspector</p>
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        {[
+          { value: '42', type: 'int' },
+          { value: '3.14', type: 'float' },
+          { value: '"hello"', type: 'str' },
+          { value: 'True', type: 'bool' },
+        ].map((row) => (
+          <div key={row.value} className="rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+            <p className="text-slate-200 font-mono">{row.value}</p>
+            <p className="text-emerald-300 mt-1">type {'->'} {row.type}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderFlowControl = () => (
+    <div className={`${card} w-full max-w-3xl`}>
+      <p className="text-xs uppercase tracking-widest text-indigo-300 mb-3">Execution Flow</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+          <p className="text-amber-300 font-semibold">if</p>
+          <p className="text-slate-300 mt-1">Decision branch based on condition.</p>
+        </div>
+        <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+          <p className="text-cyan-300 font-semibold">for</p>
+          <p className="text-slate-300 mt-1">Iterate over dataset samples.</p>
+        </div>
+        <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+          <p className="text-pink-300 font-semibold">while</p>
+          <p className="text-slate-300 mt-1">Repeat until stop condition.</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderFunctionPipeline = () => (
+    <div className={`${card} w-full max-w-3xl`}>
+      <p className="text-xs uppercase tracking-widest text-indigo-300 mb-3">Pipeline by Functions</p>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {['load_data()', 'clean_data()', 'build_features()', 'validate()', 'export()'].map((step, i) => (
+          <React.Fragment key={step}>
+            <div className="rounded-md border border-slate-700 bg-slate-800/60 px-3 py-2 text-slate-200 font-mono">
+              {step}
+            </div>
+            {i < 4 && <span className="text-slate-500">→</span>}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderDataStructures = () => (
+    <div className={`${card} w-full max-w-3xl grid grid-cols-1 md:grid-cols-3 gap-3 text-xs`}>
+      <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+        <p className="text-cyan-300 font-semibold">List</p>
+        <p className="font-mono text-slate-200 mt-1">[0.3, 0.8, 0.1]</p>
+      </div>
+      <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+        <p className="text-amber-300 font-semibold">Dict</p>
+        <p className="font-mono text-slate-200 mt-1">{'{ "age": 21, "label": 1 }'}</p>
+      </div>
+      <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+        <p className="text-emerald-300 font-semibold">Tuple</p>
+        <p className="font-mono text-slate-200 mt-1">(feature, label)</p>
+      </div>
+    </div>
+  );
 
   const renderComprehension = () => (
     <div className="flex flex-col gap-6 p-4">
@@ -110,21 +220,100 @@ export default function PythonVisualization({ mode = 'code-highlight' }: PythonV
     </div>
   );
 
-  return (
-    <div className="w-full h-full bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex flex-col items-center justify-center p-8">
-      {mode === 'interactive-comprehension' && renderComprehension()}
-      {mode === 'class-diagram' && renderClassDiagram()}
-      {mode !== 'interactive-comprehension' && mode !== 'class-diagram' && (
-        <div className="text-center">
+  const renderRuntimeDebug = () => (
+    <div className={`${card} w-full max-w-3xl`}>
+      <p className="text-xs uppercase tracking-widest text-indigo-300 mb-3">Debug & Runtime Safety</p>
+      <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3 font-mono text-xs text-slate-200">
+        <p>try:</p>
+        <p className="pl-4">value = float(raw)</p>
+        <p>except ValueError:</p>
+        <p className="pl-4 text-rose-300">log("invalid row")</p>
+      </div>
+      <p className="text-xs text-slate-400 mt-3">Always fail gracefully and keep a record of bad inputs.</p>
+    </div>
+  );
+
+  const renderProjectStage = (title: string, tasks: string[]) => (
+    <div className={`${card} w-full max-w-3xl`}>
+      <p className="text-xs uppercase tracking-widest text-indigo-300 mb-2">{title}</p>
+      <div className="space-y-2 text-xs">
+        {tasks.map((task, i) => (
+          <div key={task} className="rounded-lg border border-slate-700 bg-slate-800/60 p-3 text-slate-200">
+            <span className="text-indigo-300 font-semibold mr-2">Step {i + 1}.</span>
+            {task}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  function renderMode() {
+    switch (mode) {
+      case 'python-zero':
+      case 'zero-to-one-roadmap':
+        return renderRoadmap();
+      case 'types-lab':
+      case 'variables-memory':
+        return renderTypesLab();
+      case 'flow-control':
+      case 'control-flow':
+        return renderFlowControl();
+      case 'function-pipeline':
+      case 'functions-pipeline':
+        return renderFunctionPipeline();
+      case 'data-structures':
+      case 'dict-data-flow':
+        return renderDataStructures();
+      case 'interactive-comprehension':
+        return renderComprehension();
+      case 'class-diagram':
+        return renderClassDiagram();
+      case 'runtime-debug':
+      case 'env-workflow':
+        return renderRuntimeDebug();
+      case 'project-stage-1':
+        return renderProjectStage('Project Stage 1: Cleaner', [
+          'Validate and parse raw values',
+          'Drop or flag invalid entries',
+          'Output clean schema summary',
+        ]);
+      case 'project-stage-2':
+        return renderProjectStage('Project Stage 2: Features', [
+          'Normalize numerical values',
+          'Encode categorical fields',
+          'Produce deterministic feature vectors',
+        ]);
+      case 'project-stage':
+        return renderProjectStage('Project Checkpoint', [
+          'Implement required script stage',
+          'Run with sample + broken inputs',
+          'Verify output schema and logs',
+        ]);
+      case 'capstone':
+      case 'full-script':
+        return renderProjectStage('Capstone: End-to-End Pipeline', [
+          'Load -> clean -> transform -> validate',
+          'Add CLI parameters and error handling',
+          'Export model-ready output and report',
+        ]);
+      default:
+        return (
+          <div className="text-center">
             <div className="w-24 h-24 mb-6 mx-auto rounded-3xl bg-blue-500/20 flex items-center justify-center border border-blue-500 animate-pulse">
-                <span className="text-4xl text-blue-400">🐍</span>
+              <span className="text-4xl text-blue-400">🐍</span>
             </div>
             <h3 className="text-2xl font-bold text-white mb-2">Python for AI</h3>
             <p className="text-slate-400 max-w-sm">
-                Interactive syntax lab. Select a step to begin exploring advanced Python features.
+              Beginner-first interactive lab with quizzes and project checkpoints.
             </p>
-        </div>
-      )}
+          </div>
+        );
+    }
+  }
+
+  return (
+    <div className="w-full h-full bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex flex-col items-center justify-center p-8">
+      {renderMode()}
     </div>
   );
 }

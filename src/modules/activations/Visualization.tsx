@@ -1,16 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { Text, Line, Float, RoundedBox, Box, Point, Points } from '@react-three/drei';
+import * as THREE from 'three';
+import Stage3D from '@/components/shared/Stage3D';
 
-interface ActivationsVisualizationProps {
-  mode?: string;
-  activation?: string;
-  showDerivative?: boolean;
-  layers?: number;
-  interactive?: boolean;
-}
+// ── Constants ──
 
-// Activation functions and their derivatives
 const activationFns: Record<string, { fn: (x: number) => number; dfn: (x: number) => number; label: string; color: string }> = {
   sigmoid: {
     fn: (x) => 1 / (1 + Math.exp(-x)),
@@ -38,270 +35,136 @@ const activationFns: Record<string, { fn: (x: number) => number; dfn: (x: number
   },
 };
 
+interface ActivationsVisualizationProps {
+  mode?: string;
+  activation?: string;
+  showDerivative?: boolean;
+  layers?: number;
+}
+
+// ── Components ──
+
+function FunctionCurve({ activation, showDerivative }: { activation: string; showDerivative: boolean }) {
+  const act = activationFns[activation] || activationFns.sigmoid;
+  const xMin = -6, xMax = 6;
+  const steps = 100;
+
+  const points = useMemo(() => {
+    const pts: [number, number, number][] = [];
+    for (let i = 0; i <= steps; i++) {
+      const x = xMin + (xMax - xMin) * (i / steps);
+      pts.push([x, act.fn(x), 0]);
+    }
+    return pts;
+  }, [activation]);
+
+  const derivPoints = useMemo(() => {
+    const pts: [number, number, number][] = [];
+    for (let i = 0; i <= steps; i++) {
+      const x = xMin + (xMax - xMin) * (i / steps);
+      pts.push([x, act.dfn(x), 0]);
+    }
+    return pts;
+  }, [activation]);
+
+  return (
+    <group>
+      <Line points={points} color={act.color} lineWidth={4} />
+      {showDerivative && <Line points={derivPoints} color="#fb7185" lineWidth={2} dashed dashScale={1} />}
+      
+      {/* Plane Floor */}
+      <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, -0.01, 0]}>
+          <planeGeometry args={[12, 12]} />
+          <meshStandardMaterial color="#1e293b" opacity={0.5} transparent />
+      </mesh>
+      <gridHelper args={[12, 12, 0x475569, 0x334155]} position={[0, 0, 0]} />
+    </group>
+  );
+}
+
+function GradientHighway({ activation, layers = 10 }: { activation: string; layers: number }) {
+  const act = activationFns[activation] || activationFns.sigmoid;
+  
+  const gradients = useMemo(() => {
+    const mags: number[] = [];
+    let grad = 1.0;
+    for (let i = 0; i < layers; i++) {
+      const typicalInput = 0.5;
+      grad *= act.dfn(typicalInput);
+      mags.push(grad);
+    }
+    return mags;
+  }, [activation, layers]);
+
+  return (
+    <group position={[-(layers/2) * 1.5, 0, 0]}>
+      {gradients.map((mag, i) => {
+        const height = Math.max(0.2, mag * 4);
+        const color = new THREE.Color(act.color).lerp(new THREE.Color('#ef4444'), 1 - mag);
+        return (
+          <group key={i} position={[i * 1.5, height/2, 0]}>
+            <RoundedBox args={[1, height, 1]} radius={0.1}>
+              <meshStandardMaterial color={color} emissive={color} emissiveIntensity={mag * 0.5} />
+            </RoundedBox>
+            <Text position={[0, -1, 0]} fontSize={0.2} color="white">L{layers - i}</Text>
+            {i < layers - 1 && (
+                <Line points={[[0.5, 0, 0], [1, 0, 0]]} color="#475569" transparent opacity={0.3} />
+            )}
+          </group>
+        );
+      })}
+      
+      <Text position={[(layers*1.5)/2, 5, 0]} fontSize={0.4} color="white" fontWeight="bold">
+          {act.label.toUpperCase()} GRADIENT FLOW
+      </Text>
+    </group>
+  );
+}
+
 export default function ActivationsVisualization(props: ActivationsVisualizationProps) {
   const {
     mode = 'function-plot',
-    activation: initialActivation = 'sigmoid',
+    activation = 'sigmoid',
     showDerivative = true,
-    layers: initialLayers = 10,
-    interactive = false,
+    layers = 12,
   } = props;
 
-  const [activation, setActivation] = useState(initialActivation);
-  const [layers, setLayers] = useState(initialLayers);
-  const [hoverX, setHoverX] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (props.activation) {
-      const frame = requestAnimationFrame(() => setActivation(props.activation!));
-      return () => cancelAnimationFrame(frame);
-    }
-  }, [props.activation]);
-
-  useEffect(() => {
-    if (props.layers !== undefined) {
-      const frame = requestAnimationFrame(() => setLayers(props.layers!));
-      return () => cancelAnimationFrame(frame);
-    }
-  }, [props.layers]);
-
-  const act = activationFns[activation] || activationFns.sigmoid;
-
-  // Generate plot path for a function over a range
-  const generatePath = (fn: (x: number) => number, xMin: number, xMax: number, yMin: number, yMax: number): string => {
-    let d = '';
-    const steps = 200;
-    for (let i = 0; i <= steps; i++) {
-      const x = xMin + (xMax - xMin) * (i / steps);
-      const y = fn(x);
-      // Map to SVG coordinates: x -> 0-300, y -> 300-0
-      const svgX = ((x - xMin) / (xMax - xMin)) * 300;
-      const svgY = 250 - ((y - yMin) / (yMax - yMin)) * 200;
-      const clampedY = Math.max(0, Math.min(300, svgY));
-      if (i === 0) d += `M ${svgX} ${clampedY} `;
-      else d += `L ${svgX} ${clampedY} `;
-    }
-    return d;
-  };
-
-  // Gradient Flow Mode
-  if (mode === 'gradient-flow' || mode === 'linear-stack') {
-    const gradientMagnitudes: number[] = [];
-    let grad = 1.0;
-    for (let i = 0; i < layers; i++) {
-      // For gradient flow simulation, we assume a typical input of ~0.5 per layer
-      // The gradient at each layer multiplies by the derivative evaluated at some typical input
-      const typicalInput = 0.5;
-      const localGrad = act.dfn(typicalInput);
-      grad *= localGrad;
-      gradientMagnitudes.push(grad);
-    }
-
-    const firstLayerGrad = gradientMagnitudes[gradientMagnitudes.length - 1] || 0;
-
-    return (
-      <div className="w-full flex flex-col gap-6 items-center justify-center p-6 bg-slate-900 rounded-xl max-w-4xl mx-auto">
-        {/* Activation Selector */}
-        {interactive && (
-          <div className="flex gap-2 flex-wrap">
-            {Object.entries(activationFns).map(([key, val]) => (
-              <button
-                key={key}
-                onClick={() => setActivation(key)}
-                className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
-                  activation === key
-                    ? 'bg-white text-slate-900'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-              >
-                {val.label}
-              </button>
-            ))}
-          </div>
+  return (
+    <div className="w-full h-full relative group">
+      <Stage3D cameraPosition={[8, 5, 12]}>
+        {mode === 'function-plot' && (
+          <group position={[0, -1, 0]}>
+            <FunctionCurve activation={activation} showDerivative={showDerivative} />
+            <Text position={[0, 4, 0]} fontSize={0.5} color="white" fontWeight="bold">
+                {activationFns[activation]?.label} Activation
+            </Text>
+          </group>
         )}
 
-        {/* Gradient Flow Bars */}
-        <div className="w-full flex items-end gap-1 h-[200px] bg-slate-800 rounded-lg p-4 border border-slate-700 overflow-x-auto">
-          {gradientMagnitudes.map((mag, i) => {
-            const height = Math.min(180, Math.max(2, mag * 180));
-            const opacity = Math.max(0.1, Math.min(1, mag));
-            return (
-              <div key={i} className="flex flex-col items-center gap-1 flex-1 min-w-[20px]">
-                <div
-                  className="w-full rounded-t transition-all duration-300"
-                  style={{
-                    height: `${height}px`,
-                    background: act.color,
-                    opacity,
-                  }}
-                />
-                <span className="text-[9px] text-slate-500">L{layers - i}</span>
-              </div>
-            );
-          })}
-        </div>
+        {mode === 'gradient-flow' && (
+          <GradientHighway activation={activation} layers={layers} />
+        )}
+      </Stage3D>
 
-        {/* Info */}
-        <div className="flex flex-col md:flex-row gap-4 w-full">
-          <div className="flex-1 p-4 bg-slate-800 rounded border border-slate-700 font-mono text-sm">
-            <h3 className="text-blue-400 font-bold uppercase tracking-wider text-xs border-b border-slate-700 pb-2 mb-3">Gradient Flow</h3>
-            <div className="flex justify-between items-center">
-              <span>Activation:</span>
-              <span className="font-bold" style={{ color: act.color }}>{act.label}</span>
-            </div>
-            <div className="flex justify-between items-center mt-2">
-              <span>Layers:</span>
-              <span className="text-white font-bold">{layers}</span>
-            </div>
-            <div className="flex justify-between items-center mt-2">
-              <span>Layer 1 Gradient:</span>
-              <span className={`font-bold ${firstLayerGrad > 0.1 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {firstLayerGrad < 0.0001 ? firstLayerGrad.toExponential(2) : firstLayerGrad.toFixed(4)}
-              </span>
+      {/* Stats overlay */}
+      <div className="absolute top-4 left-4 pointer-events-none">
+          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 p-3 rounded-xl shadow-2xl">
+            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Activation Stats</div>
+            <div className="space-y-1">
+                <div className="flex justify-between gap-6">
+                    <span className="text-[10px] text-slate-400">Function</span>
+                    <span className="text-[10px] font-bold text-indigo-400 uppercase">{activation}</span>
+                </div>
+                {mode === 'gradient-flow' && (
+                    <div className="flex justify-between gap-6 pt-1 border-t border-slate-800">
+                        <span className="text-[10px] text-slate-400">Final Signal</span>
+                        <span className="text-[10px] font-mono text-amber-400">
+                            {(activation === 'sigmoid' ? Math.pow(0.25, layers) : 1.0).toExponential(2)}
+                        </span>
+                    </div>
+                )}
             </div>
           </div>
-
-          {interactive && (
-            <div className="flex-1 p-4 bg-slate-800 rounded border border-slate-700 font-mono text-sm">
-              <h3 className="text-blue-400 font-bold uppercase tracking-wider text-xs border-b border-slate-700 pb-2 mb-3">Controls</h3>
-              <label className="block text-slate-400 text-xs mb-1">Layers: {layers}</label>
-              <input
-                type="range" min="1" max="50" value={layers}
-                onChange={(e) => setLayers(parseInt(e.target.value))}
-                className="w-full"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Function Plot Mode
-  const xMin = -6, xMax = 6;
-  const yMin = activation === 'relu' || activation === 'leaky-relu' ? -1 : -1.5;
-  const yMax = activation === 'relu' || activation === 'leaky-relu' ? 3 : 1.5;
-
-  const fnPath = generatePath(act.fn, xMin, xMax, yMin, yMax);
-  const derivPath = showDerivative ? generatePath(act.dfn, xMin, xMax, yMin, yMax) : '';
-
-  // Hover info
-  const hoverFnVal = hoverX !== null ? act.fn(hoverX) : null;
-  const hoverDfnVal = hoverX !== null ? act.dfn(hoverX) : null;
-
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const svgX = ((e.clientX - rect.left) / rect.width) * 300;
-    const x = xMin + (svgX / 300) * (xMax - xMin);
-    setHoverX(x);
-  };
-
-  return (
-    <div className="w-full flex flex-col md:flex-row gap-6 items-center justify-center p-6 bg-slate-900 rounded-xl max-w-4xl mx-auto">
-      
-      {/* Plot */}
-      <div className="relative w-full max-w-[400px] h-[300px] shrink-0 bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
-        <svg
-          viewBox="0 0 300 300"
-          className="w-full h-full"
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHoverX(null)}
-        >
-          {/* Zero Lines */}
-          <line
-            x1="0" y1={250 - ((0 - yMin) / (yMax - yMin)) * 200}
-            x2="300" y2={250 - ((0 - yMin) / (yMax - yMin)) * 200}
-            stroke="rgba(255,255,255,0.15)" strokeWidth="1"
-          />
-          <line
-            x1={((0 - xMin) / (xMax - xMin)) * 300} y1="0"
-            x2={((0 - xMin) / (xMax - xMin)) * 300} y2="300"
-            stroke="rgba(255,255,255,0.15)" strokeWidth="1"
-          />
-
-          {/* Function */}
-          <path d={fnPath} fill="none" stroke={act.color} strokeWidth="3" />
-
-          {/* Derivative */}
-          {showDerivative && (
-            <path d={derivPath} fill="none" stroke="#fb7185" strokeWidth="2" strokeDasharray="6,3" />
-          )}
-
-          {/* Hover Crosshair */}
-          {hoverX !== null && (
-            <g>
-              <line
-                x1={((hoverX - xMin) / (xMax - xMin)) * 300} y1="0"
-                x2={((hoverX - xMin) / (xMax - xMin)) * 300} y2="300"
-                stroke="rgba(255,255,255,0.3)" strokeWidth="1" strokeDasharray="3,3"
-              />
-              <circle
-                cx={((hoverX - xMin) / (xMax - xMin)) * 300}
-                cy={250 - ((act.fn(hoverX) - yMin) / (yMax - yMin)) * 200}
-                r="4" fill={act.color} stroke="#fff" strokeWidth="1"
-              />
-              {showDerivative && (
-                <circle
-                  cx={((hoverX - xMin) / (xMax - xMin)) * 300}
-                  cy={Math.max(0, Math.min(300, 250 - ((act.dfn(hoverX) - yMin) / (yMax - yMin)) * 200))}
-                  r="4" fill="#fb7185" stroke="#fff" strokeWidth="1"
-                />
-              )}
-            </g>
-          )}
-
-          {/* Legend */}
-          <g transform="translate(10, 20)">
-            <rect x="0" y="0" width="8" height="8" fill={act.color} rx="2" />
-            <text x="12" y="8" fill={act.color} fontSize="10" fontWeight="bold">{act.label}(x)</text>
-          </g>
-          {showDerivative && (
-            <g transform="translate(10, 35)">
-              <rect x="0" y="0" width="8" height="8" fill="#fb7185" rx="2" />
-              <text x="12" y="8" fill="#fb7185" fontSize="10" fontWeight="bold">{act.label}&apos;(x)</text>
-            </g>
-          )}
-        </svg>
-      </div>
-
-      {/* Info Panel */}
-      <div className="flex flex-col gap-4 w-full max-w-sm font-mono text-slate-300">
-        <div className="p-4 bg-slate-800 rounded border border-slate-700 flex flex-col gap-3">
-          <h3 className="text-blue-400 font-bold uppercase tracking-wider text-xs border-b border-slate-700 pb-2">{act.label}</h3>
-
-          {hoverX !== null ? (
-            <>
-              <div className="flex justify-between items-center text-sm">
-                <span>Input (x):</span>
-                <span className="text-white font-bold">{hoverX.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span style={{ color: act.color }}>f(x):</span>
-                <span className="text-white font-bold">{hoverFnVal?.toFixed(4)}</span>
-              </div>
-              {showDerivative && (
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-rose-400">f&apos;(x):</span>
-                  <span className="text-white font-bold">{hoverDfnVal?.toFixed(4)}</span>
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="text-slate-500 text-xs">Hover over the plot to see values.</p>
-          )}
-
-          {showDerivative && (
-            <div className="mt-3 p-3 bg-slate-900 rounded border border-slate-700">
-              <span className="text-slate-400 text-xs uppercase tracking-wider">Max Derivative</span>
-              <div className="text-lg font-bold mt-1" style={{ color: act.color }}>
-                {activation === 'sigmoid' ? '0.25 (at x=0)' :
-                 activation === 'tanh' ? '1.0 (at x=0)' :
-                 activation === 'relu' ? '1.0 (for x>0)' :
-                 '1.0 (for x>0)'}
-              </div>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

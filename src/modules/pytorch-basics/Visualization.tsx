@@ -1,108 +1,212 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-
-/* ═══════════════════════════════════════════════════════════════════
-   PyTorch Essentials Visualization — Computation Graph Explorer
-   ═══════════════════════════════════════════════════════════════════ */
+import React, { useState, useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { Sphere, Text, Line, Float, RoundedBox, Box, Torus } from '@react-three/drei';
+import * as THREE from 'three';
+import Stage3D from '@/components/shared/Stage3D';
 
 interface PyTorchVizProps {
   mode?: string;
+  stage?: number;
 }
 
-export default function PyTorchVisualization({ mode = 'tensor-viz' }: PyTorchVizProps) {
-  const [pulse, setPulse] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => setPulse(p => (p + 1) % 100), 50);
-    return () => clearInterval(interval);
-  }, []);
-
-  const renderComputationGraph = () => (
-    <div className="flex justify-center items-center h-[400px]">
-      <svg width="500" height="350" viewBox="0 0 500 350">
-        <defs>
-          <marker id="ptr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--slate-500)" />
-          </marker>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-        </defs>
-
-        {/* Inputs */}
-        <g className="cursor-pointer group">
-            <rect x="50" y="150" width="80" height="40" rx="8" fill="var(--slate-800)" stroke="var(--slate-600)" strokeWidth="2" />
-            <text x="90" y="175" textAnchor="middle" fill="white" fontSize="14">Input X</text>
-        </g>
-        <g className="cursor-pointer group">
-            <rect x="50" y="50" width="80" height="40" rx="8" fill="var(--yellow-600)" fillOpacity="0.2" stroke="var(--yellow-400)" strokeWidth="2" />
-            <text x="90" y="75" textAnchor="middle" fill="var(--yellow-100)" fontSize="14">W (Param)</text>
-        </g>
-
-        {/* Ops */}
-        <line x1="130" y1="170" x2="210" y2="120" stroke="var(--slate-600)" strokeWidth="2" markerEnd="url(#ptr)" />
-        <line x1="130" y1="70" x2="210" y2="110" stroke="var(--slate-600)" strokeWidth="2" markerEnd="url(#ptr)" />
-
-        <circle cx="230" cy="115" r="30" fill="var(--blue-500)" fillOpacity="0.2" stroke="var(--blue-400)" strokeWidth="2" />
-        <text x="230" y="120" textAnchor="middle" fill="white" fontWeight="bold">MUL</text>
-
-        <line x1="260" y1="115" x2="340" y2="115" stroke="var(--slate-600)" strokeWidth="2" markerEnd="url(#ptr)" />
-
-        {/* Output */}
-        <rect x="350" y="90" width="100" height="50" rx="8" fill="var(--pink-600)" fillOpacity="0.2" stroke="var(--pink-400)" strokeWidth="2" />
-        <text x="400" y="122" textAnchor="middle" fill="var(--pink-100)" fontSize="16" fontWeight="bold">LOSS</text>
-
-        {/* Backward Animation (The Miracle of Autograd) */}
-        {pulse > 50 && (
-            <g opacity={(100 - pulse) / 50}>
-                <path d="M 350 115 L 260 115" fill="none" stroke="var(--pink-400)" strokeWidth="4" strokeDasharray="10 5" filter="url(#glow)">
-                    <animate attributeName="stroke-dashoffset" from="0" to="100" dur="1s" repeatCount="indefinite" />
-                </path>
-                <path d="M 200 110 L 130 70" fill="none" stroke="var(--pink-400)" strokeWidth="4" strokeDasharray="10 5" filter="url(#glow)">
-                    <animate attributeName="stroke-dashoffset" from="0" to="100" dur="1s" repeatCount="indefinite" />
-                </path>
-                <text x="260" y="70" fill="var(--pink-300)" fontSize="12" fontWeight="bold">grad_loss / grad_W</text>
-            </g>
-        )}
-      </svg>
-    </div>
-  );
-
-  const renderTrainingLoop = () => (
-      <div className="flex flex-col items-center gap-6">
-          <div className="relative w-64 h-64 border-4 border-dashed border-slate-800 rounded-full flex items-center justify-center">
-              <div className="absolute w-full h-full animate-[spin_10s_linear_infinite]">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-lg">FORWARD</div>
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-24 h-12 bg-pink-500 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-lg">BACKWARD</div>
-                  <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-12 bg-orange-500 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-lg rotate-90">LOSS</div>
-                  <div className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 w-24 h-12 bg-green-500 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-lg rotate-90">OPTIMIZE</div>
-              </div>
-              <div className="text-center">
-                  <span className="text-4xl">⚙️</span>
-                  <p className="text-slate-400 mt-2 font-mono">Epoch: 42</p>
-              </div>
-          </div>
-          <p className="text-slate-400 text-sm italic">The infinite cycle of error and correction.</p>
-      </div>
-  );
+/**
+ * 3D Training Loop Component
+ */
+function TrainingTrack() {
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame((state, delta) => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y += delta * 0.5;
+    }
+  });
 
   return (
-    <div className="w-full h-full bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex flex-col items-center justify-center p-8">
-      {mode === 'computation-graph' && renderComputationGraph()}
-      {mode === 'loop-viz' && renderTrainingLoop()}
-      {mode !== 'computation-graph' && mode !== 'loop-viz' && (
-        <div className="text-center">
-            <div className="w-24 h-24 mb-6 mx-auto rounded-3xl bg-pink-500/20 flex items-center justify-center border border-pink-500 animate-pulse">
-                <span className="text-4xl font-bold text-pink-400">🔥</span>
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-2">PyTorch Essentials</h3>
-            <p className="text-slate-400 max-w-sm">
-                Master the dynamic framework. Select a step to explore Autograd and model lifecycles.
-            </p>
-        </div>
-      )}
+    <group ref={groupRef}>
+      <Torus args={[4, 0.1, 16, 100]} rotation={[Math.PI / 2, 0, 0]}>
+        <meshStandardMaterial color="#334155" />
+      </Torus>
+      
+      {/* Loop Stages */}
+      <group position={[4, 0, 0]}>
+        <RoundedBox args={[1.5, 0.8, 0.5]} radius={0.1}>
+          <meshStandardMaterial color="#3b82f6" />
+        </RoundedBox>
+        <Text position={[0, 0, 0.3]} fontSize={0.2} color="white">FORWARD</Text>
+      </group>
+
+      <group position={[0, 0, 4]}>
+        <RoundedBox args={[1.5, 0.8, 0.5]} radius={0.1}>
+          <meshStandardMaterial color="#f97316" />
+        </RoundedBox>
+        <Text position={[0, 0, 0.3]} fontSize={0.2} color="white">LOSS</Text>
+      </group>
+
+      <group position={[-4, 0, 0]}>
+        <RoundedBox args={[1.5, 0.8, 0.5]} radius={0.1}>
+          <meshStandardMaterial color="#ec4899" />
+        </RoundedBox>
+        <Text position={[0, 0, 0.3]} fontSize={0.2} color="white">BACKWARD</Text>
+      </group>
+
+      <group position={[0, 0, -4]}>
+        <RoundedBox args={[1.5, 0.8, 0.5]} radius={0.1}>
+          <meshStandardMaterial color="#10b981" />
+        </RoundedBox>
+        <Text position={[0, 0, 0.3]} fontSize={0.2} color="white">STEP</Text>
+      </group>
+
+      {/* Moving Car/Particle */}
+      <Float speed={10} rotationIntensity={0} floatIntensity={0}>
+         <Sphere args={[0.2, 16, 16]} position={[4, 0.5, 0]}>
+            <meshStandardMaterial color="white" emissive="white" emissiveIntensity={2} />
+         </Sphere>
+      </Float>
+    </group>
+  );
+}
+
+function InfoCard({ title, bullets }: { title: string; bullets: string[] }) {
+  return (
+    <div className="w-full max-w-3xl rounded-xl border border-slate-700 bg-slate-900/70 p-4 text-xs">
+      <p className="text-[11px] uppercase tracking-widest text-indigo-300">{title}</p>
+      <ul className="mt-2 space-y-1 text-slate-300">
+        {bullets.map((b) => (
+          <li key={b}>• {b}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default function PyTorchVisualization({ mode = 'tensor-viz', stage = 1 }: PyTorchVizProps) {
+  const cardModeMap: Record<string, { title: string; bullets: string[] }> = {
+    'module-lifecycle': {
+      title: 'Model Structure Lifecycle',
+      bullets: [
+        'Declare layers in __init__ and data flow in forward.',
+        'Keep helper logic outside forward for clarity.',
+        'Use smaller submodules for maintainability.',
+      ],
+    },
+    'batch-viz': {
+      title: 'DataLoader Workflow',
+      bullets: [
+        'Dataset defines sample access; DataLoader handles batching/shuffling.',
+        'Validate one batch shape and dtype before long runs.',
+        'Tune batch size and workers based on hardware.',
+      ],
+    },
+    'checkpoint-debug': {
+      title: 'Checkpointing and Debugging',
+      bullets: [
+        'Save model + optimizer state + epoch + best metric.',
+        'Add NaN/Inf checks on loss and gradients.',
+        'Track train/val metrics per epoch for diagnosis.',
+      ],
+    },
+    'project-stage': {
+      title: `Project Stage ${stage}`,
+      bullets:
+        stage === 1
+          ? [
+              'Verify autograd on a toy objective.',
+              'Compare gradient direction with expectations.',
+              'Assert finite gradients before updates.',
+            ]
+          : stage === 2
+            ? [
+                'Implement train/eval loop with mode switching.',
+                'Track metrics and save best checkpoint.',
+                'Add reproducibility seed setup.',
+              ]
+            : [
+                'Train a small MLP end-to-end.',
+                'Report best epoch and final validation metric.',
+                'Resume from checkpoint to verify workflow.',
+              ],
+    },
+    summary: {
+      title: 'Capstone Completion',
+      bullets: [
+        'You can now build reliable PyTorch training scripts.',
+        'Next tiers build on this workflow discipline.',
+        'Keep shape/device/logging checks in every project.',
+      ],
+    },
+  };
+
+  if (cardModeMap[mode]) {
+    const card = cardModeMap[mode];
+    return (
+      <div className="w-full h-full bg-slate-950 rounded-2xl border border-slate-800 p-8 flex items-center justify-center">
+        <InfoCard title={card.title} bullets={card.bullets} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full flex flex-col gap-4">
+      <Stage3D cameraPosition={[6, 5, 10]}>
+        <group>
+          {mode === 'loop-viz' && <TrainingTrack />}
+          
+          {mode === 'computation-graph' && (
+            <group>
+               <RoundedBox position={[-3, 2, 0]} args={[1.5, 1, 0.5]} radius={0.1}>
+                 <meshStandardMaterial color="#facc15" opacity={0.3} transparent />
+               </RoundedBox>
+               <Text position={[-3, 2, 0.3]} fontSize={0.2} color="white">W (PARAM)</Text>
+               
+               <RoundedBox position={[-3, -2, 0]} args={[1.5, 1, 0.5]} radius={0.1}>
+                 <meshStandardMaterial color="#334155" />
+               </RoundedBox>
+               <Text position={[-3, -2, 0.3]} fontSize={0.2} color="white">INPUT X</Text>
+               
+               <Sphere position={[0, 0, 0]} args={[0.5, 32, 32]}>
+                 <meshStandardMaterial color="#3b82f6" />
+               </Sphere>
+               <Text position={[0, 0.7, 0]} fontSize={0.25} color="white">MATMUL</Text>
+               
+               <Line points={[[-2.2, 1.6, 0], [-0.5, 0.4, 0]]} color="#475569" lineWidth={2} />
+               <Line points={[[-2.2, -1.6, 0], [-0.5, -0.4, 0]]} color="#475569" lineWidth={2} />
+               
+               <Line points={[[0.5, 0, 0], [2.5, 0, 0]]} color="#475569" lineWidth={2} />
+               <RoundedBox position={[4, 0, 0]} args={[2, 1.5, 0.5]} radius={0.1}>
+                  <meshStandardMaterial color="#ec4899" opacity={0.3} transparent />
+               </RoundedBox>
+               <Text position={[4, 0, 0.3]} fontSize={0.3} color="white" fontWeight="bold">LOSS</Text>
+
+               {/* Gradient flow animation */}
+               <Float speed={5} rotationIntensity={0} floatIntensity={0}>
+                  <Sphere args={[0.1, 16, 16]} position={[3, 0.2, 0.1]}>
+                    <meshStandardMaterial color="#ec4899" emissive="#ec4899" emissiveIntensity={1} />
+                  </Sphere>
+               </Float>
+               <Text position={[3, -0.5, 0.1]} fontSize={0.15} color="#ec4899">AUTOGRAD FLOW</Text>
+            </group>
+          )}
+
+          {mode === 'tensor-viz' && (
+             <group>
+                {/* 3D Tensor Grid */}
+                {Array.from({length: 27}).map((_, i) => (
+                   <mesh key={i} position={[(i % 3 - 1) * 1.1, (Math.floor(i / 3) % 3 - 1) * 1.1, (Math.floor(i / 9) - 1) * 1.1]}>
+                      <Box args={[0.8, 0.8, 0.8]}>
+                         <meshStandardMaterial color="#ec4899" opacity={0.6} transparent metalness={0.8} roughness={0.2} />
+                      </Box>
+                   </mesh>
+                ))}
+                <Text position={[0, 3, 0]} fontSize={0.4} color="white" fontWeight="bold">3D TENSOR [3, 3, 3]</Text>
+             </group>
+          )}
+
+          <Text position={[0, -5, 0]} fontSize={0.3} color="#475569">
+              PYTORCH 3D: {mode.toUpperCase()}
+          </Text>
+        </group>
+      </Stage3D>
     </div>
   );
 }

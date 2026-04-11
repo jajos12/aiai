@@ -37,6 +37,11 @@ const moduleRegistry: Record<string, () => Promise<Module | ModuleBundle>> = {
   gans: () => import('@/modules/gans'),
   vaes: () => import('@/modules/vaes'),
   alignment: () => import('@/modules/alignment'),
+  'python-zero-to-ai-scripting': () => import('@/modules/python-basics'),
+  'numpy-data-and-performance': () => import('@/modules/numpy-foundations'),
+  'pytorch-training-workflows': () => import('@/modules/pytorch-basics'),
+  'ml-engineering-practices': () => import('@/modules/ml-engineering-practices'),
+  // Backward-compatible aliases for existing links/progress snapshots
   'python-basics': () => import('@/modules/python-basics'),
   'numpy-foundations': () => import('@/modules/numpy-foundations'),
   'pytorch-basics': () => import('@/modules/pytorch-basics'),
@@ -92,9 +97,10 @@ export const MODULE_META: ModuleMeta[] = [
   { id: 'chain-rule', tierId: 0, clusterId: 'calculus', title: 'The Chain Rule', description: 'Gradient flow in graphs.', estimatedMinutes: 50, prerequisites: ['optimization'], difficulty: 'intermediate' },
 
   // Tier 0.5: Engineering (NEW)
-  { id: 'python-basics', tierId: 0.5, clusterId: 'engineering', title: 'Python for AI', description: 'Efficient syntax for data science.', estimatedMinutes: 40, prerequisites: [], difficulty: 'beginner' },
-  { id: 'numpy-foundations', tierId: 0.5, clusterId: 'engineering', title: 'NumPy Foundations', description: 'Vectorized computing and broadcasting.', estimatedMinutes: 40, prerequisites: ['python-basics', 'matrices'], difficulty: 'beginner' },
-  { id: 'pytorch-basics', tierId: 0.5, clusterId: 'engineering', title: 'PyTorch Essentials', description: 'Tensors, Autograd, and Modules.', estimatedMinutes: 50, prerequisites: ['numpy-foundations', 'backpropagation'], difficulty: 'intermediate' },
+  { id: 'python-zero-to-ai-scripting', tierId: 0.5, clusterId: 'engineering', title: 'Python Zero to AI Scripting', description: 'Absolute-beginner Python for practical AI workflows.', estimatedMinutes: 90, prerequisites: [], difficulty: 'beginner' },
+  { id: 'numpy-data-and-performance', tierId: 0.5, clusterId: 'engineering', title: 'NumPy Data and Performance', description: 'Shapes, vectorization, broadcasting, and numerical workflow design.', estimatedMinutes: 85, prerequisites: ['python-zero-to-ai-scripting', 'vectors'], difficulty: 'beginner' },
+  { id: 'pytorch-training-workflows', tierId: 0.5, clusterId: 'engineering', title: 'PyTorch Training Workflows', description: 'Tensors, autograd, training loops, and checkpointed experiments.', estimatedMinutes: 95, prerequisites: ['numpy-data-and-performance'], difficulty: 'intermediate' },
+  { id: 'ml-engineering-practices', tierId: 0.5, clusterId: 'engineering', title: 'ML Engineering Practices', description: 'Reproducibility, debugging, configuration, and production-minded workflow habits.', estimatedMinutes: 80, prerequisites: ['pytorch-training-workflows'], difficulty: 'intermediate' },
 
   // Tier 1: ML Fundamentals
   { id: 'linear-regression', tierId: 1, clusterId: 'ml-fundamentals', title: 'Linear Regression', description: 'Fitting lines to data.', estimatedMinutes: 45, prerequisites: ['vectors', 'optimization'], difficulty: 'beginner' },

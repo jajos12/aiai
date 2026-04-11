@@ -1,222 +1,450 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { Text, Float, RoundedBox, Box, Line, Sphere } from '@react-three/drei';
+import * as THREE from 'three';
+import Stage3D from '@/components/shared/Stage3D';
+import FeatureScalingThreeD from './FeatureScalingThreeD';
 
-// ── Types ──
 interface Point {
   x: number;
   y: number;
+  z: number;
 }
 
-interface LineParams {
-  m: number;
-  b: number;
-}
-
-interface LinearRegressionVisualizationProps {
+interface LinearRegressionProps {
   mode?: string;
-  points?: Point[];
-  line?: LineParams;
-  draggableLine?: boolean;
   showResiduals?: boolean;
   showSquares?: boolean;
   showMSE?: boolean;
-  onLineChange?: (line: LineParams) => void;
+  showRSquared?: boolean;
+  points?: Array<{ x: number; y: number }>;
+  line?: { m: number; b: number };
 }
 
-// ── Constants ──
-const CANVAS_SIZE = 500;
-const PADDING = 40;
-const GRAPH_SIZE = CANVAS_SIZE - PADDING * 2;
-// Logic coordinates from x=0 to 10, y=0 to 10
-const X_MIN = 0;
-const X_MAX = 6;
-const Y_MIN = 0;
-const Y_MAX = 8;
-
-function toSvg(x: number, y: number): [number, number] {
-  const svgX = PADDING + ((x - X_MIN) / (X_MAX - X_MIN)) * GRAPH_SIZE;
-  const svgY = CANVAS_SIZE - PADDING - ((y - Y_MIN) / (Y_MAX - Y_MIN)) * GRAPH_SIZE;
-  return [svgX, svgY];
-}
-
-function fromSvg(svgX: number, svgY: number): [number, number] {
-  const x = X_MIN + ((svgX - PADDING) / GRAPH_SIZE) * (X_MAX - X_MIN);
-  const y = Y_MIN + ((CANVAS_SIZE - PADDING - svgY) / GRAPH_SIZE) * (Y_MAX - Y_MIN);
-  return [x, y];
-}
-
-export default function LinearRegressionVisualization(props: LinearRegressionVisualizationProps) {
-  const {
-    points: initialPoints = [{ x: 1, y: 2 }, { x: 3, y: 4 }, { x: 5, y: 5 }],
-    line: initialLine = { m: 1, b: 1 },
-    draggableLine = false,
-    showResiduals = false,
-    showSquares = false,
-    showMSE = false,
-    onLineChange,
-  } = props;
-
-  const [points, setPoints] = useState<Point[]>(initialPoints);
-  const [line, setLine] = useState<LineParams>(initialLine);
-  const svgRef = useRef<SVGSVGElement | null>(null);
+export default function LinearRegressionVisualization({
+  mode = 'playground',
+  showResiduals = true,
+  showSquares = true,
+  showMSE = true,
+  showRSquared = false,
+  points: inputPoints,
+  line,
+}: LinearRegressionProps) {
+  const [m, setM] = useState(line?.m ?? 1);
+  const [b, setB] = useState(line?.b ?? 0);
 
   useEffect(() => {
-    if (props.points) {
-      const frame = requestAnimationFrame(() => setPoints(props.points!));
-      return () => cancelAnimationFrame(frame);
+    if (line) {
+      setM(line.m);
+      setB(line.b);
     }
-  }, [props.points]);
+  }, [line?.m, line?.b]);
 
-  useEffect(() => {
-    if (props.line) {
-      const frame = requestAnimationFrame(() => setLine(props.line!));
-      return () => cancelAnimationFrame(frame);
-    }
-  }, [props.line]);
+  const points: Point[] = useMemo(() => [
+    ...(inputPoints?.length
+      ? inputPoints.map((p) => ({ x: p.x, y: p.y, z: 0 }))
+      : [
+          { x: 1, y: 2, z: 0 },
+          { x: 2, y: 3.5, z: 0 },
+          { x: 3, y: 4.5, z: 0 },
+          { x: 4, y: 6, z: 0 },
+        ]),
+  ], [inputPoints]);
 
-  // Handle Dragging
-  const activeHandle = useRef<'left' | 'right' | null>(null);
+  const residualRows = useMemo(
+    () =>
+      points.map((p, i) => {
+        const yHat = m * p.x + b;
+        const residual = p.y - yHat;
+        return {
+          idx: i + 1,
+          x: p.x,
+          y: p.y,
+          yHat,
+          residual,
+          absResidual: Math.abs(residual),
+          squaredResidual: residual * residual,
+        };
+      }),
+    [points, m, b],
+  );
 
-  const leftX = 0;
-  const rightX = 6;
-  const leftY = line.m * leftX + line.b;
-  const rightY = line.m * rightX + line.b;
+  const mse =
+    residualRows.length > 0
+      ? residualRows.reduce((sum, row) => sum + row.squaredResidual, 0) / residualRows.length
+      : 0;
+  const mae =
+    residualRows.length > 0
+      ? residualRows.reduce((sum, row) => sum + row.absResidual, 0) / residualRows.length
+      : 0;
 
-  const handlePointerDown = (handle: 'left' | 'right') => (e: React.PointerEvent) => {
-    if (!draggableLine) return;
-    activeHandle.current = handle;
-    (e.target as SVGElement).setPointerCapture(e.pointerId);
-  };
+  const yMean = useMemo(
+    () => (points.length ? points.reduce((s, p) => s + p.y, 0) / points.length : 0),
+    [points],
+  );
+  const ssTot = useMemo(
+    () => points.reduce((s, p) => s + (p.y - yMean) ** 2, 0),
+    [points, yMean],
+  );
+  const ssRes = useMemo(
+    () => residualRows.reduce((s, row) => s + row.squaredResidual, 0),
+    [residualRows],
+  );
+  const rSquared = useMemo(() => {
+    if (ssTot < 1e-12) return null;
+    return 1 - ssRes / ssTot;
+  }, [ssTot, ssRes]);
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!activeHandle.current || !svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const svgX = ((e.clientX - rect.left) / rect.width) * CANVAS_SIZE;
-    const svgY = ((e.clientY - rect.top) / rect.height) * CANVAS_SIZE;
-    const [, dy] = fromSvg(svgX, svgY);
-    
-    setLine((prev) => {
-      let lY = prev.m * leftX + prev.b;
-      let rY = prev.m * rightX + prev.b;
-      
-      if (activeHandle.current === 'left') {
-        lY = Math.max(Y_MIN - 2, Math.min(Y_MAX + 2, dy));
-      } else {
-        rY = Math.max(Y_MIN - 2, Math.min(Y_MAX + 2, dy));
-      }
-      
-      const newM = (rY - lY) / (rightX - leftX);
-      const newB = lY - newM * leftX;
-      const newLine = { m: newM, b: newB };
-      
-      if (onLineChange) onLineChange(newLine);
-      return newLine;
-    });
-  };
+  const showR2Panel = mode === 'residuals-comparison' && showRSquared;
 
-  const handlePointerUp = () => {
-    activeHandle.current = null;
-  };
+  const gdPoints = useMemo(
+    () => [
+      { x: 1, y: 2.2 },
+      { x: 2, y: 3.9 },
+      { x: 3, y: 5.8 },
+      { x: 4, y: 8.1 },
+    ],
+    [],
+  );
+  const [gdM, setGdM] = useState(0.2);
+  const [gdB, setGdB] = useState(0);
+  const [gdLr, setGdLr] = useState(0.05);
+  const [gdHistory, setGdHistory] = useState<Array<{ m: number; b: number }>>([{ m: 0.2, b: 0 }]);
 
-  // derived metrics
-  let totalSqError = 0;
-  points.forEach(p => {
-    const yHat = line.m * p.x + line.b;
-    totalSqError += Math.pow(p.y - yHat, 2);
-  });
-  const mse = totalSqError / points.length;
+  function gdLoss(mVal: number, bVal: number) {
+    const n = gdPoints.length;
+    return (
+      gdPoints.reduce((sum, p) => {
+        const err = p.y - (mVal * p.x + bVal);
+        return sum + err * err;
+      }, 0) / n
+    );
+  }
 
-  const renderGrid = () => {
-    const lines = [];
-    for (let i = X_MIN; i <= X_MAX; i++) {
-      const [x1, y1] = toSvg(i, Y_MIN);
-      const [x2, y2] = toSvg(i, Y_MAX);
-      lines.push(<line key={`vx${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--viz-grid-minor)" strokeWidth={0.5} />);
-      lines.push(<text key={`tx${i}`} x={x1} y={y1 + 15} textAnchor="middle" fontSize={10} fill="var(--viz-axis-label)">{i}</text>);
-    }
-    for (let j = Y_MIN; j <= Y_MAX; j++) {
-      const [x1, y1] = toSvg(X_MIN, j);
-      const [x2, y2] = toSvg(X_MAX, j);
-      lines.push(<line key={`hy${j}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--viz-grid-minor)" strokeWidth={0.5} />);
-      if (j > 0) {
-        lines.push(<text key={`ty${j}`} x={x1 - 15} y={y1 + 3} textAnchor="end" fontSize={10} fill="var(--viz-axis-label)">{j}</text>);
-      }
-    }
-    const [ox, oy] = toSvg(X_MIN, Y_MIN);
-    const [mx, my] = toSvg(X_MAX, Y_MAX);
-    lines.push(<line key="axis-x" x1={ox} y1={oy} x2={mx} y2={oy} stroke="var(--viz-grid-major)" strokeWidth={1.5} />);
-    lines.push(<line key="axis-y" x1={ox} y1={oy} x2={ox} y2={my} stroke="var(--viz-grid-major)" strokeWidth={1.5} />);
-    return <g>{lines}</g>;
-  };
+  function gdGradients(mVal: number, bVal: number) {
+    const n = gdPoints.length;
+    const residualSum = gdPoints.reduce((sum, p) => sum + (p.y - (mVal * p.x + bVal)), 0);
+    const residualXSum = gdPoints.reduce((sum, p) => sum + p.x * (p.y - (mVal * p.x + bVal)), 0);
+    return {
+      dM: (-2 / n) * residualXSum,
+      dB: (-2 / n) * residualSum,
+    };
+  }
 
-  const [lx1, ly1] = toSvg(leftX, leftY);
-  const [lx2, ly2] = toSvg(rightX, rightY);
+  function gdStep() {
+    const { dM, dB } = gdGradients(gdM, gdB);
+    const nextM = gdM - gdLr * dM;
+    const nextB = gdB - gdLr * dB;
+    setGdM(nextM);
+    setGdB(nextB);
+    setGdHistory((prev) => [...prev.slice(-29), { m: nextM, b: nextB }]);
+  }
+
+  function gdReset() {
+    setGdM(0.2);
+    setGdB(0);
+    setGdHistory([{ m: 0.2, b: 0 }]);
+  }
+
+  if (mode === 'gradient-descent') {
+    return (
+      <div className="absolute inset-0 h-full min-h-[100%] w-full bg-[#070a10]">
+        <iframe
+          title="Gradient descent walkthrough"
+          src="/gradient-descent-sd/index.html?embed=1"
+          className="block h-full w-full border-0"
+          allow="autoplay"
+        />
+      </div>
+    );
+  }
+
+  if (mode === 'matrix-animation') {
+    return (
+      <div className="absolute inset-0 h-full min-h-[100%] w-full bg-[#070a10]">
+        <iframe
+          title="Linear regression matrix form walkthrough"
+          src="/linear-regression-matrix-sd/index.html?embed=1"
+          className="block h-full w-full border-0"
+          allow="autoplay"
+        />
+      </div>
+    );
+  }
+
+  if (mode === 'scaling-three') {
+    return (
+      <div className="absolute inset-0 flex h-full min-h-0 w-full flex-col overflow-hidden bg-slate-950">
+        <FeatureScalingThreeD />
+      </div>
+    );
+  }
+
+  if (mode === 'gradient-descent-interactive') {
+    const { dM, dB } = gdGradients(gdM, gdB);
+    const currentLoss = gdLoss(gdM, gdB);
+    const mapRange = { mMin: -0.5, mMax: 3, bMin: -1, bMax: 4 };
+    const svgW = 420;
+    const svgH = 260;
+    const mapX = (mVal: number) => ((mVal - mapRange.mMin) / (mapRange.mMax - mapRange.mMin)) * svgW;
+    const mapY = (bVal: number) => svgH - ((bVal - mapRange.bMin) / (mapRange.bMax - mapRange.bMin)) * svgH;
+    const pathD = gdHistory
+      .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${mapX(p.m).toFixed(1)} ${mapY(p.b).toFixed(1)}`)
+      .join(' ');
+    const lrProfile =
+      gdLr < 0.02
+        ? { label: 'Too Small (slow progress)', color: 'text-amber-300' }
+        : gdLr > 0.12
+          ? { label: 'Too Large (risk of overshoot)', color: 'text-rose-300' }
+          : { label: 'Balanced (usually stable)', color: 'text-emerald-300' };
+
+    return (
+      <div className="flex h-full w-full flex-col gap-3 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-4">
+        <div className="flex shrink-0 items-center justify-between text-xs">
+          <div className="text-slate-300">
+            <span className="text-slate-400">Current MSE:</span>{' '}
+            <span className="font-bold text-cyan-300">{currentLoss.toFixed(5)}</span>
+          </div>
+          <div className="text-slate-300">
+            <span className="text-slate-400">Gradient:</span>{' '}
+            <span className="font-mono text-amber-300">
+              dM={dM.toFixed(3)}, dB={dB.toFixed(3)}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-[1fr_230px]">
+          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-2">
+            <svg viewBox={`0 0 ${svgW} ${svgH}`} className="h-[min(280px,40vh)] w-full">
+              {[0.35, 0.5, 0.68, 0.82].map((r) => (
+                <ellipse
+                  key={r}
+                  cx={mapX(1.95)}
+                  cy={mapY(0.2)}
+                  rx={(svgW * r) / 2.4}
+                  ry={(svgH * r) / 3}
+                  fill="none"
+                  stroke="#334155"
+                  strokeWidth="1.2"
+                />
+              ))}
+              <text x="12" y="20" fill="#94a3b8" fontSize="11">
+                Loss contour map J(m, b)
+              </text>
+              <path d={pathD} fill="none" stroke="#f59e0b" strokeWidth="2.2" />
+              <circle cx={mapX(gdM)} cy={mapY(gdB)} r="6" fill="#22d3ee" />
+              <line
+                x1={mapX(gdM)}
+                y1={mapY(gdB)}
+                x2={mapX(gdM - 0.2 * dM)}
+                y2={mapY(gdB - 0.2 * dB)}
+                stroke="#f87171"
+                strokeWidth="2"
+              />
+              <text x={mapX(gdM) + 8} y={mapY(gdB) - 8} fill="#e2e8f0" fontSize="10">
+                current (m,b)
+              </text>
+            </svg>
+          </div>
+
+          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-200">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-indigo-300">Controls</p>
+            <div className="mt-3 space-y-2">
+              <p>
+                m: <code>{gdM.toFixed(3)}</code>
+              </p>
+              <p>
+                b: <code>{gdB.toFixed(3)}</code>
+              </p>
+              <label className="block text-slate-400">Learning rate: {gdLr.toFixed(3)}</label>
+              <input
+                type="range"
+                min="0.005"
+                max="0.2"
+                step="0.005"
+                value={gdLr}
+                onChange={(e) => setGdLr(parseFloat(e.target.value))}
+                className="w-full"
+              />
+              <p className={`text-[11px] ${lrProfile.color}`}>{lrProfile.label}</p>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={gdStep}
+                  className="rounded-md bg-cyan-700 px-3 py-1.5 font-semibold text-white"
+                >
+                  Step Once
+                </button>
+                <button type="button" onClick={gdReset} className="rounded-md bg-slate-700 px-3 py-1.5 text-white">
+                  Reset
+                </button>
+              </div>
+            </div>
+            <p className="mt-3 text-slate-400">
+              Orange path: past steps. Cyan: current (m, b). Red arrow: gradient direction (step opposite to
+              minimize loss).
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative w-full aspect-square max-w-[500px] mx-auto select-none touch-none">
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}`}
-        className="w-full h-full bg-slate-900 rounded-xl overflow-hidden"
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+    <div
+      className={
+        showR2Panel
+          ? 'absolute inset-0 flex h-full min-h-0 w-full flex-col gap-2'
+          : 'relative flex h-full w-full flex-col gap-4'
+      }
+    >
+      <div className={showR2Panel ? 'relative min-h-0 flex-1' : 'relative'}>
+      <Stage3D
+        cameraPosition={[10, 8, 15]}
+        containerClassName={showR2Panel ? 'h-full min-h-[280px] rounded-xl' : undefined}
       >
-        {renderGrid()}
+        <group>
+          {/* 3D Grid & Axes */}
+          <gridHelper args={[20, 20, 0x475569, 0x1e293b]} />
+          <axesHelper args={[10]} />
 
-        {/* Residuals */}
-        {showResiduals && points.map((p, i) => {
-          const yHat = line.m * p.x + line.b;
-          const [px, py] = toSvg(p.x, p.y);
-          const [cx, cy] = toSvg(p.x, yHat);
-          
-          let squareObj = null;
-          if (showSquares) {
-            const side = Math.abs(cy - py);
-            const sqX = p.x > (X_MAX/2) ? px - side : px; // draw left or right
-            const sqY = Math.min(py, cy);
-            squareObj = (
-              <rect x={sqX} y={sqY} width={side} height={side} fill="rgba(248, 113, 113, 0.2)" stroke="#f87171" strokeDasharray="3,3" />
-            );
-          }
+          {/* Data Points */}
+          {points.map((p, i) => {
+            const yHat = m * p.x + b;
+            const residual = p.y - yHat;
+            const residualMidY = (p.y + yHat) / 2;
+            return (
+             <group key={i}>
+                <mesh position={[p.x, p.y, p.z]}>
+                   <sphereGeometry args={[0.15, 32, 32]} />
+                   <meshStandardMaterial color="#3b82f6" emissive="#3b82f6" emissiveIntensity={0.5} />
+                </mesh>
+                
+                {/* Residuals */}
+                {showResiduals && (
+                   <Line 
+                      points={[[p.x, p.y, p.z], [p.x, yHat, p.z]]}
+                      color="#f87171" 
+                      lineWidth={2} 
+                      dashed 
+                   />
+                )}
 
-          return (
-            <g key={`res${i}`}>
-              {squareObj}
-              <line x1={px} y1={py} x2={cx} y2={cy} stroke="#f87171" strokeWidth={2} strokeDasharray="4,4" />
-            </g>
+                {/* Squared Error Volume */}
+                {showSquares && (
+                   <mesh position={[p.x, residualMidY, p.z]}>
+                      <boxGeometry args={[0.15, Math.max(Math.abs(residual), 0.01), 0.15]} />
+                      <meshStandardMaterial color="#ef4444" opacity={0.2} transparent />
+                   </mesh>
+                )}
+
+                {mode === 'residuals' && showResiduals && (
+                  <Text position={[p.x + 0.22, residualMidY, p.z]} fontSize={0.12} color="#fca5a5">
+                    {`e${i + 1}=${residual.toFixed(2)}`}
+                  </Text>
+                )}
+             </group>
           );
-        })}
+          })}
 
-        {/* The Line */}
-        <line x1={lx1} y1={ly1} x2={lx2} y2={ly2} stroke="var(--accent)" strokeWidth={3} />
+          {/* Regression line */}
+          <Line
+            points={[
+              [0, m * 0 + b, 0],
+              [6, m * 6 + b, 0],
+            ]}
+            color="#6366f1"
+            lineWidth={3}
+          />
 
-        {/* Handles */}
-        {draggableLine && (
-          <>
-            <circle cx={lx1} cy={ly1} r={12} fill="var(--accent)" opacity={0.3} style={{ cursor: 'ns-resize' }} />
-            <circle cx={lx1} cy={ly1} r={6} fill="var(--accent)" stroke="white" strokeWidth={2} style={{ cursor: 'ns-resize' }} onPointerDown={handlePointerDown('left')} />
-            
-            <circle cx={lx2} cy={ly2} r={12} fill="var(--accent)" opacity={0.3} style={{ cursor: 'ns-resize' }} />
-            <circle cx={lx2} cy={ly2} r={6} fill="var(--accent)" stroke="white" strokeWidth={2} style={{ cursor: 'ns-resize' }} onPointerDown={handlePointerDown('right')} />
-          </>
-        )}
+          {showR2Panel && (
+            <Line
+              points={[
+                [0, yMean, 0],
+                [6, yMean, 0],
+              ]}
+              color="#fb923c"
+              lineWidth={2}
+              dashed
+            />
+          )}
 
-        {/* Points */}
-        {points.map((p, i) => {
-          const [px, py] = toSvg(p.x, p.y);
-          return (
-            <circle key={`pt${i}`} cx={px} cy={py} r={5} fill="#60a5fa" stroke="white" strokeWidth={1.5} />
-          );
-        })}
+          <Text position={[0, -1.4, 0]} fontSize={0.22} color="#475569">
+            {showR2Panel
+              ? 'Purple: your line · Orange dashed: mean baseline · Compare MSE and R² as you drag sliders.'
+              : 'Linear Regression: Minimizing the sum of squared residuals.'}
+          </Text>
+        </group>
+      </Stage3D>
 
-      </svg>
+      {showR2Panel && (
+        <div className="pointer-events-none absolute top-3 right-3 z-10 min-w-[210px] rounded-lg border border-slate-600 bg-slate-900/95 px-4 py-3 text-slate-100 shadow-2xl">
+          <div>
+            <span className="text-[11px] uppercase tracking-wider text-slate-300">Fit vs mean baseline</span>
+          </div>
+          <div className="mt-1 text-xl font-bold leading-none text-amber-300">
+            MAE: <code>{mae.toFixed(4)}</code>
+          </div>
+          <div className="mt-1 text-xl font-bold leading-none text-cyan-300">
+            MSE: <code>{mse.toFixed(4)}</code>
+          </div>
+          <div className="mt-1 text-xl font-bold leading-none text-emerald-300">
+            R²:{' '}
+            <code>{rSquared === null ? '—' : rSquared.toFixed(4)}</code>
+          </div>
+          <p className="mt-2 text-xs text-slate-400">
+            R² = 1 − SS<sub>res</sub> / SS<sub>tot</sub> for these points (undefined if all y are identical).
+          </p>
+        </div>
+      )}
+      </div>
+
+      {mode === 'residuals' && (
+        <div className="absolute top-3 right-3 z-10 pointer-events-none bg-slate-900/95 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 shadow-2xl min-w-[190px]">
+          <div>
+            <span className="text-[11px] uppercase tracking-wider text-slate-300">Live Error</span>
+          </div>
+          <div className="mt-1 text-xl font-bold text-amber-300 leading-none">
+            MAE: <code>{mae.toFixed(4)}</code>
+          </div>
+          <div className="text-slate-400 mt-2 text-xs">Mean absolute residual (updates as line moves)</div>
+        </div>
+      )}
+
+      {showMSE && (mode === 'interactive' || mode === 'squared-error') && !showR2Panel && (
+        <div className="absolute top-3 left-3 z-10 pointer-events-none bg-slate-900/95 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 shadow-2xl min-w-[190px]">
+          <div>
+            <span className="text-[11px] uppercase tracking-wider text-slate-300">Live Loss</span>
+          </div>
+          <div className="mt-1 text-xl font-bold text-cyan-300 leading-none">
+            MSE: <code>{mse.toFixed(4)}</code>
+          </div>
+          <div className="text-slate-400 mt-2 text-xs">Mean squared error (updates as line moves)</div>
+        </div>
+      )}
       
-      {showMSE && (
-        <div className="absolute top-4 left-4 bg-slate-800/80 px-3 py-2 rounded-lg border border-slate-700 backdrop-blur text-sm font-mono flex flex-col items-start gap-1">
-          <span className="text-yellow-400">MSE: {mse.toFixed(3)}</span>
-          <span className="text-indigo-400">y = {line.m.toFixed(2)}x + {line.b.toFixed(2)}</span>
+      <div
+        className={`flex justify-center gap-4 rounded-xl border border-slate-800 bg-slate-900 p-4 ${showR2Panel ? 'shrink-0' : ''}`}
+      >
+         <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-slate-400 uppercase font-bold">Slope (m): {m.toFixed(2)}</label>
+            <input type="range" min="-2" max="2" step="0.1" value={m} onChange={(e) => setM(parseFloat(e.target.value))} className="w-32" />
+         </div>
+         <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-slate-400 uppercase font-bold">Intercept (b): {b.toFixed(2)}</label>
+            <input type="range" min="-5" max="5" step="0.1" value={b} onChange={(e) => setB(parseFloat(e.target.value))} className="w-32" />
+         </div>
+      </div>
+
+      {showMSE &&
+        mode !== 'residuals' &&
+        mode !== 'interactive' &&
+        mode !== 'squared-error' &&
+        !showR2Panel && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-300">
+          MSE: <code>{mse.toFixed(4)}</code>
         </div>
       )}
     </div>

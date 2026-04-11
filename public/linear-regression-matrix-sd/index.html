@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Linear regression — matrix form</title>
+  <style>
+    :root {
+      --bg: #070a10;
+      --panel: rgba(18, 24, 36, 0.92);
+      --text: #e8eef7;
+      --muted: #8b9cb8;
+      --accent: #38bdf8;
+      --accent2: #c084fc;
+      --bar-bg: #1a2233;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+    .layout {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 100%;
+    }
+    .title-standalone {
+      flex-shrink: 0;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 1px solid #1e293b;
+    }
+    .embed .title-standalone { display: none; }
+    #stage {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      background: radial-gradient(ellipse 80% 70% at 50% 20%, #1a1f3a 0%, #070a10 65%);
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #hud {
+      flex-shrink: 0;
+      position: relative;
+      z-index: 20;
+      padding: 8px 12px 10px;
+      background: var(--panel);
+      border-top: 1px solid rgba(56, 189, 248, 0.15);
+      backdrop-filter: blur(10px);
+    }
+    .bar {
+      height: 4px;
+      background: var(--bar-bg);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      border-radius: 2px;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    button {
+      background: #1e293b;
+      color: var(--text);
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 7px 14px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    button:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .time {
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-left: auto;
+    }
+    #chapter {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent2);
+      margin-bottom: 4px;
+    }
+    #cap {
+      font-size: clamp(0.78rem, 1.6vw, 0.92rem);
+      line-height: 1.5;
+      color: #cbd5e1;
+      max-height: clamp(3.2rem, 14vh, 5.5rem);
+      overflow-y: auto;
+    }
+    .hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .embed .hint { display: none; }
+  </style>
+</head>
+<body>
+  <div class="layout" id="layout">
+    <div class="title-standalone">Linear regression — matrix form walkthrough</div>
+    <div id="stage"><canvas id="c" aria-label="Matrix form animation"></canvas></div>
+    <div id="hud">
+      <div id="chapter"></div>
+      <div class="bar"><i id="prog"></i></div>
+      <div class="controls">
+        <button type="button" id="play">Play</button>
+        <button type="button" id="restart">Restart</button>
+        <span class="time"><span id="cur">0:00</span> / <span id="tot">—</span></span>
+      </div>
+      <div id="cap"></div>
+      <p class="hint">Tip: Space toggles play/pause.</p>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  const DURATION = 48;
+  const BASE_W = 640;
+  const BASE_H = 480;
+
+  const params = new URLSearchParams(location.search);
+  if (params.has("embed")) document.getElementById("layout").classList.add("embed");
+
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const stage = document.getElementById("stage");
+  const capEl = document.getElementById("cap");
+  const chapterEl = document.getElementById("chapter");
+  const progEl = document.getElementById("prog");
+  const curEl = document.getElementById("cur");
+  const playBtn = document.getElementById("play");
+  const restartBtn = document.getElementById("restart");
+  const totEl = document.getElementById("tot");
+
+  let viewW = 640;
+  let viewH = 480;
+  let dpr = 1;
+  let t = 0;
+  let playing = false;
+  let lastTs = 0;
+
+  function fmt(sec) {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return m + ":" + String(s).padStart(2, "0");
+  }
+  totEl.textContent = fmt(DURATION);
+
+  const cues = [
+    { start: 0, end: 5, chapter: "Why matrices", text: "Instead of n separate equations, we pack all samples into one matrix multiply. That is how NumPy, PyTorch, and JAX compute predictions in one shot." },
+    { start: 5, end: 10, chapter: "Scalar picture", text: "For each row i: y-hat_i = m·x_i + b. Three points means three lines of algebra — same pattern repeated." },
+    { start: 10, end: 17, chapter: "Design matrix X", text: "Stack x values in a column; add a column of ones for the intercept. Each row is one sample. This n×2 matrix is called the design matrix X." },
+    { start: 17, end: 22, chapter: "Targets y", text: "Stack all observed outputs into a vector y. One height per row of X — the pair (row i of X, entry i of y) is one training example." },
+    { start: 22, end: 29, chapter: "Weights w", text: "Put slope m and intercept b into a column vector w = [m, b]^T. Two unknowns for affine regression with one feature." },
+    { start: 29, end: 35, chapter: "Prediction ŷ = Xw", text: "Matrix multiply: each row of X dots with w, producing ŷ. That is every prediction at once — exactly the same as the scalar formulas." },
+    { start: 35, end: 40, chapter: "Loss", text: "Residuals are y − ŷ. Mean squared error averages squared errors — compactly written with norms in matrix notation for proofs and code." },
+    { start: 40, end: 45, chapter: "Normal equation", text: "For small problems, w* = (X^T X)^(-1) X^T y solves the least-squares problem directly — no gradient-descent loop. Invertibility needs full column rank." },
+    { start: 45, end: 48, chapter: "Recap", text: "X holds inputs (+ bias column), y holds labels, w holds parameters, ŷ = Xw holds all predictions. Matrix form is the bridge to scalable ML." },
+  ];
+
+  function setHud(time) {
+    const c = cues.find((x) => time >= x.start && time < x.end);
+    capEl.textContent = c ? c.text : "";
+    chapterEl.textContent = c ? c.chapter : "";
+  }
+
+  function resize() {
+    const r = stage.getBoundingClientRect();
+    viewW = Math.max(200, Math.floor(r.width));
+    viewH = Math.max(160, Math.floor(r.height));
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    canvas.width = Math.floor(viewW * dpr);
+    canvas.height = Math.floor(viewH * dpr);
+    canvas.style.width = viewW + "px";
+    canvas.style.height = viewH + "px";
+  }
+  new ResizeObserver(resize).observe(stage);
+  resize();
+
+  function lerp(a, b, u) { return a + (b - a) * u; }
+  function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+  function smoothstep(a, b, x) {
+    const t = clamp((x - a) / (b - a), 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
+  function withLogicalDraw(fn) {
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const s = Math.min(viewW / BASE_W, viewH / BASE_H);
+    const ox = (viewW - BASE_W * s) / 2;
+    const oy = (viewH - BASE_H * s) / 2;
+    ctx.translate(ox, oy);
+    ctx.scale(s, s);
+    fn();
+    ctx.restore();
+  }
+
+  function drawBackdrop() {
+    const g = ctx.createRadialGradient(BASE_W * 0.45, BASE_H * 0.2, 0, BASE_W * 0.5, BASE_H * 0.55, BASE_W * 0.85);
+    g.addColorStop(0, "#1e2454");
+    g.addColorStop(0.5, "#0c1028");
+    g.addColorStop(1, "#060912");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, BASE_W, BASE_H);
+  }
+
+  function roundRectPath(x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  /** Matrix: rows x cols, cell strings */
+  function drawMatrix(cells, ox, oy, cw, ch, title, highlight, alpha) {
+    const rows = cells.length;
+    const cols = cells[0].length;
+    ctx.globalAlpha = alpha;
+    if (title) {
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "600 12px ui-monospace, monospace";
+      ctx.fillText(title, ox, oy - 8);
+    }
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        const x = ox + j * cw;
+        const y = oy + i * ch;
+        const hi = highlight && highlight[0] === i && highlight[1] === j;
+        const empty = !cells[i][j];
+        ctx.fillStyle = hi ? "rgba(56,189,248,0.25)" : empty ? "rgba(15,23,42,0.5)" : "rgba(30,41,59,0.85)";
+        ctx.strokeStyle = hi ? "#38bdf8" : "#334155";
+        ctx.lineWidth = hi ? 2 : 1;
+        roundRectPath(x + 2, y + 2, cw - 4, ch - 4, 6);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = empty ? "#475569" : "#e2e8f0";
+        ctx.font = "600 14px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(cells[i][j] || "·", x + cw / 2, y + ch / 2);
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawVector(vals, ox, oy, cw, ch, title, highlightRow, alpha) {
+    const rows = vals.length;
+    ctx.globalAlpha = alpha;
+    if (title) {
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "600 12px ui-monospace, monospace";
+      ctx.fillText(title, ox, oy - 8);
+    }
+    for (let i = 0; i < rows; i++) {
+      const x = ox;
+      const y = oy + i * ch;
+      const hi = highlightRow === i;
+      const empty = !vals[i];
+      ctx.fillStyle = hi ? "rgba(192,132,252,0.22)" : empty ? "rgba(15,23,42,0.5)" : "rgba(30,41,59,0.85)";
+      ctx.strokeStyle = hi ? "#c084fc" : "#334155";
+      ctx.lineWidth = hi ? 2 : 1;
+      roundRectPath(x + 2, y + 2, cw - 4, ch - 4, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = empty ? "#475569" : "#e2e8f0";
+      ctx.font = "600 14px ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(vals[i] || "·", x + cw / 2, y + ch / 2);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawBrace(x, y0, y1) {
+    ctx.strokeStyle = "#64748b";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y0);
+    ctx.quadraticCurveTo(x - 10, (y0 + y1) / 2, x, y1);
+    ctx.stroke();
+  }
+
+  function drawTitleLine(sub, u) {
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#f8fafc";
+    ctx.font = "bold 30px system-ui, sans-serif";
+    ctx.fillText("Linear regression", BASE_W / 2, BASE_H / 2 - 36);
+    ctx.font = "600 20px system-ui, sans-serif";
+    ctx.fillStyle = "#7dd3fc";
+    ctx.fillText("Matrix form", BASE_W / 2, BASE_H / 2 - 4);
+    ctx.font = "14px system-ui, sans-serif";
+    ctx.fillStyle = `rgba(148,163,184,${0.5 + u * 0.5})`;
+    ctx.fillText(sub, BASE_W / 2, BASE_H / 2 + 28);
+    ctx.textAlign = "left";
+  }
+
+  const Xdata = [["1", "1"], ["2", "1"], ["3", "1"]];
+  const ydata = ["2.0", "3.5", "5.0"];
+
+  function frame(time) {
+    t = clamp(time, 0, DURATION);
+    progEl.style.width = (t / DURATION * 100) + "%";
+    curEl.textContent = fmt(t);
+    setHud(t);
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#060912";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    withLogicalDraw(() => {
+      drawBackdrop();
+      const cw = 44;
+      const ch = 36;
+
+      if (t < 5) {
+        drawTitleLine("X, y, w, and one multiply", smoothstep(0, 3.5, t));
+        return;
+      }
+
+      if (t < 10) {
+        ctx.fillStyle = "#cbd5e1";
+        ctx.font = "600 13px ui-monospace, monospace";
+        const lines = [
+          "ŷ₁ = m·x₁ + b",
+          "ŷ₂ = m·x₂ + b",
+          "ŷ₃ = m·x₃ + b",
+        ];
+        const xs = [1, 2, 3];
+        const prog = smoothstep(5, 9, t) * 3;
+        for (let i = 0; i < 3; i++) {
+          const u = clamp(prog - i, 0, 1);
+          ctx.globalAlpha = u;
+          ctx.fillText(lines[i], 48, 120 + i * 36);
+          ctx.fillStyle = "#64748b";
+          ctx.font = "12px ui-monospace, monospace";
+          ctx.fillText("  (x=" + xs[i] + ")", 220, 120 + i * 36);
+          ctx.fillStyle = "#cbd5e1";
+          ctx.font = "600 13px ui-monospace, monospace";
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "12px system-ui, sans-serif";
+        ctx.fillText("Same structure on every row → pack into X and w", 48, 260);
+        return;
+      }
+
+      if (t < 17) {
+        const prog = smoothstep(10, 16, t) * 6;
+        const cells = [[0, 0], [0, 0], [0, 0]].map((row, i) =>
+          row.map((_, j) => {
+            const idx = i * 2 + j;
+            return prog > idx + 1 ? Xdata[i][j] : "";
+          }),
+        );
+        drawMatrix(cells, 80, 100, cw, ch, "X  (n × 2)", null, 1);
+        drawBrace(72, 108, 108 + 3 * ch);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "11px system-ui, sans-serif";
+        ctx.fillText("column: feature x", 200, 125);
+        ctx.fillText("column: 1 (bias)", 200, 145);
+        return;
+      }
+
+      if (t < 22) {
+        drawMatrix(Xdata, 80, 100, cw, ch, "X", null, 1);
+        drawBrace(72, 108, 108 + 3 * ch);
+        const prog = smoothstep(17, 21, t) * 3;
+        const yshow = ydata.map((v, i) => (prog > i + 0.5 ? v : ""));
+        drawVector(yshow, 280, 100, cw + 10, ch, "y", null, 1);
+        drawBrace(268, 108, 108 + 3 * ch);
+        return;
+      }
+
+      if (t < 29) {
+        drawMatrix(Xdata, 70, 95, cw, ch, "X", null, 1);
+        const prog = smoothstep(22, 28, t) * 2;
+        const wshow = [prog > 0.6 ? "m" : "", prog > 1.4 ? "b" : ""];
+        drawVector(wshow, 250, 118, cw + 10, ch * 0.95, "w", null, 1);
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 22px ui-monospace, monospace";
+        ctx.fillText("·", 220, 155);
+        return;
+      }
+
+      if (t < 35) {
+        drawMatrix(Xdata, 50, 90, cw, ch, "X", null, 1);
+        drawVector(["m", "b"], 220, 112, cw + 8, ch * 0.95, "w", null, 1);
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 20px ui-monospace, monospace";
+        ctx.fillText("=", 305, 148);
+        const prog = smoothstep(29, 34, t) * 3;
+        const yhat = ["m+b", "2m+b", "3m+b"];
+        const shown = yhat.map((v, i) => (prog > i + 0.4 ? v : ""));
+        const pulseRow = smoothstep(31, 35, t) > 0.35 ? Math.floor(t * 5.5) % 3 : -1;
+        drawVector(shown, 330, 90, cw + 36, ch, "ŷ = Xw", pulseRow, 1);
+        return;
+      }
+
+      if (t < 40) {
+        drawMatrix(Xdata, 50, 75, cw, ch, "X", null, 0.45);
+        drawVector(["m", "b"], 220, 95, cw + 8, ch * 0.95, "w", null, 0.45);
+        drawVector(["m+b", "2m+b", "3m+b"], 330, 75, cw + 36, ch, "ŷ", null, 0.45);
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "600 15px ui-monospace, monospace";
+        ctx.fillText("y − ŷ  →  squared  →  mean  =  MSE", 70, 240);
+        const u = smoothstep(35, 39, t);
+        ctx.strokeStyle = `rgba(248,113,113,${0.3 + u * 0.5})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(60, 255);
+        ctx.lineTo(420, 255);
+        ctx.stroke();
+        ctx.fillStyle = "#fca5a5";
+        ctx.font = "12px system-ui, sans-serif";
+        ctx.fillText("Minimize average squared residual", 70, 278);
+        return;
+      }
+
+      if (t < 45) {
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "600 14px ui-monospace, monospace";
+        ctx.fillText("w* = (X^T X)^(-1) X^T y", 90, 130);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "12px system-ui, sans-serif";
+        ctx.fillText("Closed-form least squares (small n, well-conditioned X)", 90, 158);
+        const u = smoothstep(40, 44, t);
+        ctx.strokeStyle = `rgba(56,189,248,${0.2 + u * 0.6})`;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(70, 95, 500, 120);
+        ctx.fillStyle = "#7dd3fc";
+        ctx.font = "11px ui-monospace, monospace";
+        ctx.fillText("Requires X^T X invertible (full column rank)", 90, 188);
+        ctx.fillStyle = "#64748b";
+        ctx.font = "11px system-ui, sans-serif";
+        ctx.fillText("Large-scale training usually uses iterative solvers / SGD instead", 90, 210);
+        return;
+      }
+
+      drawTitleLine("ŷ = Xw  ·  batch-friendly  ·  same math", 1);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "13px system-ui, sans-serif";
+      ctx.fillText("Replay anytime — next: feature scaling in the lesson.", BASE_W / 2, BASE_H / 2 + 58);
+      ctx.textAlign = "left";
+    });
+  }
+
+  function tick(ts) {
+    if (!lastTs) lastTs = ts;
+    const dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    if (playing) {
+      t += dt;
+      if (t >= DURATION) {
+        t = DURATION;
+        playing = false;
+        playBtn.textContent = "Play";
+      }
+    }
+    frame(t);
+    requestAnimationFrame(tick);
+  }
+
+  playBtn.addEventListener("click", () => {
+    playing = !playing;
+    playBtn.textContent = playing ? "Pause" : "Play";
+    if (playing && t >= DURATION) t = 0;
+    lastTs = 0;
+  });
+  restartBtn.addEventListener("click", () => {
+    t = 0;
+    playing = true;
+    playBtn.textContent = "Pause";
+    lastTs = 0;
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.code === "Space") {
+      e.preventDefault();
+      playBtn.click();
+    }
+  });
+
+  frame(0);
+  requestAnimationFrame(tick);
+  if (/[?&]autoplay=1(?:&|$)/.test(location.search)) {
+    playing = true;
+    playBtn.textContent = "Pause";
+  }
+})();
+  </script>
+</body>
+</html>

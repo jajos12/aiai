@@ -102,6 +102,7 @@ export function getTierRecommendation(tierId: number): string | undefined {
   const tier = getTierMeta(tierId);
   if (!tier) return undefined;
   if (tierId === 0) return 'Recommended start';
+  if (tierId === 0.5) return 'Recommended after core Tier 0 foundations';
 
   const thresholdPercent = Math.round(tier.recommendedCompletionRatio * 100);
   return `Recommended after ${thresholdPercent}% of Tier ${tierId - 1}`;

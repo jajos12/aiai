@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { EigenTransform as Visualization } from './Visualization';
+import { EigenvalueTransform as Visualization } from './Visualization';
 import type { Challenge } from '@/core/types';
 
 interface Mat2 { a: number; b: number; c: number; d: number }

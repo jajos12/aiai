@@ -1,146 +1,155 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { Text, Float, RoundedBox, Box, Line, Sphere, Trail, Float as DreiFloat } from '@react-three/drei';
+import * as THREE from 'three';
+import Stage3D from '@/components/shared/Stage3D';
 
-/* ═══════════════════════════════════════════════════════════════════
-   LLMTraining Redesign — High-Fidelity Visualizer
-   Bespoke modes for Tokenization, SFT, and LoRA.
-   ═══════════════════════════════════════════════════════════════════ */
+// ── Components ──
 
-interface LLMVizProps {
-  mode?: string;
-  intensity?: number;
+function TokenBlock({ text, position, color, index }: { text: string; position: [number, number, number]; color: string; index: number }) {
+  return (
+    <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5} position={position}>
+      <RoundedBox args={[text.length * 0.3 + 0.5, 0.6, 0.2]} radius={0.1}>
+        <meshStandardMaterial color={color} opacity={0.8} transparent />
+      </RoundedBox>
+      <Text position={[0, 0, 0.15]} fontSize={0.3} color="white" fontWeight="bold">
+        {text}
+      </Text>
+      <Text position={[0, -0.6, 0]} fontSize={0.1} color="#94a3b8">ID: {Math.floor(Math.random() * 50000)}</Text>
+    </Float>
+  );
 }
 
-export default function LLMTrainingVisualization({ mode = 'tokenizer-interactive', intensity = 1 }: LLMVizProps) {
-  const [inputText, setInputText] = useState('Deep learning is powerful');
+function LoRAMatrices({ rank = 4 }: { rank: number }) {
+  const groupRef = useRef<THREE.Group>(null);
   
-  // ── Mode: Tokenizer ──
-  const renderTokenizer = () => {
-    // Fake sub-word tokenization
-    const tokens = inputText.match(/.{1,4}/g) || [];
-    const colors = ['bg-indigo-500/20', 'bg-purple-500/20', 'bg-amber-500/20', 'bg-emerald-500/20'];
-
-    return (
-      <div className="flex flex-col gap-6 w-full max-w-lg">
-        <div className="flex flex-col gap-2">
-            <span className="text-[10px] uppercase font-bold text-slate-500">Try Input:</span>
-            <input 
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                className="bg-slate-800 border border-slate-700 p-3 rounded-lg text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="Type something..."
-            />
-        </div>
-
-        <div className="flex flex-wrap gap-2 p-6 bg-slate-800/50 rounded-xl border border-dashed border-slate-700 min-h-[100px] items-center justify-center">
-            {tokens.map((t, i) => (
-                <div key={i} className={`px-3 py-1.5 rounded border border-white/10 ${colors[i % colors.length]} flex flex-col items-center animate-in fade-in zoom-in duration-300`}>
-                    <span className="text-white font-bold font-mono text-lg">{t}</span>
-                    <span className="text-[8px] text-slate-400 font-mono">ID: {Math.floor(Math.random() * 50000)}</span>
-                </div>
-            ))}
-        </div>
-      </div>
-    );
-  };
-
-  const renderLoRA = () => {
-     const rank = Math.max(2, Math.floor(intensity * 10));
-     return (
-        <div className="flex flex-col items-center gap-8 w-full max-w-lg">
-            <div className="flex items-center gap-4">
-               <div className="w-32 h-32 bg-slate-800 border-2 border-slate-600 rounded flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 opacity-20 bg-[grid:10px_10px]" />
-                  <span className="text-[10px] font-bold text-slate-400 rotate-[-45deg]">FROZEN W</span>
-               </div>
-               <span className="text-2xl text-slate-600 font-black">+</span>
-               <div className="flex flex-col gap-2 items-center">
-                  <div className="w-32 h-10 bg-indigo-500/30 border border-indigo-400 rounded flex items-center justify-center">
-                     <span className="text-[10px] font-bold text-indigo-300">MATRIX A (r={rank})</span>
-                  </div>
-                  <div className="w-10 h-32 bg-indigo-500/30 border border-indigo-400 rounded flex items-center justify-center">
-                     <span className="text-[10px] font-bold text-indigo-400 -rotate-90">MATRIX B</span>
-                  </div>
-               </div>
-            </div>
-            <div className="text-center bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-               <span className="text-xs text-slate-400">Total Trainable Parameters: <span className="text-indigo-400 font-bold">{rank * 256}</span></span>
-               <div className="w-full h-1 bg-slate-900 mt-2 rounded">
-                  <div className="h-full bg-indigo-500" style={{ width: `${(rank / 10) * 100}%` }} />
-               </div>
-            </div>
-        </div>
-     );
-  };
-
-  const renderSFT = () => {
-    return (
-      <div className="flex flex-col gap-6 w-full max-w-lg items-center">
-        <div className="flex gap-4">
-            <div className="w-16 h-16 bg-slate-800 rounded border border-slate-700 flex items-center justify-center font-bold text-slate-400">GPT</div>
-            <div className="flex flex-col justify-center">
-                <span className="text-sm font-bold text-white">Instruction Tuning (SFT)</span>
-                <span className="text-xs text-slate-500">Learning to be a helpful assistant</span>
-            </div>
-        </div>
-        <div className="w-full bg-slate-800/50 p-4 rounded border border-dashed border-indigo-500/50">
-            <p className="text-xs text-indigo-300 font-mono italic">User: &quot;Explain quantum physics to a 5-year-old&quot;</p>
-            <p className="text-xs text-emerald-400 font-mono mt-2">Assistant: &quot;Imagine everything is made of tiny magic balls...&quot;</p>
-        </div>
-      </div>
-    );
-  };
-
-  const renderRLHF = () => {
-    return (
-        <div className="flex flex-col items-center gap-6 w-full max-w-lg">
-            <div className="relative w-48 h-48 rounded-full border-2 border-slate-800 flex items-center justify-center">
-                <div className="absolute inset-0 animate-spin-slow">
-                    <div className="absolute top-0 left-1/2 -ml-4 w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] text-white font-bold">LLM</div>
-                    <div className="absolute bottom-0 left-1/2 -ml-4 w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-[10px] text-white font-bold">RW</div>
-                </div>
-                <div className="text-center">
-                    <span className="text-2xl">⚖️</span>
-                    <p className="text-[10px] font-bold text-slate-400 mt-2">RLHF LOOP</p>
-                </div>
-            </div>
-            <div className="flex gap-4">
-                <div className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded text-[10px]">Response A (👍)</div>
-                <div className="px-3 py-1 bg-red-500/20 text-red-400 rounded text-[10px]">Response B (👎)</div>
-            </div>
-        </div>
-    );
-  };
-
-  const renderCLM = () => (
-    <div className="flex flex-col gap-4 items-center">
-        <div className="flex gap-2 font-mono text-lg">
-            <span className="text-slate-500">The</span>
-            <span className="text-slate-500">cat</span>
-            <span className="text-slate-500">sat</span>
-            <span className="text-slate-500">on</span>
-            <span className="text-indigo-400 font-bold underline animate-pulse">the</span>
-            <span className="text-slate-700">???</span>
-        </div>
-        <div className="flex gap-2">
-            <div className="px-2 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded text-xs text-indigo-300">mat (85%)</div>
-            <div className="px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-500">floor (10%)</div>
-        </div>
-    </div>
+  return (
+    <group ref={groupRef}>
+      {/* Frozen Base Weight W */}
+      <group position={[-2, 0, 0]}>
+         <RoundedBox args={[2, 2, 0.2]} radius={0.05}>
+            <meshStandardMaterial color="#1e293b" metalness={0.8} roughness={0.2} />
+         </RoundedBox>
+         <Text position={[0, 1.3, 0]} fontSize={0.2} color="#64748b">FROZEN BASE WEIGHT (W)</Text>
+      </group>
+      
+      <Text position={[0, 0, 0]} fontSize={0.5} color="#475569">+</Text>
+      
+      {/* Trainable Matrices A & B */}
+      <group position={[2, 0, 0]}>
+         <group position={[0, 0.6, 0]}>
+            <RoundedBox args={[2, rank * 0.2, 0.1]} radius={0.05}>
+               <meshStandardMaterial color="#6366f1" emissive="#6366f1" emissiveIntensity={0.5} />
+            </RoundedBox>
+            <Text position={[0, 0.6, 0]} fontSize={0.15} color="#a5b4fc">A (d x r)</Text>
+         </group>
+         <group position={[0, -0.6, 0]}>
+            <RoundedBox args={[rank * 0.2, 2, 0.1]} radius={0.05}>
+               <meshStandardMaterial color="#818cf8" emissive="#818cf8" emissiveIntensity={0.5} />
+            </RoundedBox>
+            <Text position={[0, -1.3, 0]} fontSize={0.15} color="#a5b4fc">B (r x d)</Text>
+         </group>
+         <Text position={[0, 1.8, 0]} fontSize={0.2} color="white" fontWeight="bold">TRAINABLE LOW-RANK ADAPTERS</Text>
+      </group>
+    </group>
   );
+}
+
+function RLHFLoop() {
+  const meshRef = useRef<THREE.Group>(null);
+  useFrame((state) => {
+    if (meshRef.current) {
+        meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.5;
+    }
+  });
 
   return (
-    <div className="w-full min-h-[400px] flex flex-col items-center justify-center p-8 bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl relative overflow-hidden group">
-      {mode === 'tokenizer-interactive' && renderTokenizer()}
-      {mode === 'lo-ra-viz' && renderLoRA()}
-      {mode === 'sft-viz' && renderSFT()}
-      {mode === 'rlhf-loop-viz' && renderRLHF()}
-      {mode === 'clm-viz' && renderCLM()}
+    <group ref={meshRef}>
+      <mesh rotation={[Math.PI/2, 0, 0]}>
+         <torusGeometry args={[3, 0.02, 16, 100]} />
+         <meshStandardMaterial color="#475569" />
+      </mesh>
       
-      {!['tokenizer-interactive', 'lo-ra-viz', 'sft-viz', 'rlhf-loop-viz', 'clm-viz'].includes(mode) && (
-          <div className="text-slate-500 font-mono text-sm uppercase tracking-widest">
-             {mode.replace(/-/g, ' ')}
+      <group position={[3, 0, 0]}>
+         <Sphere args={[0.3, 16, 16]}>
+            <meshStandardMaterial color="#3b82f6" emissive="#3b82f6" emissiveIntensity={1} />
+         </Sphere>
+         <Text position={[0, 0.6, 0]} fontSize={0.2} color="white">LLM</Text>
+      </group>
+      
+      <group position={[-3, 0, 0]}>
+         <Sphere args={[0.3, 16, 16]}>
+            <meshStandardMaterial color="#f59e0b" emissive="#f59e0b" emissiveIntensity={1} />
+         </Sphere>
+         <Text position={[0, 0.6, 0]} fontSize={0.2} color="white">REWARD MODEL</Text>
+      </group>
+      
+      <DreiFloat speed={5}>
+         <Text position={[0, 0, 0]} fontSize={0.4} color="white" fontWeight="bold">ALIGNMENT CYCLE</Text>
+      </DreiFloat>
+    </group>
+  );
+}
+
+export default function LLMTrainingVisualization({ mode = 'tokenizer-interactive', intensity = 1 }: { mode?: string; intensity?: number }) {
+  const [inputText, setInputText] = useState('Deep learning is powerful');
+  const tokens = useMemo(() => inputText.match(/.{1,4}/g) || [], [inputText]);
+  const colors = ['#6366f1', '#a855f7', '#f59e0b', '#10b981'];
+
+  return (
+    <div className="w-full h-full relative group">
+      <Stage3D cameraPosition={[6, 5, 8]}>
+        {mode === 'tokenizer-interactive' && (
+           <group position={[-((tokens.length-1)*0.8)/2, 0, 0]}>
+              {tokens.map((t, i) => (
+                 <TokenBlock key={i} text={t} position={[i * 1.5, 0, 0]} color={colors[i % colors.length]} index={i} />
+              ))}
+              <Text position={[((tokens.length-1)*1.5)/2, 3, 0]} fontSize={0.4} color="white" fontWeight="bold">3D TOKENIZATION</Text>
+           </group>
+        )}
+
+        {mode === 'lo-ra-viz' && (
+           <LoRAMatrices rank={Math.max(2, Math.floor(intensity * 10))} />
+        )}
+
+        {mode === 'rlhf-loop-viz' && (
+           <RLHFLoop />
+        )}
+
+        {(mode === 'sft-viz' || mode === 'clm-viz') && (
+           <group>
+               <Float speed={2}>
+                  <RoundedBox args={[4, 1, 0.1]} radius={0.1}>
+                     <meshStandardMaterial color="#1e293b" />
+                  </RoundedBox>
+                  <Text position={[0, 0, 0.1]} fontSize={0.2} color="#818cf8" maxWidth={3.5}>
+                     {mode === 'sft-viz' ? "Instruction: Summarize this text." : "Input: The cat sat on the..."}
+                  </Text>
+               </Float>
+               <Float speed={3} position={[0, -2, 0]}>
+                  <RoundedBox args={[4, 1, 0.1]} radius={0.1}>
+                     <meshStandardMaterial color="#065f46" opacity={0.6} transparent />
+                  </RoundedBox>
+                  <Text position={[0, 0, 0.1]} fontSize={0.2} color="#34d399" maxWidth={3.5}>
+                     {mode === 'sft-viz' ? "Response: [High Fidelity Summary]" : "Output: ...mat (85%)"}
+                  </Text>
+               </Float>
+               <Text position={[0, 2.5, 0]} fontSize={0.4} color="white" fontWeight="bold">{mode.toUpperCase()}</Text>
+           </group>
+        )}
+      </Stage3D>
+
+      {/* Input overlay for tokenizer */}
+      {mode === 'tokenizer-interactive' && (
+          <div className="absolute top-6 left-6 pointer-events-auto">
+              <input 
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  className="bg-slate-900/80 backdrop-blur-md border border-slate-700 p-2 rounded-lg text-white font-mono text-xs focus:ring-1 focus:ring-blue-500 outline-none w-48"
+                  placeholder="Type to tokenize..."
+              />
           </div>
       )}
     </div>

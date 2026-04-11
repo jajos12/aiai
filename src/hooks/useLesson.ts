@@ -138,17 +138,22 @@ export function useLesson({
     [currentStep.id, onAnswerQuiz],
   );
 
-  // Keyboard navigation (← →)
+  // Keyboard navigation (← → only)
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       // Don't capture when focus is in input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      // Allow page scrolling keys to behave naturally.
+      if (e.key === 'PageDown' || e.key === 'PageUp' || e.key === 'Home' || e.key === 'End' || e.key === ' ') {
+        return;
+      }
+
+      if (e.key === 'ArrowRight') {
         e.preventDefault();
         if (canGoNext) goNext();
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         if (canGoBack) goBack();
       }
