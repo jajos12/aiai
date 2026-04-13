@@ -21,15 +21,22 @@ export const TIER_META: TierMeta[] = [
   {
     id: 0,
     title: 'Mathematical Foundations',
-    emoji: '\uD83D\uDFE2',
+    emoji: '🟢',
     description:
       'Vectors, matrices, calculus, probability - the building blocks of everything in AI.',
     recommendedCompletionRatio: 0,
   },
   {
+    id: 0.5,
+    title: 'Engineering & Tooling',
+    emoji: '🛠️',
+    description: 'Python, NumPy, and PyTorch — the essential tools for implementing AI research.',
+    recommendedCompletionRatio: 0.5,
+  },
+  {
     id: 1,
     title: 'ML Fundamentals',
-    emoji: '\uD83D\uDD35',
+    emoji: '🔵',
     description:
       'Linear regression, gradient descent, classification - your first machine learning systems.',
     recommendedCompletionRatio: 0.7,
@@ -95,6 +102,7 @@ export function getTierRecommendation(tierId: number): string | undefined {
   const tier = getTierMeta(tierId);
   if (!tier) return undefined;
   if (tierId === 0) return 'Recommended start';
+  if (tierId === 0.5) return 'Recommended after core Tier 0 foundations';
 
   const thresholdPercent = Math.round(tier.recommendedCompletionRatio * 100);
   return `Recommended after ${thresholdPercent}% of Tier ${tierId - 1}`;

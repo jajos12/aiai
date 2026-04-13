@@ -1,0 +1,150 @@
+
+> ai_playground@0.1.0 lint
+> eslint
+
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/hooks/useLesson.ts
+  53:3  warning  'tierId' is defined but never used    @typescript-eslint/no-unused-vars
+  54:3  warning  'moduleId' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/attention/Visualization.tsx
+   3:38  warning  'useCallback' is defined but never used    @typescript-eslint/no-unused-vars
+  19:5   warning  'mode' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/backpropagation/ChallengeCanvas.tsx
+   3:20  warning  'useCallback' is defined but never used              @typescript-eslint/no-unused-vars
+  13:10  warning  'loss' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  24:13  warning  'setW' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  25:13  warning  'setB' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  28:9   warning  'lr' is assigned a value but never used              @typescript-eslint/no-unused-vars
+  58:10  error    'interval' is never reassigned. Use 'const' instead  prefer-const
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/backpropagation/Visualization.tsx
+  30:7  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/backpropagation/Visualization.tsx:30:7
+  28 |   useEffect(() => {
+  29 |     if (props.values) {
+> 30 |       setX(props.values.x ?? x);
+     |       ^^^^ Avoid calling setState() directly within an effect
+  31 |       setW(props.values.w ?? w);
+  32 |       setB(props.values.b ?? b);
+  33 |       setTarget(props.values.target ?? target);  react-hooks/set-state-in-effect
+  35:6  warning  React Hook useEffect has missing dependencies: 'b', 'target', 'w', and 'x'. Either include them or remove the dependency array. You can also do a functional update 'setX(x => ...)' if you only need 'x' in the 'setX' call                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                react-hooks/exhaustive-deps
+  39:7  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/backpropagation/Visualization.tsx:39:7
+  37 |   useEffect(() => {
+  38 |     if (props.learningRate !== undefined) {
+> 39 |       setLr(props.learningRate);
+     |       ^^^^^ Avoid calling setState() directly within an effect
+  40 |     }
+  41 |   }, [props.learningRate]);
+  42 |                                                             react-hooks/set-state-in-effect
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/chain-rule/ComputationGraph.tsx
+  3:27  warning  'useCallback' is defined but never used  @typescript-eslint/no-unused-vars
+  3:51  warning  'useRef' is defined but never used       @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/chain-rule/GraphBuilder.tsx
+  76:10  warning  'localDerivStr' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/chain-rule/Helpers.tsx
+    3:27  warning  'useCallback' is defined but never used                 @typescript-eslint/no-unused-vars
+    3:40  warning  'useEffect' is defined but never used                   @typescript-eslint/no-unused-vars
+    3:51  warning  'useRef' is defined but never used                      @typescript-eslint/no-unused-vars
+   27:10  warning  'tag' is defined but never used                         @typescript-eslint/no-unused-vars
+  156:10  warning  'rate1' is assigned a value but never used              @typescript-eslint/no-unused-vars
+  156:17  warning  'setRate1' is assigned a value but never used           @typescript-eslint/no-unused-vars
+  157:10  warning  'rate2' is assigned a value but never used              @typescript-eslint/no-unused-vars
+  157:17  warning  'setRate2' is assigned a value but never used           @typescript-eslint/no-unused-vars
+  158:10  warning  'useCustomLabel' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  158:26  warning  'setUseCustomLabel' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  216:60  warning  'editable' is defined but never used                    @typescript-eslint/no-unused-vars
+  216:70  warning  'onEdit' is defined but never used                      @typescript-eslint/no-unused-vars
+  216:78  warning  'min' is defined but never used                         @typescript-eslint/no-unused-vars
+  216:83  warning  'max' is defined but never used                         @typescript-eslint/no-unused-vars
+  216:88  warning  'step' is defined but never used                        @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/eigenvalues/Visualization.tsx
+  175:65  warning  'vb' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/k-means/Visualization.tsx
+  31:5  warning  'showUpdateAnimation' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  33:5  warning  'interactive' is assigned a value but never used          @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/knn/Visualization.tsx
+  29:5  warning  'interactive' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/linear-regression/ChallengeCanvas.tsx
+  32:9  warning  The 'points' logical expression could make the dependencies of useEffect Hook (at line 61) change on every render. Move it inside the useEffect callback. Alternatively, wrap the initialization of 'points' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/linear-regression/Visualization.tsx
+  3:38  warning  'useCallback' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/logistic-regression/Visualization.tsx
+  25:5  warning  'interactive' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/matrices/Visualization.tsx
+  101:10  warning  'clamp' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+  287:6   warning  React Hook useCallback has a missing dependency: 'flushDrag'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/mlps/Visualization.tsx
+  59:5  warning  'activation' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  60:5  warning  'targetFunction' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/optimization/Calculators.tsx
+   97:6   warning  React Hook useCallback has missing dependencies: 'PAD.l' and 'PAD.t'. Either include them or remove the dependency array           react-hooks/exhaustive-deps
+  101:6   warning  React Hook useCallback has a missing dependency: 'PAD.l'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
+  239:6   warning  React Hook useCallback has missing dependencies: 'PAD.l' and 'PAD.t'. Either include them or remove the dependency array           react-hooks/exhaustive-deps
+  241:95  warning  React Hook useCallback has a missing dependency: 'PAD.l'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
+  465:6   warning  React Hook useCallback has missing dependencies: 'PAD.l', 'PAD.t', and 'xMin'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  476:6   warning  React Hook useMemo has a missing dependency: 'xMin'. Either include it or remove the dependency array                              react-hooks/exhaustive-deps
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/optimization/Visualization.tsx
+  550:6   warning  React Hook useCallback has an unnecessary dependency: 'gl'. Either exclude it or remove the dependency array                                                                                                                                                                                                      react-hooks/exhaustive-deps
+  796:6   warning  React Hook useCallback has a missing dependency: 'props'. Either include it or remove the dependency array. However, 'props' will change when *any* prop changes, so the preferred fix is to destructure the 'props' object outside of the useCallback call and refer to those specific props inside useCallback  react-hooks/exhaustive-deps
+  951:23  warning  'loss' is assigned a value but never used                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/partial-derivatives/Visualization.tsx
+  125:10  warning  'gradientMagnitude' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/perceptrons/Visualization.tsx
+    3:38  warning  'useCallback' is defined but never used         @typescript-eslint/no-unused-vars
+    3:51  warning  'useRef' is defined but never used              @typescript-eslint/no-unused-vars
+   23:5   warning  'mode' is assigned a value but never used       @typescript-eslint/no-unused-vars
+   29:5   warning  'showGraph' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  144:36  warning  'i' is defined but never used                   @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/rl-agents/Visualization.tsx
+   3:38  warning  'useRef' is defined but never used               @typescript-eslint/no-unused-vars
+  41:10  warning  'qValues' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  41:19  warning  'setQValues' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/abrhame/projects/AI_tutor_2/aiai/src/modules/vectors/Visualization.tsx
+  284:6  warning  React Hook useCallback has a missing dependency: 'flushDrag'. Either include it or remove the dependency array                                                                                                  react-hooks/exhaustive-deps
+  433:5  warning  'showRightAngle' is assigned a value but never used                                                                                                                                                             @typescript-eslint/no-unused-vars
+  554:9  warning  The 'a' logical expression could make the dependencies of useMemo Hook (at line 623) change on every render. To fix this, wrap the initialization of 'a' in its own useMemo() Hook                              react-hooks/exhaustive-deps
+  555:9  warning  The 'b' logical expression could make the dependencies of useMemo Hook (at line 623) change on every render. To fix this, wrap the initialization of 'b' in its own useMemo() Hook                              react-hooks/exhaustive-deps
+  562:9  warning  The 'sum' object makes the dependencies of useMemo Hook (at line 623) change on every render. To fix this, wrap the initialization of 'sum' in its own useMemo() Hook                                           react-hooks/exhaustive-deps
+  563:9  warning  The 'diff' object makes the dependencies of useMemo Hook (at line 623) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'diff' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  564:9  warning  The 'scaledA' object makes the dependencies of useMemo Hook (at line 623) change on every render. To fix this, wrap the initialization of 'scaledA' in its own useMemo() Hook                                   react-hooks/exhaustive-deps
+  572:9  warning  The 'projVec' object makes the dependencies of useMemo Hook (at line 623) change on every render. To fix this, wrap the initialization of 'projVec' in its own useMemo() Hook                                   react-hooks/exhaustive-deps
+  575:9  warning  The 'unitA' conditional could make the dependencies of useMemo Hook (at line 623) change on every render. To fix this, wrap the initialization of 'unitA' in its own useMemo() Hook                             react-hooks/exhaustive-deps
+  578:9  warning  The 'linComb' object makes the dependencies of useMemo Hook (at line 623) change on every render. To fix this, wrap the initialization of 'linComb' in its own useMemo() Hook                                   react-hooks/exhaustive-deps
+
+✖ 70 problems (3 errors, 67 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

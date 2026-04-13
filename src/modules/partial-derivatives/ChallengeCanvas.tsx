@@ -63,7 +63,6 @@ export function ChallengeCanvas({ challenge, onComplete }: ChallengeCanvasProps)
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <PartialDerivativesVisualization
         {...(challenge.props ?? {})}
-        interactive
         onStateChange={handleStateChange}
       />
 

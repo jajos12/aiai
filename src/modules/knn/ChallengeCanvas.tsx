@@ -1,0 +1,137 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import type { Challenge } from '@/core/types';
+import Visualization from './Visualization';
+
+interface Point {
+  x: number;
+  y: number;
+  class?: number;
+}
+
+interface ChallengeCanvasProps {
+  challenge: Challenge;
+  onComplete: () => void;
+}
+
+export function ChallengeCanvas({ challenge, onComplete }: ChallengeCanvasProps) {
+  const [success, setSuccess] = useState(false);
+  const [won, setWon] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  
+  const threshold = challenge.completionCriteria.target === 0 ? 0 : 1;
+
+  useEffect(() => {
+     if (!challenge.props) return;
+     const points = challenge.props.points as Point[] || [];
+     const testPoint = challenge.props.testPoint as Point;
+     const k = challenge.props.k as number;
+     
+     if (!testPoint || points.length === 0) return;
+
+     const sortedPoints = [...points].sort((a, b) => {
+        const d1 = Math.sqrt((a.x - testPoint.x)**2 + (a.y - testPoint.y)**2);
+        const d2 = Math.sqrt((b.x - testPoint.x)**2 + (b.y - testPoint.y)**2);
+        return d1 - d2;
+     });
+     
+     const neighbors = sortedPoints.slice(0, k);
+     let votesClass0 = 0;
+     let votesClass1 = 0;
+     
+     neighbors.forEach(n => {
+        if (n.class === 0) votesClass0++;
+        else if (n.class === 1) votesClass1++;
+     });
+     
+     const predictedClass = votesClass1 > votesClass0 ? 1 : 0;
+     const isSuccess = predictedClass === threshold;
+     
+     requestAnimationFrame(() => {
+         setSuccess(isSuccess);
+
+         if (isSuccess && !won) {
+            setWon(true);
+            setShowSuccess(true);
+            onComplete();
+         }
+     });
+  }, [challenge.props, onComplete, threshold, won]);
+
+  const progressColor = won || success ? '#34d399' : '#ef4444';
+
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <Visualization {...(challenge.props ?? {})} />
+
+      <div
+        style={{
+          position: 'absolute',
+          top: '0.5rem',
+          right: '0.5rem',
+          background: 'rgba(15, 17, 23, 0.85)',
+          backdropFilter: 'blur(8px)',
+          borderRadius: '8px',
+          border: '1px solid rgba(255,255,255,0.08)',
+          padding: '6px 10px',
+          fontFamily: 'monospace',
+          fontSize: '11px',
+          pointerEvents: 'none',
+        }}
+      >
+        <div>
+          <span style={{ color: 'rgba(255,255,255,0.4)' }}>Status: </span>
+          <span style={{ color: progressColor, fontWeight: 600 }}>
+             {success ? 'Correct Class!' : 'Incorrect Class'}
+          </span>
+        </div>
+      </div>
+
+      {showSuccess && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(15, 17, 23, 0.7)',
+            backdropFilter: 'blur(4px)',
+            borderRadius: 'var(--radius-md)',
+            animation: 'fadeIn 0.3s ease',
+          }}
+          onClick={() => setShowSuccess(false)}
+        >
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '2rem',
+              background: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--success)',
+              boxShadow: '0 0 40px rgba(52, 211, 153, 0.15)',
+              maxWidth: '300px',
+            }}
+          >
+            <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🎉</div>
+            <h3
+              style={{
+                fontFamily: 'var(--font-heading)',
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                color: '#34d399',
+                margin: '0 0 0.5rem 0',
+              }}
+            >
+              Noise Overcome!
+            </h3>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: 0 }}>
+              By adjusting K, you successfully smoothed the decision boundary. Progress saved.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

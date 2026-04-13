@@ -191,7 +191,8 @@ export default function GuidedPage() {
           style={{
             flex: 1,
             padding: '1.5rem',
-            overflow: 'hidden',
+            overflowY: 'auto',
+            overflowX: 'hidden',
             minHeight: 0,
           }}
         >

@@ -1,19 +1,13 @@
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
-
-/* ═══════════════════════════════════════════════════════════════════
-   MatrixTransform — Interactive 2×2 Matrix Visualization
-   Shows how a matrix transforms the entire 2D plane.
-
-   Modes: identity, scale, rotation, shear, reflection, determinant,
-   eigenvectors, compose, inverse, custom, image-transform,
-   cnn-kernel, ai-applications
-   ═══════════════════════════════════════════════════════════════════ */
+import React, { useState, useEffect, useMemo } from 'react';
+import { Html, Line, Sphere } from '@react-three/drei';
+import * as THREE from 'three';
+import Stage3D from '@/components/shared/Stage3D';
 
 // ── Types ──
 interface Vec2 { x: number; y: number }
-interface Mat2 { a: number; b: number; c: number; d: number } // [[a,b],[c,d]]
+interface Mat2 { a: number; b: number; c: number; d: number }
 
 interface MatrixTransformProps {
   mode?: string;
@@ -27,11 +21,9 @@ interface MatrixTransformProps {
   showUnitCircle?: boolean;
   showTransformedCircle?: boolean;
   interactive?: boolean;
-  animateTransition?: boolean;
   secondMatrix?: Mat2;
   showComposition?: boolean;
   showInverse?: boolean;
-  /** Called when matrix changes via drag */
   onMatrixChange?: (m: Mat2) => void;
 }
 
@@ -42,383 +34,69 @@ function matMul(m: Mat2, v: Vec2): Vec2 {
 function det(m: Mat2): number {
   return m.a * m.d - m.b * m.c;
 }
-function matCompose(a: Mat2, b: Mat2): Mat2 {
-  return {
-    a: a.a * b.a + a.b * b.c,
-    b: a.a * b.b + a.b * b.d,
-    c: a.c * b.a + a.d * b.c,
-    d: a.c * b.b + a.d * b.d,
-  };
-}
-function matInverse(m: Mat2): Mat2 | null {
-  const d = det(m);
-  if (Math.abs(d) < 1e-10) return null;
-  return { a: m.d / d, b: -m.b / d, c: -m.c / d, d: m.a / d };
-}
-function mag(v: Vec2): number {
-  return Math.sqrt(v.x * v.x + v.y * v.y);
-}
 
-// Eigenvalues of 2x2 matrix: λ² - (a+d)λ + det = 0
-function eigenvalues(m: Mat2): { real: number[]; complex: boolean } {
-  const trace = m.a + m.d;
-  const d = det(m);
-  const disc = trace * trace - 4 * d;
-  if (disc >= 0) {
-    const s = Math.sqrt(disc);
-    return { real: [(trace + s) / 2, (trace - s) / 2], complex: false };
+// ── Components ──
+
+function Grid2D({ matrix, color = '#6366f1', opacity = 0.2 }: { matrix?: Mat2; color?: string; opacity?: number }) {
+  const lines = [];
+  const range = 5;
+  
+  for (let i = -range; i <= range; i++) {
+    // Vertical lines
+    const startV = matrix ? matMul(matrix, { x: i, y: -range }) : { x: i, y: -range };
+    const endV = matrix ? matMul(matrix, { x: i, y: range }) : { x: i, y: range };
+    lines.push(<Line key={`v-${i}`} points={[[startV.x, startV.y, 0], [endV.x, endV.y, 0]]} color={color} lineWidth={1} transparent opacity={opacity} />);
+    
+    // Horizontal lines
+    const startH = matrix ? matMul(matrix, { x: -range, y: i }) : { x: -range, y: i };
+    const endH = matrix ? matMul(matrix, { x: range, y: i }) : { x: range, y: i };
+    lines.push(<Line key={`h-${i}`} points={[[startH.x, startH.y, 0], [endH.x, endH.y, 0]]} color={color} lineWidth={1} transparent opacity={opacity} />);
   }
-  return { real: [trace / 2], complex: true };
+  
+  return <group>{lines}</group>;
 }
 
-// Eigenvector for eigenvalue λ: (A - λI)v = 0
-function eigenvector(m: Mat2, lambda: number): Vec2 {
-  const a = m.a - lambda;
-  const b = m.b;
-  if (Math.abs(b) > 1e-10) {
-    const v: Vec2 = { x: -b, y: a };
-    const l = mag(v);
-    return l > 0 ? { x: v.x / l, y: v.y / l } : { x: 1, y: 0 };
-  }
-  const c = m.c;
-  if (Math.abs(c) > 1e-10) {
-    const v: Vec2 = { x: m.d - lambda, y: -c };
-    const l = mag(v);
-    return l > 0 ? { x: v.x / l, y: v.y / l } : { x: 0, y: 1 };
-  }
-  return { x: 1, y: 0 };
-}
-
-// ── Constants ──
-const CANVAS_SIZE = 500;
-const GRID_RANGE = 5;
-const SCALE = CANVAS_SIZE / (GRID_RANGE * 2);
-const CENTER = CANVAS_SIZE / 2;
-
-function toSvg(x: number, y: number): [number, number] {
-  return [CENTER + x * SCALE, CENTER - y * SCALE];
-}
-function clamp(v: number): number {
-  return Math.max(-GRID_RANGE, Math.min(GRID_RANGE, v));
-}
-
-// ── Memoized SVG Defs ──
-const MemoDefs = memo(function MatrixDefs() {
-  return (
-    <defs>
-      <marker id="mx-arrow-accent" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-        <polygon points="0 0, 10 3.5, 0 7" fill="var(--accent)" />
-      </marker>
-      <marker id="mx-arrow-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-        <polygon points="0 0, 10 3.5, 0 7" fill="#f87171" />
-      </marker>
-      <marker id="mx-arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-        <polygon points="0 0, 10 3.5, 0 7" fill="#60a5fa" />
-      </marker>
-      <marker id="mx-arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-        <polygon points="0 0, 10 3.5, 0 7" fill="#34d399" />
-      </marker>
-      <marker id="mx-arrow-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-        <polygon points="0 0, 10 3.5, 0 7" fill="#fb923c" />
-      </marker>
-      <marker id="mx-arrow-purple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-        <polygon points="0 0, 10 3.5, 0 7" fill="#a78bfa" />
-      </marker>
-      <marker id="mx-arrow-yellow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-        <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24" />
-      </marker>
-      <filter id="mx-glow" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur stdDeviation="3" result="blur" />
-        <feMerge>
-          <feMergeNode in="blur" />
-          <feMergeNode in="SourceGraphic" />
-        </feMerge>
-      </filter>
-    </defs>
-  );
-});
-
-// ── Dynamic Grid (renders based on visible area) ──
-function DynGrid({ vb }: { vb: { x: number; y: number; w: number; h: number } }) {
-  const lines: React.ReactElement[] = [];
-  const mathLeft = (vb.x - CENTER) / SCALE;
-  const mathRight = (vb.x + vb.w - CENTER) / SCALE;
-  const mathTop = -(vb.y - CENTER) / SCALE;
-  const mathBottom = -(vb.y + vb.h - CENTER) / SCALE;
-  const visibleRange = Math.max(mathRight - mathLeft, mathTop - mathBottom);
-  let step = 1;
-  if (visibleRange > 40) step = 10;
-  else if (visibleRange > 20) step = 5;
-  else if (visibleRange > 10) step = 2;
-  const labelEvery = step >= 5 ? step : step * 2;
-  const minI = Math.floor((mathLeft - 1) / step) * step;
-  const maxI = Math.ceil((mathRight + 1) / step) * step;
-  const minJ = Math.floor((mathBottom - 1) / step) * step;
-  const maxJ = Math.ceil((mathTop + 1) / step) * step;
-  const fontSize = vb.w / 500 * 9;
-  const labelOffset = vb.w / 500 * 12;
-  for (let i = minI; i <= maxI; i += step) {
-    const [x1, y1] = toSvg(i, minJ - step);
-    const [x2, y2] = toSvg(i, maxJ + step);
-    const isMain = i === 0;
-    lines.push(
-      <line key={`v${i}`} x1={x1} y1={y1} x2={x2} y2={y2}
-        stroke={isMain ? 'var(--viz-grid-major)' : 'var(--viz-grid-minor)'}
-        strokeWidth={isMain ? 1.5 : 0.5} />,
-    );
-    if (i !== 0 && i % labelEvery === 0) {
-      const [lx] = toSvg(i, 0);
-      lines.push(
-        <text key={`lx${i}`} x={lx} y={CENTER + labelOffset + fontSize / 2} textAnchor="middle" fontSize={fontSize} fill="var(--viz-axis-label)">{i}</text>,
-      );
-    }
-  }
-  for (let j = minJ; j <= maxJ; j += step) {
-    const [hx1, hy1] = toSvg(minI - step, j);
-    const [hx2, hy2] = toSvg(maxI + step, j);
-    const isMain = j === 0;
-    lines.push(
-      <line key={`h${j}`} x1={hx1} y1={hy1} x2={hx2} y2={hy2}
-        stroke={isMain ? 'var(--viz-grid-major)' : 'var(--viz-grid-minor)'}
-        strokeWidth={isMain ? 1.5 : 0.5} />,
-    );
-    if (j !== 0 && j % labelEvery === 0) {
-      const [, ly] = toSvg(0, j);
-      lines.push(
-        <text key={`ly${j}`} x={CENTER - labelOffset} y={ly + fontSize / 3} textAnchor="middle" fontSize={fontSize} fill="var(--viz-axis-label)">{j}</text>,
-      );
-    }
-  }
-  return <g>{lines}</g>;
-}
-
-// ── Transformed Grid ──
-function TransformedGrid({ matrix, vb }: { matrix: Mat2; vb: { x: number; y: number; w: number; h: number } }) {
-  const lines: React.ReactElement[] = [];
-
-  // Compute the visible math-coordinate range from the viewBox
-  const mathLeft = (vb.x - CENTER) / SCALE;
-  const mathRight = (vb.x + vb.w - CENTER) / SCALE;
-  const mathTop = -(vb.y - CENTER) / SCALE;
-  const mathBottom = -(vb.y + vb.h - CENTER) / SCALE;
-  const rangeMin = Math.floor(Math.min(mathLeft, mathBottom)) - 1;
-  const rangeMax = Math.ceil(Math.max(mathRight, mathTop)) + 1;
-
-  // Vertical lines: x = i, y varies
-  for (let i = rangeMin; i <= rangeMax; i++) {
-    const points: string[] = [];
-    for (let t = rangeMin; t <= rangeMax; t += 0.5) {
-      const transformed = matMul(matrix, { x: i, y: t });
-      const [sx, sy] = toSvg(transformed.x, transformed.y);
-      points.push(`${sx},${sy}`);
-    }
-    lines.push(
-      <polyline key={`tv${i}`} points={points.join(' ')}
-        fill="none" stroke="rgba(99, 102, 241, 0.15)" strokeWidth={0.8} />,
-    );
-  }
-
-  // Horizontal lines: y = i, x varies
-  for (let i = rangeMin; i <= rangeMax; i++) {
-    const points: string[] = [];
-    for (let t = rangeMin; t <= rangeMax; t += 0.5) {
-      const transformed = matMul(matrix, { x: t, y: i });
-      const [sx, sy] = toSvg(transformed.x, transformed.y);
-      points.push(`${sx},${sy}`);
-    }
-    lines.push(
-      <polyline key={`th${i}`} points={points.join(' ')}
-        fill="none" stroke="rgba(99, 102, 241, 0.15)" strokeWidth={0.8} />,
-    );
-  }
-
-  return <g>{lines}</g>;
-}
-
-// ── Arrow ──
-function Arrow({
-  from, to, color, width = 2.5, dashed = false, opacity = 1, markerId,
+function Vector3D({
+  from = [0, 0, 0],
+  to,
+  color = '#6366f1',
+  width = 2,
+  label,
+  dashed = false,
+  opacity = 1
 }: {
-  from: Vec2; to: Vec2; color: string; width?: number; dashed?: boolean; opacity?: number; markerId?: string;
+  from?: [number, number, number];
+  to: [number, number, number];
+  color?: string;
+  width?: number;
+  label?: string;
+  dashed?: boolean;
+  opacity?: number;
 }) {
-  const [x1, y1] = toSvg(from.x, from.y);
-  const [x2, y2] = toSvg(to.x, to.y);
-  return (
-    <line
-      x1={x1} y1={y1} x2={x2} y2={y2}
-      stroke={color} strokeWidth={width}
-      strokeDasharray={dashed ? '6,4' : undefined}
-      markerEnd={`url(#${markerId ?? 'mx-arrow-accent'})`}
-      opacity={opacity}
-    />
-  );
-}
-
-// ── DragHandle (reuses same RAF pattern from VectorTransform) ──
-function DragHandle({
-  pos, onDrag, color = 'var(--accent)', radius = 8, svgRef, label,
-}: {
-  pos: Vec2; onDrag: (v: Vec2) => void; color?: string; radius?: number;
-  svgRef: React.RefObject<SVGSVGElement | null>; label?: string;
-}) {
-  const dragging = useRef(false);
-  const rafId = useRef<number>(0);
-  const pending = useRef<Vec2 | null>(null);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-
-  function flushDrag() {
-    if (pending.current) {
-      onDrag(pending.current);
-      pending.current = null;
-    }
-    if (dragging.current) {
-      rafId.current = requestAnimationFrame(flushDrag);
-    }
-  }
-
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragging.current = true;
-    setIsDragging(true);
-    (e.target as SVGElement).setPointerCapture(e.pointerId);
-    rafId.current = requestAnimationFrame(flushDrag);
-  }, []);
-
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (!dragging.current || !svgRef.current) return;
-      const svg = svgRef.current;
-      const rect = svg.getBoundingClientRect();
-      const vb = svg.viewBox.baseVal;
-      const scaleX = vb.width / rect.width;
-      const scaleY = vb.height / rect.height;
-      const px = vb.x + (e.clientX - rect.left) * scaleX;
-      const py = vb.y + (e.clientY - rect.top) * scaleY;
-      const x = (px - CENTER) / SCALE;
-      const y = -(py - CENTER) / SCALE;
-      pending.current = { x, y };
-    },
-    [svgRef],
-  );
-
-  const handlePointerUp = useCallback(() => {
-    dragging.current = false;
-    setIsDragging(false);
-    cancelAnimationFrame(rafId.current);
-    if (pending.current) {
-      onDrag(pending.current);
-      pending.current = null;
-    }
-  }, [onDrag]);
-
-  useEffect(() => {
-    return () => cancelAnimationFrame(rafId.current);
-  }, []);
-
-  const [sx, sy] = toSvg(pos.x, pos.y);
-  const activeRadius = isHovered ? radius + 2 : radius;
+  const startV = new THREE.Vector3(...from);
+  const endV = new THREE.Vector3(...to);
+  const dir = new THREE.Vector3().subVectors(endV, startV);
+  const length = dir.length();
+  if (length < 0.01) return null;
 
   return (
-    <g onPointerEnter={() => setIsHovered(true)} onPointerLeave={() => setIsHovered(false)}>
-      <circle cx={sx} cy={sy} r={activeRadius + 6}
-        fill={color} opacity={isHovered ? 0.2 : 0.1} filter="url(#mx-glow)" />
-      {isHovered && (
-        <circle cx={sx} cy={sy} r={activeRadius + 12}
-          fill="none" stroke={color} strokeWidth={1} opacity={0.15}>
-          <animate attributeName="r" from={String(activeRadius + 6)} to={String(activeRadius + 20)} dur="1s" repeatCount="indefinite" />
-          <animate attributeName="opacity" from="0.2" to="0" dur="1s" repeatCount="indefinite" />
-        </circle>
-      )}
-      <circle
-        cx={sx} cy={sy} r={activeRadius}
-        fill={color} stroke="white" strokeWidth={2}
-        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      />
+    <group>
+      <Line points={[from, to]} color={color} lineWidth={width} dashed={dashed} transparent opacity={opacity} />
+      <mesh position={to} quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize())}>
+        <coneGeometry args={[0.06 * width, 0.2 * width, 8]} />
+        <meshStandardMaterial color={color} transparent opacity={opacity} />
+      </mesh>
       {label && (
-        <text x={sx + 12} y={sy - 10} fontSize="11" fontWeight="700" fill={color}
-          fontFamily="var(--font-heading), sans-serif" style={{ userSelect: 'none' }}>
-          {label}
-        </text>
+        <Html position={to} center distanceFactor={15}>
+          <div className="px-1.5 py-0.5 bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded text-[9px] font-bold text-white whitespace-nowrap pointer-events-none shadow-xl">
+            {label}
+          </div>
+        </Html>
       )}
-    </g>
+    </group>
   );
 }
 
-// ═══════════════════════════════════════════════
-// Unit circle → Ellipse transform visualization
-// ═══════════════════════════════════════════════
-function TransformedCircle({ matrix }: { matrix: Mat2 }) {
-  const points: string[] = [];
-  const steps = 64;
-  for (let i = 0; i <= steps; i++) {
-    const theta = (i / steps) * 2 * Math.PI;
-    const v = { x: Math.cos(theta), y: Math.sin(theta) };
-    const t = matMul(matrix, v);
-    const [sx, sy] = toSvg(t.x, t.y);
-    points.push(`${sx},${sy}`);
-  }
-  return (
-    <polyline
-      points={points.join(' ')}
-      fill="rgba(99, 102, 241, 0.06)"
-      stroke="var(--accent)"
-      strokeWidth={2}
-      opacity={0.6}
-    />
-  );
-}
-
-function UnitCircle() {
-  const [cx, cy] = toSvg(0, 0);
-  return (
-    <circle cx={cx} cy={cy} r={SCALE}
-      fill="none" stroke="var(--viz-dashed)" strokeWidth={1} strokeDasharray="4,3" />
-  );
-}
-
-// ═══════════════════════════════════════════════
-// Determinant area visualization
-// ═══════════════════════════════════════════════
-function DetArea({ matrix }: { matrix: Mat2 }) {
-  const origin: Vec2 = { x: 0, y: 0 };
-  const e1 = matMul(matrix, { x: 1, y: 0 });
-  const e2 = matMul(matrix, { x: 0, y: 1 });
-  const corner = { x: e1.x + e2.x, y: e1.y + e2.y };
-  const [ox, oy] = toSvg(origin.x, origin.y);
-  const [e1x, e1y] = toSvg(e1.x, e1.y);
-  const [e2x, e2y] = toSvg(e2.x, e2.y);
-  const [cx, cy] = toSvg(corner.x, corner.y);
-  const d = det(matrix);
-  const color = d >= 0 ? 'rgba(52, 211, 153, 0.12)' : 'rgba(248, 113, 113, 0.12)';
-  const strokeColor = d >= 0 ? 'rgba(52, 211, 153, 0.3)' : 'rgba(248, 113, 113, 0.3)';
-
-  return (
-    <g>
-      <path
-        d={`M ${ox} ${oy} L ${e1x} ${e1y} L ${cx} ${cy} L ${e2x} ${e2y} Z`}
-        fill={color} stroke={strokeColor} strokeWidth={1.5}
-      />
-      <text
-        x={(ox + cx) / 2} y={(oy + cy) / 2 + 4}
-        textAnchor="middle" fontSize="12" fontWeight="700"
-        fill={d >= 0 ? '#34d399' : '#f87171'}
-        style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}
-      >
-        det = {d.toFixed(2)}
-      </text>
-    </g>
-  );
-}
-
-// ═══════════════════════════════════════════════
-// Main Component
-// ═══════════════════════════════════════════════
 export function MatrixTransform(props: MatrixTransformProps) {
   const {
     mode = 'identity',
@@ -427,487 +105,91 @@ export function MatrixTransform(props: MatrixTransformProps) {
     showTransformedGrid = true,
     showBasisVectors = true,
     showTransformedBasis = true,
-    showDeterminant = false,
-    showEigenvectors = false,
-    showUnitCircle = false,
-    showTransformedCircle = false,
-    interactive = false,
-    secondMatrix,
-    showComposition = false,
-    showInverse = false,
   } = props;
 
-  // ── Preset matrices by mode ──
-  function defaultMatrix(): Mat2 {
+  const defaultMatrix = useMemo(() => {
     switch (mode) {
-      case 'identity': return { a: 1, b: 0, c: 0, d: 1 };
       case 'scale': return { a: 2, b: 0, c: 0, d: 1.5 };
       case 'rotation': {
         const t = Math.PI / 4;
         return { a: Math.cos(t), b: -Math.sin(t), c: Math.sin(t), d: Math.cos(t) };
       }
       case 'shear': return { a: 1, b: 1, c: 0, d: 1 };
-      case 'reflection': return { a: 1, b: 0, c: 0, d: -1 };
-      case 'determinant': return { a: 2, b: 1, c: 0.5, d: 1.5 };
-      case 'eigenvectors': return { a: 2, b: 1, c: 0, d: 3 };
-      case 'compose': return { a: 1, b: 0, c: 0, d: 1 };
-      case 'inverse': return { a: 2, b: 1, c: 1, d: 1 };
-      case 'custom': return { a: 1, b: 0, c: 0, d: 1 };
       default: return { a: 1, b: 0, c: 0, d: 1 };
     }
-  }
+  }, [mode]);
 
-  const [mat, setMat] = useState<Mat2>(initialMatrix ?? defaultMatrix());
-  const svgRef = useRef<SVGSVGElement | null>(null);
-
-  // ── ViewBox state (zoom/pan) ──
-  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: CANVAS_SIZE, h: CANVAS_SIZE });
-  const isPanning = useRef(false);
-  const [isPanningActive, setIsPanningActive] = useState(false);
-  const panStart = useRef({ x: 0, y: 0, vbx: 0, vby: 0 });
+  const [mat, setMat] = useState<Mat2>(initialMatrix || defaultMatrix);
 
   useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const handler = (e: WheelEvent) => {
-      e.preventDefault();
-      const rect = svg.getBoundingClientRect();
-      const fx = (e.clientX - rect.left) / rect.width;
-      const fy = (e.clientY - rect.top) / rect.height;
-      setViewBox((prev) => {
-        const zoomFactor = e.deltaY > 0 ? 1.08 : 0.93;
-        const nw = Math.max(100, Math.min(prev.w * zoomFactor, 10000));
-        const nh = Math.max(100, Math.min(prev.h * zoomFactor, 10000));
-        return { x: prev.x + (prev.w - nw) * fx, y: prev.y + (prev.h - nh) * fy, w: nw, h: nh };
-      });
-    };
-    svg.addEventListener('wheel', handler, { passive: false });
-    return () => svg.removeEventListener('wheel', handler);
-  }, []);
+    if (initialMatrix) setMat(initialMatrix);
+  }, [initialMatrix]);
 
-  const handleBgPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    const target = e.target as SVGElement;
-    if (target.tagName === 'circle' || target.closest('[data-drag-handle]')) return;
-    isPanning.current = true;
-    setIsPanningActive(true);
-    panStart.current = { x: e.clientX, y: e.clientY, vbx: viewBox.x, vby: viewBox.y };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }, [viewBox.x, viewBox.y]);
+  const e1 = { x: 1, y: 0 };
+  const e2 = { x: 0, y: 1 };
+  const te1 = matMul(mat, e1);
+  const te2 = matMul(mat, e2);
 
-  const handleBgPointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    if (!isPanning.current || !svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const scaleX = viewBox.w / rect.width;
-    const scaleY = viewBox.h / rect.height;
-    const dx = (e.clientX - panStart.current.x) * scaleX;
-    const dy = (e.clientY - panStart.current.y) * scaleY;
-    setViewBox((prev) => ({ ...prev, x: panStart.current.vbx - dx, y: panStart.current.vby - dy }));
-  }, [viewBox.w, viewBox.h]);
-
-  const handleBgPointerUp = useCallback(() => {
-    isPanning.current = false;
-    setIsPanningActive(false);
-  }, []);
-
-  const resetView = useCallback(() => {
-    const svg = svgRef.current;
-    if (svg) {
-      const rect = svg.getBoundingClientRect();
-      const aspect = rect.width / rect.height;
-      const h = CANVAS_SIZE;
-      const w = CANVAS_SIZE * aspect;
-      setViewBox({ x: (CANVAS_SIZE - w) / 2, y: 0, w, h });
-    } else {
-      setViewBox({ x: 0, y: 0, w: CANVAS_SIZE, h: CANVAS_SIZE });
-    }
-  }, []);
-
-  // Adapt viewBox to container shape on mount
-  useEffect(() => {
-    resetView();
-  }, [resetView]);
-
-  // Reset when mode changes
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      setMat(initialMatrix ?? defaultMatrix());
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [initialMatrix, mode]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Basis vectors (columns of matrix)
-  const e1Original: Vec2 = { x: 1, y: 0 };
-  const e2Original: Vec2 = { x: 0, y: 1 };
-  const e1Transformed = matMul(mat, e1Original);
-  const e2Transformed = matMul(mat, e2Original);
-
-  const origin: Vec2 = { x: 0, y: 0 };
-  const d = det(mat);
-  const isDraggable = interactive || ['custom', 'interactive', 'eigenvectors', 'determinant'].includes(mode);
-
-  // Matrix entry label helper
-  const matLabel = `[${mat.a.toFixed(1)}, ${mat.b.toFixed(1)}; ${mat.c.toFixed(1)}, ${mat.d.toFixed(1)}]`;
-
-  // ── Info panel items ──
-  const infoItems = useMemo(() => {
-    const items: { label: string; value: string; color?: string }[] = [];
-
-    items.push({ label: 'A', value: matLabel, color: 'var(--accent)' });
-
-    if (showDeterminant || mode === 'determinant') {
-      items.push({
-        label: 'det(A)',
-        value: d.toFixed(3),
-        color: d >= 0 ? '#34d399' : '#f87171',
-      });
-    }
-
-    if (showEigenvectors || mode === 'eigenvectors') {
-      const eig = eigenvalues(mat);
-      if (!eig.complex) {
-        items.push({ label: 'λ₁', value: eig.real[0].toFixed(2), color: '#fbbf24' });
-        if (eig.real.length > 1) {
-          items.push({ label: 'λ₂', value: eig.real[1].toFixed(2), color: '#fb923c' });
-        }
-      } else {
-        items.push({ label: 'λ', value: `${eig.real[0].toFixed(2)} ± i·...`, color: '#a78bfa' });
-      }
-    }
-
-    if (mode === 'scale') {
-      items.push({ label: 'sx', value: mat.a.toFixed(2), color: '#f87171' });
-      items.push({ label: 'sy', value: mat.d.toFixed(2), color: '#60a5fa' });
-    }
-
-    if (mode === 'rotation') {
-      const theta = Math.atan2(mat.c, mat.a);
-      items.push({ label: 'θ', value: `${(theta * 180 / Math.PI).toFixed(1)}°`, color: '#fbbf24' });
-    }
-
-    if (mode === 'shear') {
-      items.push({ label: 'shear', value: mat.b.toFixed(2), color: '#fb923c' });
-    }
-
-    if (showComposition || mode === 'compose') {
-      if (secondMatrix) {
-        const composed = matCompose(secondMatrix, mat);
-        items.push({ label: 'BA', value: `[${composed.a.toFixed(1)}, ${composed.b.toFixed(1)}; ${composed.c.toFixed(1)}, ${composed.d.toFixed(1)}]`, color: '#fb923c' });
-      }
-    }
-
-    if (showInverse || mode === 'inverse') {
-      const inv = matInverse(mat);
-      if (inv) {
-        items.push({ label: 'A⁻¹', value: `[${inv.a.toFixed(2)}, ${inv.b.toFixed(2)}; ${inv.c.toFixed(2)}, ${inv.d.toFixed(2)}]`, color: '#a78bfa' });
-      } else {
-        items.push({ label: 'A⁻¹', value: 'singular!', color: '#f87171' });
-      }
-    }
-
-    return items;
-  }, [mat, matLabel, d, mode, showDeterminant, showEigenvectors, showComposition, showInverse, secondMatrix]);
-
-  // ── Drag handlers for basis vector tips ──
-  const onDragE1 = useCallback((v: Vec2) => {
-    const next = { ...mat, a: v.x, c: v.y };
-    setMat(next);
-    props.onMatrixChange?.(next);
-  }, [mat, props]);
-
-  const onDragE2 = useCallback((v: Vec2) => {
-    const next = { ...mat, b: v.x, d: v.y };
-    setMat(next);
-    props.onMatrixChange?.(next);
-  }, [mat, props]);
-
-  // ── Render mode-specific elements ──
-  function renderMode() {
-    const elements: React.ReactElement[] = [];
-
-    // Transformed grid
-    if (showTransformedGrid) {
-        elements.push(<TransformedGrid key="tgrid" matrix={mat} vb={viewBox} />);
-      }
-
-      // Unit circle and transformed ellipse
-      if (showUnitCircle || mode === 'rotation') {
-        elements.push(<UnitCircle key="ucircle" />);
-      }
-      if (showTransformedCircle || mode === 'rotation' || mode === 'scale') {
-        elements.push(<TransformedCircle key="tcircle" matrix={mat} />);
-      }
-
-    // Determinant area
-    if (showDeterminant || mode === 'determinant') {
-      elements.push(<DetArea key="det-area" matrix={mat} />);
-    }
-
-    // Original basis vectors (ghosted)
-    if (showBasisVectors) {
-      elements.push(
-        <Arrow key="e1-orig" from={origin} to={e1Original} color="#f87171" width={1.5} dashed opacity={0.3} markerId="mx-arrow-red" />,
-        <Arrow key="e2-orig" from={origin} to={e2Original} color="#60a5fa" width={1.5} dashed opacity={0.3} markerId="mx-arrow-blue" />,
-      );
-    }
-
-    // Transformed basis vectors
-    if (showTransformedBasis) {
-      elements.push(
-        <Arrow key="e1-t" from={origin} to={e1Transformed} color="#f87171" width={3} markerId="mx-arrow-red" />,
-        <Arrow key="e2-t" from={origin} to={e2Transformed} color="#60a5fa" width={3} markerId="mx-arrow-blue" />,
-      );
-
-      // Labels
-      const [e1x, e1y] = toSvg(e1Transformed.x, e1Transformed.y);
-      const [e2x, e2y] = toSvg(e2Transformed.x, e2Transformed.y);
-      elements.push(
-        <text key="e1-label" x={e1x + 10} y={e1y - 10} fontSize="11" fontWeight="700"
-          fill="#f87171" fontFamily="monospace" style={{ userSelect: 'none' }}>
-          Ae₁ ({e1Transformed.x.toFixed(1)}, {e1Transformed.y.toFixed(1)})
-        </text>,
-        <text key="e2-label" x={e2x + 10} y={e2y - 10} fontSize="11" fontWeight="700"
-          fill="#60a5fa" fontFamily="monospace" style={{ userSelect: 'none' }}>
-          Ae₂ ({e2Transformed.x.toFixed(1)}, {e2Transformed.y.toFixed(1)})
-        </text>,
-      );
-
-      // Drag handles on transformed basis tips
-      if (isDraggable) {
-        elements.push(
-          <DragHandle key="drag-e1" pos={e1Transformed} onDrag={onDragE1}
-            color="#f87171" svgRef={svgRef} label="" />,
-          <DragHandle key="drag-e2" pos={e2Transformed} onDrag={onDragE2}
-            color="#60a5fa" svgRef={svgRef} label="" />,
-        );
-      }
-    }
-
-    // Eigenvectors
-    if ((showEigenvectors || mode === 'eigenvectors') && !eigenvalues(mat).complex) {
-      const eig = eigenvalues(mat);
-      eig.real.forEach((lambda, i) => {
-        const ev = eigenvector(mat, lambda);
-        const scale = 3;
-        const tip = { x: ev.x * scale, y: ev.y * scale };
-        const negTip = { x: -ev.x * scale, y: -ev.y * scale };
-        const color = i === 0 ? '#fbbf24' : '#fb923c';
-        const markerId = i === 0 ? 'mx-arrow-yellow' : 'mx-arrow-orange';
-
-        // Draw eigenvector line through origin
-        elements.push(
-          <line key={`eigline-${i}`}
-            x1={toSvg(negTip.x, negTip.y)[0]} y1={toSvg(negTip.x, negTip.y)[1]}
-            x2={toSvg(tip.x, tip.y)[0]} y2={toSvg(tip.x, tip.y)[1]}
-            stroke={color} strokeWidth={1.5} strokeDasharray="6,4" opacity={0.4}
-          />,
-        );
-        // Arrow along eigenvector
-        elements.push(
-          <Arrow key={`eig-${i}`} from={origin} to={tip} color={color} width={2.5} markerId={markerId} />,
-        );
-        // Transformed eigenvector (should align — λ * eigenvector)
-        const transEv = { x: ev.x * lambda * scale / Math.max(Math.abs(lambda), 0.01), y: ev.y * lambda * scale / Math.max(Math.abs(lambda), 0.01) };
-        elements.push(
-          <Arrow key={`eig-t-${i}`} from={origin} to={transEv} color={color} width={1.5} dashed opacity={0.5} markerId={markerId} />,
-        );
-
-        const [lx, ly] = toSvg(tip.x, tip.y);
-        elements.push(
-          <text key={`eiglabel-${i}`} x={lx + 10} y={ly - 8} fontSize="10" fontWeight="700"
-            fill={color} fontFamily="monospace" style={{ userSelect: 'none' }}>
-            λ{i + 1}={lambda.toFixed(2)}
-          </text>,
-        );
-      });
-    }
-
-    // Composition
-    if ((showComposition || mode === 'compose') && secondMatrix) {
-      const composed = matCompose(secondMatrix, mat);
-      const compE1 = matMul(composed, e1Original);
-      const compE2 = matMul(composed, e2Original);
-      elements.push(
-        <Arrow key="comp-e1" from={origin} to={compE1} color="#fb923c" width={2.5} markerId="mx-arrow-orange" />,
-        <Arrow key="comp-e2" from={origin} to={compE2} color="#a78bfa" width={2.5} markerId="mx-arrow-purple" />,
-      );
-    }
-
-    // Inverse — show A⁻¹ basis too
-    if (showInverse || mode === 'inverse') {
-      const inv = matInverse(mat);
-      if (inv) {
-        const invE1 = matMul(inv, e1Original);
-        const invE2 = matMul(inv, e2Original);
-        elements.push(
-          <Arrow key="inv-e1" from={origin} to={invE1} color="#a78bfa" width={2} dashed markerId="mx-arrow-purple" />,
-          <Arrow key="inv-e2" from={origin} to={invE2} color="#a78bfa" width={2} dashed markerId="mx-arrow-purple" />,
-        );
-        const [ie1x, ie1y] = toSvg(invE1.x, invE1.y);
-        const [ie2x, ie2y] = toSvg(invE2.x, invE2.y);
-        elements.push(
-          <text key="inv-e1-l" x={ie1x + 10} y={ie1y + 14} fontSize="10" fontWeight="600"
-            fill="#a78bfa" fontFamily="monospace" style={{ userSelect: 'none' }}>
-            A⁻¹e₁
-          </text>,
-          <text key="inv-e2-l" x={ie2x + 10} y={ie2y + 14} fontSize="10" fontWeight="600"
-            fill="#a78bfa" fontFamily="monospace" style={{ userSelect: 'none' }}>
-            A⁻¹e₂
-          </text>,
-        );
-      }
-    }
-
-    // AI applications — decorative
-    if (mode === 'ai-applications') {
-      // Show a mini "image" as a grid of colored dots, then show transformed
-      const pixels = [
-        { x: 1, y: 1 }, { x: 1, y: 2 }, { x: 2, y: 1 }, { x: 2, y: 2 },
-        { x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 1 }, { x: 3, y: 2 }, { x: 3, y: 3 },
-      ];
-      const colors = ['#6366f1', '#60a5fa', '#34d399', '#fbbf24', '#fb923c', '#f87171', '#a78bfa', '#e879f9', '#f472b6'];
-      pixels.forEach((p, i) => {
-        const [sx, sy] = toSvg(p.x - 2, p.y - 2);
-        const tp = matMul(mat, { x: p.x - 2, y: p.y - 2 });
-        const [tsx, tsy] = toSvg(tp.x, tp.y);
-        elements.push(
-          <circle key={`px-o-${i}`} cx={sx} cy={sy} r={6} fill={colors[i]} opacity={0.3} />,
-          <circle key={`px-t-${i}`} cx={tsx} cy={tsy} r={6} fill={colors[i]} opacity={0.8} />,
-          <line key={`px-l-${i}`} x1={sx} y1={sy} x2={tsx} y2={tsy}
-            stroke={colors[i]} strokeWidth={0.5} opacity={0.2} />,
-        );
-      });
-    }
-
-    return elements;
-  }
-
-  // ── Render ──
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', background: 'var(--viz-bg-gradient)', borderRadius: 'var(--radius-md)' }}>
-      <svg
-        ref={svgRef}
-        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
-        style={{
-          width: '100%',
-          height: '100%',
-          background: 'radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.03), transparent 70%)',
-          borderRadius: 'var(--radius-md)',
-          touchAction: 'none',
-          cursor: isPanningActive ? 'grabbing' : 'default',
-          userSelect: 'none',
-        }}
-        onPointerDown={handleBgPointerDown}
-        onPointerMove={handleBgPointerMove}
-        onPointerUp={handleBgPointerUp}
-        onPointerCancel={handleBgPointerUp}
-      >
-        <MemoDefs />
-        {showGrid && <DynGrid vb={viewBox} />}
-        {renderMode()}
-      </svg>
+    <div className="w-full h-full relative group">
+      <Stage3D cameraPosition={[4, 3, 6]}>
+        {showGrid && <Grid2D color="#475569" opacity={0.15} />}
+        {showTransformedGrid && <Grid2D matrix={mat} color="#6366f1" opacity={0.3} />}
+        
+        {showBasisVectors && (
+          <>
+            <Vector3D to={[1, 0, 0]} color="#f87171" opacity={0.2} dashed label="e1" />
+            <Vector3D to={[0, 1, 0]} color="#60a5fa" opacity={0.2} dashed label="e2" />
+          </>
+        )}
 
-      {/* Zoom controls */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '0.75rem',
-          right: '0.75rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '2px',
-          background: 'var(--viz-panel-bg)',
-          backdropFilter: 'blur(8px)',
-          borderRadius: '8px',
-          border: '1px solid var(--viz-panel-border)',
-          padding: '3px',
-          zIndex: 5,
-        }}
-      >
-        <button onClick={() => setViewBox(prev => {
-          const nw = Math.min(prev.w * 1.15, 10000);
-          const nh = Math.min(prev.h * 1.15, 10000);
-          return { x: prev.x + (prev.w - nw) / 2, y: prev.y + (prev.h - nh) / 2, w: nw, h: nh };
-        })} title="Zoom out" style={{
-          width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'transparent', border: 'none', borderRadius: '4px',
-          color: 'var(--text-secondary)', fontSize: '0.875rem', cursor: 'pointer',
-        }}>−</button>
-        <button onClick={resetView} title="Reset view" style={{
-          height: '26px', padding: '0 5px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'transparent', border: 'none', borderRadius: '4px',
-          color: 'var(--viz-annotation)', fontSize: '9px', fontFamily: 'monospace', fontWeight: 600,
-          cursor: 'pointer', minWidth: '36px',
-        }}>{Math.round((CANVAS_SIZE / viewBox.w) * 100)}%</button>
-        <button onClick={() => setViewBox(prev => {
-          const nw = Math.max(prev.w * 0.87, 100);
-          const nh = Math.max(prev.h * 0.87, 100);
-          return { x: prev.x + (prev.w - nw) / 2, y: prev.y + (prev.h - nh) / 2, w: nw, h: nh };
-        })} title="Zoom in" style={{
-          width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'transparent', border: 'none', borderRadius: '4px',
-          color: 'var(--text-secondary)', fontSize: '0.875rem', cursor: 'pointer',
-        }}>+</button>
-      </div>
+        {showTransformedBasis && (
+          <>
+            <Vector3D to={[te1.x, te1.y, 0]} color="#f87171" width={3} label="Ae1" />
+            <Vector3D to={[te2.x, te2.y, 0]} color="#60a5fa" width={3} label="Ae2" />
+          </>
+        )}
 
-      {/* Info overlay */}
-      {infoItems.length > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '0.5rem',
-            left: '0.5rem',
-            background: 'var(--viz-panel-bg)',
-            backdropFilter: 'blur(8px)',
-            borderRadius: '8px',
-            border: '1px solid var(--viz-panel-border)',
-            padding: '6px 10px',
-            fontFamily: 'monospace',
-            fontSize: '11px',
-            lineHeight: '20px',
-            pointerEvents: 'none',
-          }}
-        >
-          {infoItems.map((item, i) => (
-            <div key={i}>
-              <span style={{ color: 'var(--viz-label)' }}>{item.label}: </span>
-              <span style={{ color: item.color ?? '#e0e0e0', fontWeight: 600 }}>{item.value}</span>
-            </div>
-          ))}
-        </div>
-      )}
+        {/* Determinant Area */}
+        {(props.showDeterminant || mode === 'determinant') && (
+            <mesh rotation={[0, 0, 0]} position={[0, 0, -0.01]}>
+                <shapeGeometry args={[
+                    new THREE.Shape([
+                        new THREE.Vector2(0, 0),
+                        new THREE.Vector2(te1.x, te1.y),
+                        new THREE.Vector2(te1.x + te2.x, te1.y + te2.y),
+                        new THREE.Vector2(te2.x, te2.y)
+                    ])
+                ]} />
+                <meshStandardMaterial color={det(mat) >= 0 ? '#34d399' : '#f87171'} opacity={0.2} transparent side={THREE.DoubleSide} />
+            </mesh>
+        )}
+      </Stage3D>
 
-      {/* Matrix display — bottom center */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '0.75rem',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          padding: '0.5rem 1rem',
-          background: 'var(--viz-panel-bg)',
-          backdropFilter: 'blur(8px)',
-          borderRadius: '8px',
-          border: '1px solid var(--viz-panel-border)',
-          fontFamily: 'monospace',
-          fontSize: '12px',
-        }}
-      >
-        <span style={{ color: 'var(--viz-label)' }}>A =</span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <span style={{ color: '#f87171', fontWeight: 600, minWidth: '36px', textAlign: 'right' }}>{mat.a.toFixed(2)}</span>
-            <span style={{ color: '#60a5fa', fontWeight: 600, minWidth: '36px', textAlign: 'right' }}>{mat.b.toFixed(2)}</span>
+      {/* Info HUD */}
+      <div className="absolute top-4 left-4 pointer-events-none">
+        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 p-3 rounded-xl shadow-2xl">
+          <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+              Transformation Matrix
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <span style={{ color: '#f87171', fontWeight: 600, minWidth: '36px', textAlign: 'right' }}>{mat.c.toFixed(2)}</span>
-            <span style={{ color: '#60a5fa', fontWeight: 600, minWidth: '36px', textAlign: 'right' }}>{mat.d.toFixed(2)}</span>
+          <div className="flex gap-4">
+              <div className="flex flex-col items-center justify-center p-2 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <div className="grid grid-cols-2 gap-2 font-mono text-xs font-bold">
+                    <span className="text-red-400">{mat.a.toFixed(1)}</span>
+                    <span className="text-blue-400">{mat.b.toFixed(1)}</span>
+                    <span className="text-red-400">{mat.c.toFixed(1)}</span>
+                    <span className="text-blue-400">{mat.d.toFixed(1)}</span>
+                  </div>
+              </div>
+              <div className="flex flex-col justify-center gap-1">
+                  <div className="flex justify-between gap-4">
+                      <span className="text-[10px] text-slate-400">Determinant</span>
+                      <span className="text-[10px] font-mono text-amber-400">{det(mat).toFixed(2)}</span>
+                  </div>
+              </div>
           </div>
         </div>
-        {/* Bracket decoration */}
-        <span style={{ color: 'var(--viz-axis-label)', fontSize: '20px', fontWeight: 100, alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}></span>
       </div>
     </div>
   );

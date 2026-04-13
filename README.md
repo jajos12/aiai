@@ -10,6 +10,7 @@
 
 <p align="center">
   <a href="#overview">Overview</a> •
+  <a href="#what-you-can-do">What You Can Do</a> •
   <a href="#current-curriculum">Current Curriculum</a> •
   <a href="#project-structure">Project Structure</a> •
   <a href="#getting-started">Getting Started</a> •
@@ -20,25 +21,35 @@
 
 ## Overview
 
-AI Playground is a Next.js App Router application for learning AI concepts through interactive visualizations instead of static notes alone. Each module combines:
+AI Playground is a Next.js App Router app for learning AI and linear algebra through interactive, visual-first lessons instead of static notes alone.
+
+Each module combines:
 
 - guided steps with concise explanations
 - interactive visualizations
 - optional "Go Deeper" math sections
-- playground exploration
+- playground experimentation
 - challenge-based practice
 
-The app currently stores learner progress locally in `localStorage`, generates public module routes from the module registry, and uses tier metadata to drive the dashboard and unlock flow.
+The app currently stores learner progress in `localStorage`, generates public module routes from a runtime registry, and uses tier metadata to drive dashboard unlocks.
 
-### Current source of truth
+## What You Can Do
 
-If docs disagree, trust the code in these places:
+- move through curriculum tiers from a dashboard-first flow
+- learn concepts in guided mode, then test intuition in playground mode
+- validate understanding with challenge mode
+- resume progress automatically from local persistence
+- extend the curriculum by authoring and registering new modules
 
-- `src/core/registry.ts` for module registration and Tier 0 module metadata
-- `src/core/curriculum.ts` for tier metadata and unlock rules
-- `src/modules/*` for the actual lesson implementations
+### Source of truth
 
-Older planning files in `docs/` are preserved as historical references only.
+If documentation and code disagree, trust these files:
+
+- `src/core/registry.ts` for module registration and Tier 0 metadata
+- `src/core/curriculum.ts` for tiers and unlock rules
+- `src/modules/*` for live lesson implementations
+
+Planning files in `docs/` are preserved for history and drafting, not runtime architecture.
 
 ---
 
@@ -55,18 +66,16 @@ The live app currently ships these Tier 0 modules:
 | `optimization` | Optimization & Gradient Descent | Loss landscapes, optimizers, partial derivatives |
 | `chain-rule` | The Chain Rule | Computation graphs and gradient flow |
 
-Tier 1 through Tier 5 are defined in the curriculum metadata, but their module catalogs have not been populated yet.
+Tiers 1-5 are defined in curriculum metadata, but their module catalogs are not populated yet.
 
 ### Learning flow
 
-The current route flow is:
+1. Dashboard
+2. Tier overview
+3. Module hub
+4. Guided, Playground, or Challenge mode
 
-1. dashboard
-2. tier overview
-3. module hub
-4. guided, playground, or challenge mode
-
-Those public routes are generated from the registered modules, and the sitemap is built from that same runtime data.
+Public routes and sitemap entries are generated from the same runtime module data.
 
 ---
 
@@ -94,7 +103,7 @@ Those public routes are generated from the registered modules, and the sitemap i
 | --- | --- |
 | Next.js 16 | App Router, metadata routes, sitemap, bundling |
 | React 19 | Interactive client components |
-| TypeScript | Shared lesson and module contracts |
+| TypeScript | Shared module and lesson contracts |
 | KaTeX | Math rendering in deeper explanations |
 | React Three Fiber + Drei | 3D optimization visualizations |
 | localStorage | Progress and theme persistence |
@@ -115,14 +124,14 @@ src/
 
 ### Module layout
 
-Each module lives under `src/modules/<module-id>/` and normally contains:
+Each module lives under `src/modules/<module-id>/` and typically contains:
 
-- `module.ts` for static lesson data
-- `Visualization.tsx` for the guided/playground renderer
-- `ChallengeCanvas.tsx` for challenge-specific interaction, when needed
-- `index.ts` for the dynamic exports consumed by the registry
+- `module.ts` for static lesson content
+- `Visualization.tsx` for guided/playground rendering
+- `ChallengeCanvas.tsx` for challenge interactions (optional)
+- `index.ts` for runtime exports consumed by the registry
 
-See `docs/module_authoring.md` for the current contributor guide.
+See `docs/module_authoring.md` for contributor workflow details.
 
 ---
 
@@ -142,9 +151,9 @@ npm install
 npm run dev
 ```
 
-Then open `http://localhost:3000`.
+Open `http://localhost:3000`.
 
-### Checks
+### Quality checks
 
 ```bash
 npm run lint
@@ -157,31 +166,31 @@ npm run build
 
 To add or update a module:
 
-1. create or update a folder under `src/modules/<module-id>/`
-2. export the lesson data from `module.ts`
-3. export the runtime components from `index.ts`
-4. register the module in `src/core/registry.ts`
-5. confirm the target tier exists in `src/core/curriculum.ts`
+1. Create or update `src/modules/<module-id>/`
+2. Export lesson data from `module.ts`
+3. Export runtime components from `index.ts`
+4. Register the module in `src/core/registry.ts`
+5. Confirm the tier exists in `src/core/curriculum.ts`
 
-The detailed workflow, file contract, and verification checklist live in `docs/module_authoring.md`.
+Detailed workflow, contracts, and verification checklists live in `docs/module_authoring.md`.
 
-Use `docs/content_template.md` as a design worksheet. Do not treat `docs/content_spec.md` or the older planning documents as live architecture docs.
+Use `docs/content_template.md` as a design worksheet. Treat `docs/content_spec.md` and older planning docs as historical references.
 
 ---
 
 ## Roadmap
 
-Near-term work is focused on expanding beyond Tier 0 with the current runtime architecture, starting with Tier 1 modules and the surrounding authoring workflow.
+Near-term work is focused on expanding beyond Tier 0 with the current runtime architecture, beginning with Tier 1 module rollout and stronger author tooling.
 
-Examples of future work:
+Planned directions:
 
 - Tier 1 module rollout
-- additional public roadmap and navigation polish
-- cloud sync or account support
-- deeper curriculum coverage across later tiers
+- dashboard and navigation polish
+- optional cloud sync and account support
+- deeper curriculum coverage in later tiers
 
 ---
 
 ## License
 
-This project is open source and intended to be a useful learning base for experimentation, teaching, and extension.
+This project is open source and intended as a learning base for experimentation, teaching, and extension.

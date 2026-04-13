@@ -4,9 +4,9 @@
 
 # Content Specification — Tier 0 Reference Modules
 
-> Gold standard for all future content. Every module must follow this structure.
-> These replace the shallow 4-step reference module in the implementation plan.
-> See `docs/content_template.md` for the standardized design process.
+> Historical draft reference for depth and lesson style.
+> This file replaced the older shallow 4-step reference during planning, but it is no longer the live authoring contract.
+> Use `docs/content_template.md` for drafting and `docs/module_authoring.md` for current implementation workflow.
 >
 > **Module order**: Vectors → Vector Spaces & Independence → Matrix Operations → ...
 
@@ -145,10 +145,10 @@ Full `VectorTransform` visualization with all parameters:
 ### Phase 3: Challenges (4)
 
 | #   | Title                | Goal                                                  | Completion                        |
-| --- | -------------------- | ----------------------------------------------------- | --------------------------------- | ----- | ------- |
+| --- | -------------------- | ----------------------------------------------------- | --------------------------------- |
 | 1   | **Reach the Target** | Drag a and b so their sum lands on red target         | `dist(sum, target) < 0.3`         |
 | 2   | **Scalar Sniper**    | Find the scalar that maps blue vector to green target | `dist(scaled, target) < 0.1`      |
-| 3   | **Right Angle**      | Drag b to be perpendicular to a                       | `                                 | a · b | < 0.05` |
+| 3   | **Right Angle**      | Drag b to be perpendicular to a                       | `|a · b| < 0.05`                  |
 | 4   | **Basis Builder**    | Express target as linear combination of custom basis  | `dist(c₁v₁ + c₂v₂, target) < 0.2` |
 
 ---
