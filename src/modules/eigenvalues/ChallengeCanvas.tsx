@@ -145,7 +145,6 @@ export function ChallengeCanvas({
         <Visualization
           {...challenge.props}
           onMatrixChange={handleMatrixChange}
-          interactive
         />
       </div>
 

@@ -21,6 +21,7 @@ interface LinearRegressionProps {
   showRSquared?: boolean;
   points?: Array<{ x: number; y: number }>;
   line?: { m: number; b: number };
+  onLineChange?: (line: { m: number; b: number }) => void;
 }
 
 export default function LinearRegressionVisualization({
@@ -31,6 +32,7 @@ export default function LinearRegressionVisualization({
   showRSquared = false,
   points: inputPoints,
   line,
+  onLineChange,
 }: LinearRegressionProps) {
   const [m, setM] = useState(line?.m ?? 1);
   const [b, setB] = useState(line?.b ?? 0);
@@ -41,6 +43,10 @@ export default function LinearRegressionVisualization({
       setB(line.b);
     }
   }, [line?.m, line?.b]);
+
+  useEffect(() => {
+    onLineChange?.({ m, b });
+  }, [m, b, onLineChange]);
 
   const points: Point[] = useMemo(() => [
     ...(inputPoints?.length

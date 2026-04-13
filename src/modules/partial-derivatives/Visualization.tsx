@@ -12,13 +12,52 @@ const SURFACES = {
   ripples: (x: number, y: number) => 0.5 * Math.sin(x) * Math.cos(y)
 };
 
-export default function PartialDerivativesVisualization({ surfaceId = 'bowl' }: { surfaceId?: 'bowl' | 'saddle' | 'ripples' }) {
+export type PartialDerivativesSceneState = {
+  point: { x: number; y: number; z: number };
+  partialX: number;
+  partialY: number;
+  gradientMagnitude: number;
+  surfaceId: 'bowl' | 'saddle' | 'ripples';
+};
+
+type PartialDerivativesVisualizationProps = {
+  surfaceId?: 'bowl' | 'saddle' | 'ripples';
+  onStateChange?: (state: PartialDerivativesSceneState) => void;
+};
+
+function gradient(surfaceId: 'bowl' | 'saddle' | 'ripples', x: number, y: number): { dx: number; dy: number } {
+  if (surfaceId === 'bowl') return { dx: 0.2 * x, dy: 0.2 * y };
+  if (surfaceId === 'saddle') return { dx: 0.2 * x, dy: -0.2 * y };
+  return { dx: 0.5 * Math.cos(x) * Math.cos(y), dy: -0.5 * Math.sin(x) * Math.sin(y) };
+}
+
+export default function PartialDerivativesVisualization({
+  surfaceId = 'bowl',
+  onStateChange,
+}: PartialDerivativesVisualizationProps) {
   const [point, setPoint] = useState<[number, number]>([1, 1]);
   const [showXSlice, setShowXSlice] = useState(true);
   const [showYSlice, setShowYSlice] = useState(true);
 
   const zFunc = SURFACES[surfaceId as keyof typeof SURFACES] || SURFACES.bowl;
   const z = zFunc(point[0], point[1]);
+  const { dx, dy } = gradient(surfaceId, point[0], point[1]);
+  const gradMag = Math.hypot(dx, dy);
+  const emittedRef = useRef<string>('');
+
+  const statePayload: PartialDerivativesSceneState = {
+    point: { x: point[0], y: point[1], z },
+    partialX: dx,
+    partialY: dy,
+    gradientMagnitude: gradMag,
+    surfaceId,
+  };
+
+  const sig = `${point[0].toFixed(4)}|${point[1].toFixed(4)}|${surfaceId}`;
+  if (onStateChange && emittedRef.current !== sig) {
+    emittedRef.current = sig;
+    onStateChange(statePayload);
+  }
 
   // Generate Surface Mesh
   const surfaceGeometry = useMemo(() => {

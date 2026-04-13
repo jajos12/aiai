@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Html, Line, Sphere, Box, Octahedron } from '@react-three/drei';
 import * as THREE from 'three';
 import Stage3D from '@/components/shared/Stage3D';
@@ -11,6 +11,12 @@ type Mode = 'norm' | 'distance' | 'nearest' | 'cosine';
 
 interface Vec3 { x: number; y: number; z: number }
 
+export interface NormDistanceSceneState {
+  vector: { x: number; y: number };
+  otherVector: { x: number; y: number };
+  nearestId: string;
+}
+
 interface NormDistanceVisualizationProps {
   presentation?: string;
   manimSrc?: string;
@@ -18,12 +24,13 @@ interface NormDistanceVisualizationProps {
   mode?: Mode;
   metric?: Metric | string;
   interactive?: boolean;
+  showNearest?: boolean;
   showUnitBall?: boolean;
   neighborhoodRadius?: number;
   vector?: Vec3;
   pointA?: Vec3;
   pointB?: Vec3;
-  onStateChange?: (state: any) => void;
+  onStateChange?: (state: NormDistanceSceneState) => void;
 }
 
 // ── Math Helpers ──
@@ -113,8 +120,19 @@ export function NormsDistanceVisualization(props: NormDistanceVisualizationProps
   const [vector, setVector] = useState<Vec3>(props.vector || { x: 2, y: 1.5, z: 1 });
   const [pointA, setPointA] = useState<Vec3>(props.pointA || { x: -2, y: -1, z: 0 });
   const [pointB, setPointB] = useState<Vec3>(props.pointB || { x: 1, y: 2, z: 1 });
+  const emittedRef = useRef<string>('');
 
   const currentNorm = norm(vector, selectedMetric);
+  const sceneState: NormDistanceSceneState = {
+    vector: { x: vector.x, y: vector.y },
+    otherVector: { x: pointB.x, y: pointB.y },
+    nearestId: '',
+  };
+  const sceneSig = `${sceneState.vector.x.toFixed(3)}|${sceneState.vector.y.toFixed(3)}|${sceneState.otherVector.x.toFixed(3)}|${sceneState.otherVector.y.toFixed(3)}`;
+  if (props.onStateChange && emittedRef.current !== sceneSig) {
+    emittedRef.current = sceneSig;
+    props.onStateChange(sceneState);
+  }
 
   if (presentation === 'guided' && typeof manimSrc === 'string' && manimSrc.trim().length > 0) {
     return (
