@@ -10,7 +10,7 @@ const knnModule: ModuleData = {
   tags: ['classification', 'knn', 'lazy-learning', 'distance-metrics'],
   prerequisites: ['norms-distance'],
   difficulty: 'beginner',
-  estimatedMinutes: 45,
+  estimatedMinutes: 55,
   steps: [
     {
       id: 'the-lazy-learner',
@@ -18,8 +18,12 @@ const knnModule: ModuleData = {
       visualizationProps: {
         mode: 'intro',
         points: [
-          { x: 2, y: 7, class: 0 }, { x: 3, y: 8, class: 0 }, { x: 2, y: 9, class: 0 },
-          { x: 8, y: 2, class: 1 }, { x: 9, y: 3, class: 1 }, { x: 8, y: 1, class: 1 },
+          { x: 2, y: 7, class: 0 },
+          { x: 3, y: 8, class: 0 },
+          { x: 2, y: 9, class: 0 },
+          { x: 8, y: 2, class: 1 },
+          { x: 9, y: 3, class: 1 },
+          { x: 8, y: 1, class: 1 },
         ],
         testPoint: { x: 5, y: 5 },
         k: 1,
@@ -27,8 +31,17 @@ const knnModule: ModuleData = {
       content: {
         text: 'K-Nearest Neighbors (KNN) is called a "lazy" learner because it doesn\'t actually learn a mathematical function like y=mx+b during training. It simply memorizes the entire dataset!',
         goDeeper: {
-          explanation:
-            'When it\'s time to make a prediction for a new, unknown point, it just looks at the K closest points in its memory and takes a majority vote.',
+          explanation: String.raw`INSTANCE-BASED DECISION RULE
+
+Training stores {(x_i, y_i)}; prediction is a local vote or average over the k smallest distances d(x, x_i). No explicit parameters beyond k and metric—capacity is the whole dataset.
+
+BAYES-OPTIMAL AS k→∞
+
+Under mild conditions, k-NN regression/classification converges to posterior expectation/mode as n→∞ and k/n→0.
+
+COMPUTE TRADEOFF
+
+Training is O(1), query is O(n d) naive; spatial data structures reduce amortized cost.`,
         },
       },
       interactionHint: 'Drag the grey "test point". With K=1, it will be classified as whatever the single nearest neighbor is.',
@@ -39,11 +52,14 @@ const knnModule: ModuleData = {
       visualizationProps: {
         mode: 'interactive-k',
         points: [
-          // Red group (0)
-          { x: 2, y: 7, class: 0 }, { x: 3, y: 8, class: 0 }, { x: 2, y: 9, class: 0 }, { x: 4, y: 6, class: 0 },
-          // Blue group (1)
-          { x: 8, y: 2, class: 1 }, { x: 9, y: 3, class: 1 }, { x: 8, y: 1, class: 1 }, { x: 7, y: 4, class: 1 },
-          // A noisy blue point in the red group
+          { x: 2, y: 7, class: 0 },
+          { x: 3, y: 8, class: 0 },
+          { x: 2, y: 9, class: 0 },
+          { x: 4, y: 6, class: 0 },
+          { x: 8, y: 2, class: 1 },
+          { x: 9, y: 3, class: 1 },
+          { x: 8, y: 1, class: 1 },
+          { x: 7, y: 4, class: 1 },
           { x: 3, y: 7, class: 1 },
         ],
         testPoint: { x: 3.5, y: 6.5 },
@@ -52,7 +68,17 @@ const knnModule: ModuleData = {
       content: {
         text: 'If K=1, the model is highly sensitive to noise. A single misplaced point (like the blue dot in the red group) will completely flip the prediction in that local area.',
         goDeeper: {
-          explanation: 'This is called "High Variance" (overfitting). As you increase K to 3 or 5, the model becomes more stable, "smoothing" over the noise by requiring a broader consensus.',
+          explanation: String.raw`SMALL k → LOW BIAS, HIGH VARIANCE
+
+Decision boundary follows noise; high model complexity. Large k → smoother boundary, higher bias, lower variance.
+
+CROSS-VALIDATION
+
+Choose k by minimizing held-out error on a grid (odd k for binary ties).
+
+REGRESSION VARIANT
+
+k-NN regression averages y_i of neighbors; same bias–variance story with respect to k.`,
         },
       },
       interactionHint: 'Move the slider to increase K and watch how the voting changes!',
@@ -62,9 +88,7 @@ const knnModule: ModuleData = {
       title: 'Measuring Distance',
       visualizationProps: {
         mode: 'distance-metric',
-        points: [
-          { x: 5, y: 5, class: 0 }
-        ],
+        points: [{ x: 5, y: 5, class: 0 }],
         testPoint: { x: 8, y: 9 },
         k: 1,
         metric: 'euclidean',
@@ -72,8 +96,18 @@ const knnModule: ModuleData = {
       content: {
         text: 'How do we define "Nearest"? Usually, we use Euclidean distance (straight line). But in some cases, Manhattan distance (moving only in grid steps) is better.',
         goDeeper: {
-          math: 'L_1 = |x_1 - x_2| + |y_1 - y_2| \\quad \\text{vs} \\quad L_2 = \\sqrt{(x_1 - x_2)^2 + (y_1 - y_2)^2}',
-          explanation: 'This is why the Norms & Distances mathematical foundations module was required before this one!',
+          math: String.raw`d_p(x,x') = \bigl(\sum_j |x_j - x'_j|^p\bigr)^{1/p}`,
+          explanation: String.raw`L_p NORMS
+
+p=2 Euclidean rotation-invariant; p=1 Manhattan robust to outliers in single coordinates; p=∞ Chebyshev.
+
+MAHALANOBIS
+
+(x−x')^⊤ Σ^{-1}(x−x') scales features by estimated covariance—ellipsoidal neighborhoods.
+
+METRIC LEARNING
+
+Learn M ≽ 0 in d_M(x,x') = √(x−x')^⊤ M (x−x') from labels—LMNN, ITML.`,
         },
       },
       interactionHint: 'Toggle between Euclidean and Manhattan to see the mathematical difference in how distance is calculated.',
@@ -87,7 +121,17 @@ const knnModule: ModuleData = {
       content: {
         text: 'As the number of dimensions (features) grows, the volume of space expands exponentially. In very high-dimensional space (like images with thousands of pixels), EVERYTHING is far away.',
         goDeeper: {
-          explanation: 'In 1000-dimensional space, the distance from a point to its "nearest" neighbor is almost the same as the distance to its farthest neighbor. KNN breaks down and becomes useless without dimensionality reduction (like PCA).',
+          explanation: String.raw`RANDOM POINTS CONCENTRATE ON SHELL
+
+For Gaussian coordinates, norms concentrate; pairwise distances lose relative contrast—k-NN neighborhoods become meaningless without structure.
+
+DIMENSIONALITY REDUCTION
+
+PCA, autoencoders, or domain-specific embeddings restore metric learning before k-NN.
+
+COVER TREE / LSH
+
+Approximate NN in high-d with probabilistic guarantees when exact k-NN is too costly.`,
         },
       },
     },
@@ -101,8 +145,18 @@ const knnModule: ModuleData = {
       content: {
         text: 'Should a neighbor that is far away have the same vote as one that is right next to our test point? We can weight votes by the inverse of their distance.',
         goDeeper: {
-          math: 'w_i = \\frac{1}{d(x, x_i)}',
-          explanation: 'This effectively allows closer neighbors to "shout louder" than distant ones, helping the model become more robust to noise at the boundaries.',
+          math: String.raw`\hat{y} = \frac{\sum_i w_i y_i}{\sum_i w_i}, \quad w_i = \frac{1}{d(x,x_i)^p + \varepsilon}`,
+          explanation: String.raw`KERNEL WEIGHTING
+
+Gaussian weights exp(−d²/σ²) smooth influence; p and ε tune softness.
+
+REGRESSION STABILITY
+
+Inverse-distance blows up at d→0; ε regularizes. Shepard interpolation uses continuous weighting surfaces.
+
+CLASSIFICATION TIES
+
+Weighted votes reduce ties versus uniform majority at fixed k.`,
         },
       },
     },
@@ -115,7 +169,17 @@ const knnModule: ModuleData = {
       content: {
         text: 'If "Salary" is in thousands and "Age" is in double digits, the Euclidean distance will be dominated entirely by Salary. Age will be ignored!',
         goDeeper: {
-          explanation: 'KNN relies entirely on distances. If features aren\'t on the same scale, distances are meaningless. Always use Min-Max scaling or Z-score normalization before running KNN.',
+          explanation: String.raw`SCALE EQUIVARIANCE FAILURE
+
+Unless all features share units and dynamic range, L2 geometry lies. Standardize to zero mean unit variance or min-max to [0,1] per feature.
+
+ROBUST SCALING
+
+Median/IQR scaling resists outliers compared to z-score.
+
+CATEGORICAL ENCODING
+
+One-hot increases dimension and sparsity—consider learned embeddings before k-NN on mixed data.`,
         },
       },
     },
@@ -128,7 +192,17 @@ const knnModule: ModuleData = {
       content: {
         text: 'Calculating the distance to EVERY point in a billion-row dataset is too slow. Instead, we use smart data structures like KD-Trees or Ball-Trees to quickly narrow down the search.',
         goDeeper: {
-          explanation: 'A KD-Tree recursively splits the space into regions. Instead of checking 1,000,000 points, we only check the branch of the tree where our test point resides—drastically speeding up prediction time.',
+          explanation: String.raw`WORST CASE IN HIGH d
+
+KD-trees degrade toward linear scan when d ≫ log n—intrinsic dimension matters more than ambient d.
+
+BALL TREES
+
+Better for clustered data; metric properties exploited for pruning.
+
+APPROXIMATE NN
+
+Annoy, FAISS, HNSW trade exactness for speed at web scale.`,
         },
       },
     },
@@ -141,7 +215,13 @@ const knnModule: ModuleData = {
       content: {
         text: 'What if K=4 and the vote is 2 against 2? We have a tie! This is why, for binary classification, we almost always pick an ODD number for K (3, 5, 7...).',
         goDeeper: {
-          explanation: 'In multi-class problems (where odd K doesn\'t prevent all ties), we can break ties by looking at which class has the lower "total distance" among its neighbors, or by picking one randomly.',
+          explanation: String.raw`MULTI-CLASS TIES
+
+Use weighted votes, lowest aggregate distance sum per class, or random tie-break with reproducible seed.
+
+PROBABILISTIC OUTPUT
+
+k-NN can output empirical class frequencies p̂(c) = (# of class c in neighbors)/k as a crude probability vector.`,
         },
       },
     },
@@ -154,7 +234,17 @@ const knnModule: ModuleData = {
       content: {
         text: 'If 90% of your data is "Class A", a large K will almost always predict "Class A" just because there are more of them nearby.',
         goDeeper: {
-          explanation: 'For imbalanced datasets, standard KNN fails. Solutions include downsampling the majority class, upsampling the minority class (SMOTE), or using distance-weighting to give minority neighbors more power.',
+          explanation: String.raw`PRIOR DOMINANCE
+
+Under class imbalance, neighborhood votes reflect base rate. Remedies: class-weighted distances, oversampling (SMOTE), undersampling majority, or choosing k per class.
+
+COST-SENSITIVE DECISION
+
+Weight votes by misclassification costs c(ŷ,y) in risk minimization view.
+
+F1-AWARE k
+
+Tune k on PR curve, not accuracy alone, when positives are rare.`,
         },
       },
     },
@@ -178,14 +268,17 @@ const knnModule: ModuleData = {
       props: {
         mode: 'challenge',
         points: [
-          // Red group (0)
-          { x: 3, y: 7, class: 0 }, { x: 2, y: 8, class: 0 }, { x: 4, y: 8, class: 0 }, { x: 2, y: 6, class: 0 },
-          // Noisy Blue points right next to the test area
-          { x: 5, y: 6, class: 1 }, { x: 4, y: 5, class: 1 },
-          // Main Blue group (1)
-          { x: 8, y: 2, class: 1 }, { x: 9, y: 3, class: 1 }, { x: 7, y: 1, class: 1 },
+          { x: 3, y: 7, class: 0 },
+          { x: 2, y: 8, class: 0 },
+          { x: 4, y: 8, class: 0 },
+          { x: 2, y: 6, class: 0 },
+          { x: 5, y: 6, class: 1 },
+          { x: 4, y: 5, class: 1 },
+          { x: 8, y: 2, class: 1 },
+          { x: 9, y: 3, class: 1 },
+          { x: 7, y: 1, class: 1 },
         ],
-        testPoint: { x: 4.5, y: 6.5 }, // closer to the noisy blue points, but arguably in red territory
+        testPoint: { x: 4.5, y: 6.5 },
         k: 1,
       },
       completionCriteria: { type: 'threshold', target: 0, metric: 'class_0_wins' },

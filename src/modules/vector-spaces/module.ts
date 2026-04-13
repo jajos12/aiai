@@ -16,6 +16,8 @@ const vectorSpacesModule: ModuleData = {
       id: 'what-is-a-space',
       title: 'What Is a Vector Space?',
       visualizationProps: {
+        manimSrc: '/tier0-manim/Lesson04_VectorSpaceIntro.mp4',
+        manimTitle: 'Lesson 04 · Vector Space Intro',
         mode: 'static',
         vectors: [
           { x: 3, y: 1, color: '#6366f1', label: 'a' },
@@ -87,6 +89,8 @@ const vectorSpacesModule: ModuleData = {
       id: 'span-two-vectors',
       title: 'Span of Two Vectors',
       visualizationProps: {
+        manimSrc: '/tier0-manim/Lesson06_SpanLinearCombinations.mp4',
+        manimTitle: 'Lesson 06 · Span and Linear Combinations',
         mode: 'linear-combination',
         vectors: [
           { x: 2, y: 1, color: '#6366f1', label: 'v₁' },
@@ -139,6 +143,8 @@ const vectorSpacesModule: ModuleData = {
       id: 'linear-independence',
       title: 'Linear Independence',
       visualizationProps: {
+        manimSrc: '/tier0-manim/Lesson07_LinearIndependence.mp4',
+        manimTitle: 'Lesson 07 · Linear Independence',
         mode: 'linear-combination',
         vectors: [
           { x: 2, y: 0, color: '#6366f1', label: 'v₁' },
@@ -213,6 +219,8 @@ const vectorSpacesModule: ModuleData = {
       id: 'dimension',
       title: 'Dimension',
       visualizationProps: {
+        manimSrc: '/tier0-manim/Lesson08_BasisDimension.mp4',
+        manimTitle: 'Lesson 08 · Basis and Dimension',
         mode: 'static',
         vectors: [
           { x: 3, y: 0, color: '#6366f1', label: 'ℝ¹ ➜' },
@@ -239,6 +247,8 @@ const vectorSpacesModule: ModuleData = {
       id: 'subspaces',
       title: 'Subspaces',
       visualizationProps: {
+        manimSrc: '/tier0-manim/Lesson05_Subspaces.mp4',
+        manimTitle: 'Lesson 05 · Subspaces',
         mode: 'scalar',
         vectors: [{ x: 2, y: 1, color: '#f59e0b', label: 'subspace' }],
         draggable: true,

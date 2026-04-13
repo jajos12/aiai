@@ -10,7 +10,7 @@ const activationsModule: ModuleData = {
   tags: ['deep-learning', 'relu', 'sigmoid', 'tanh', 'vanishing-gradients'],
   prerequisites: ['perceptrons', 'backpropagation'],
   difficulty: 'intermediate',
-  estimatedMinutes: 50,
+  estimatedMinutes: 65,
   steps: [
     {
       id: 'why-non-linearity',
@@ -23,8 +23,18 @@ const activationsModule: ModuleData = {
       content: {
         text: 'Without activation functions, stacking layers is pointless. No matter how many linear layers you stack, the result is always a single linear function. Three layers of y=2x composed together just give y=8x. You can never learn curves, spirals, or non-linear patterns.',
         goDeeper: {
-          math: 'f(x) = W_3(W_2(W_1 x)) = (W_3 W_2 W_1)x = W_{combined} x',
-          explanation: 'Matrix multiplication is associative. Any chain of linear transformations collapses into a single linear transformation. An activation function between layers breaks this collapse and allows the network to model any shape.',
+          math: String.raw`W_3 W_2 W_1 x = W_{\mathrm{eq}} x`,
+          explanation: String.raw`SEMIGROUP OF AFFINE MAPS
+
+Composition of affine maps is affine; rank and linear structure preserved—no universal approximation without nonlinear breaks.
+
+POLYNOMIAL VIEW
+
+If you allowed elementwise squaring without weights, you could build polynomials; learned nonlinearities generalize that idea parametrically.
+
+IDENTITY ACTIVATION PATHS
+
+ResNet can learn near-identity when needed, but still requires nonlinear branches to increase expressivity.`,
         },
       },
     },
@@ -39,8 +49,18 @@ const activationsModule: ModuleData = {
       content: {
         text: 'The Sigmoid squishes any input to (0, 1). It was the original activation function. But look at its derivative—the maximum is only 0.25! When backpropagation multiplies this through 50 layers, gradients effectively become zero.',
         goDeeper: {
-          math: '\\sigma(x) = \\frac{1}{1+e^{-x}}, \\quad \\sigma\'(x) = \\sigma(x)(1-\\sigma(x))',
-          explanation: 'The derivative peaks at 0.25 when x=0. After multiplying 0.25 × 0.25 × ... across 50 layers, the gradient reaching the first layer is approximately 0.25^50 ≈ 10^{-30}. The early layers literally cannot learn. This is the Vanishing Gradient Problem.',
+          math: String.raw`\sigma(x)=\frac{1}{1+e^{-x}}, \quad \sigma'(x)=\sigma(x)(1-\sigma(x))\le \tfrac{1}{4}`,
+          explanation: String.raw`PRODUCT OF DERIVATIVES
+
+∂L/∂h_1 chains L terms each ≤1/4 → exponential decay in depth unless activations stay in linear region.
+
+LOGISTIC OUTPUT
+
+Sigmoid still ideal for binary probabilities at the output layer with cross-entropy—gradients rebalance via loss.
+
+SATURATION
+
+Large |x| drives σ'→0—pre-BN nets needed careful init to stay in active zone.`,
         },
       },
       interactionHint: 'Hover over the curve to see both the function value and its derivative at any point.',
@@ -56,8 +76,18 @@ const activationsModule: ModuleData = {
       content: {
         text: 'Tanh is zero-centered (outputs range from -1 to +1), which helps with training dynamics. Its derivative peaks at 1.0 instead of 0.25. But it still saturates at the tails, so the vanishing gradient problem persists for very deep networks.',
         goDeeper: {
-          math: '\\tanh(x) = \\frac{e^x - e^{-x}}{e^x + e^{-x}}, \\quad \\tanh\'(x) = 1 - \\tanh^2(x)',
-          explanation: 'Tanh is actually a rescaled sigmoid: tanh(x) = 2σ(2x) - 1. Being zero-centered means the average output is 0, which prevents the gradients from being systematically biased in one direction.',
+          math: String.raw`\tanh(x)=\frac{e^x-e^{-x}}{e^x+e^{-x}},\quad \tanh'(x)=1-\tanh^2(x)\le 1`,
+          explanation: String.raw`SYMMETRY
+
+Odd function about origin; reduces first-layer bias shift compared to sigmoid.
+
+STILL SATURATES
+
+|x| large ⇒ tanh'→0; deep stacks pre-ReLU still struggled.
+
+RELATION TO SIGMOID
+
+tanh(x) = 2σ(2x)−1—reparameterization, not new asymptotics.`,
         },
       },
     },
@@ -72,8 +102,18 @@ const activationsModule: ModuleData = {
       content: {
         text: 'ReLU (Rectified Linear Unit) is embarrassingly simple: max(0, x). For positive inputs, its derivative is exactly 1. This means gradients flow backward completely undiminished, no matter how deep the network. This single insight unlocked modern deep learning.',
         goDeeper: {
-          math: 'f(x) = \\max(0, x), \\quad f\'(x) = \\begin{cases} 1 & x > 0 \\\\ 0 & x \\leq 0 \\end{cases}',
-          explanation: 'The downside is the "Dying ReLU" problem: if a neuron\'s input is always negative, the gradient is permanently 0 and that neuron can never recover. Variants like Leaky ReLU (f(x) = max(0.01x, x)) fix this by allowing a small gradient for negative inputs.',
+          math: String.raw`\mathrm{ReLU}(x)=\max(0,x),\quad \frac{d}{dx}\mathrm{ReLU}=\mathbf{1}_{x>0}`,
+          explanation: String.raw`SPARSE ACTIVATIONS
+
+Half the region exact zero—implicit regularization and faster computation.
+
+DYING RELU
+
+If biases push units permanently negative, gradient = 0 forever—Leaky ReLU / proper init mitigate.
+
+PIECEWISE LINEARITY
+
+Network becomes continuous piecewise-linear map—smooth enough for optimization, rigid enough for speed.`,
         },
       },
     },
@@ -89,7 +129,17 @@ const activationsModule: ModuleData = {
       content: {
         text: 'This is the key insight. Watch how the gradient signal decays as it propagates backward through layers. With Sigmoid, it vanishes. With ReLU, it flows cleanly. Toggle between activations to see the dramatic difference.',
         goDeeper: {
-          explanation: 'In 2012, using ReLU activations allowed AlexNet to train an 8-layer network on ImageNet, which was previously considered impossible with sigmoid/tanh. Today, networks with hundreds of layers (ResNets) are standard, thanks partly to ReLU and techniques like skip connections.',
+          explanation: String.raw`ILL-CONDITIONED JACOBIAN
+
+Long products of singular values <1 shrink backward error signals; ReLU avoids systematic shrinkage on active paths.
+
+RESIDUAL PATHS
+
+Skip connections add identity Jacobian eigenvalues—another cure orthogonal to activation choice.
+
+NORMALIZATION
+
+LayerNorm/BatchNorm keep pre-activations in ranges where derivatives are healthier.`,
         },
       },
       interactionHint: 'Switch between Sigmoid, Tanh, and ReLU to see the gradient magnitude at each layer. The bar height represents how much learning signal reaches that layer.',
@@ -105,8 +155,18 @@ const activationsModule: ModuleData = {
       content: {
         text: 'If a ReLU neuron stays in the negative zone (x < 0) for too long, it "dies" (its gradient is forever 0). Leaky ReLU adds a tiny slope (0.01) to keep the neuron alive.',
         goDeeper: {
-          math: 'f(x) = \\max(0.01x, x)',
-          explanation: 'By allowing a tiny bit of training signal through for negative inputs, we prevent entire sections of the brain from becoming permanently inactive. Parametric ReLU (PReLU) takes this further by let the network *learn* the best leakage slope.',
+          math: String.raw`f(x)=\max(\alpha x, x),\ \alpha \ll 1`,
+          explanation: String.raw`NONZERO NEGATIVE SLOPE
+
+Preserves sparsity mostly while allowing gradient recovery.
+
+PReLU
+
+Learn α per channel—extra parameters, more flexibility.
+
+ELU / SELU
+
+Smooth negative branch for mean closer to zero with self-normalizing claims under specific init assumptions.`,
         },
       },
     },
@@ -121,8 +181,18 @@ const activationsModule: ModuleData = {
       content: {
         text: 'ELU makes the negative side smooth instead of jagged. This helps it converge faster by making the average activation closer to zero, much like zero-centered Tanh but without the vanishing gradient problems.',
         goDeeper: {
-          math: 'f(x) = \\begin{cases} x & x > 0 \\\\ \\alpha(e^x - 1) & x \\leq 0 \\end{cases}',
-          explanation: 'SELU (Scaled ELU) is a special variant that can make deep networks "Self-Normalizing," ensuring that activations don\'t explode or vanish even without Batch Normalization layers.',
+          math: String.raw`f(x)=\begin{cases}x & x>0\\ \alpha(e^x-1) & x\le 0\end{cases}`,
+          explanation: String.raw`C^1 AT ZERO
+
+Smoother optimization landscape near origin than ReLU kink.
+
+SELU SCALING
+
+Special α, λ chosen so layerwise statistics self-normalize under certain MLP assumptions—less used since Transformer era.
+
+COMPUTE COST
+
+Exp on negative side pricier than ReLU—trade accuracy per FLOP.`,
         },
       },
     },
@@ -136,7 +206,18 @@ const activationsModule: ModuleData = {
       content: {
         text: 'Modern AI like ChatGPT and Stable Diffusion use GeLU (Gaussian Error Linear Unit). It blends the logic of ReLU with probability, creating a smooth "curved" activation that performs better in complex attention layers.',
         goDeeper: {
-          explanation: 'GeLU weights inputs by their percentile in a normal distribution. It is effectively a stochastic ReLU: neurons follow the same principle but with a smoother, more differentiable "soft" activation around zero.',
+          math: String.raw`\mathrm{GELU}(x) \approx x\,\Phi(x)`,
+          explanation: String.raw`PROBABILISTIC GATING
+
+Φ is Gaussian CDF—stochastically zeroes inputs in an expectation sense; smooth everywhere.
+
+APPROXIMATIONS
+
+0.5x(1+tanh[√(2/π)(x+0.044715x³)]) used in code for speed.
+
+SWIGLU
+
+Gated GLU variant in PaLM/LLaMA FFN: split h, multiply one half by GELU of other—extra parameters, strong empirical gains.`,
         },
       },
     },
@@ -149,7 +230,17 @@ const activationsModule: ModuleData = {
       content: {
         text: 'Choosing an activation is a balance of speed, stability, and expressive power. ReLU is fast. GeLU is sophisticated. Sigmoid is legacy. Softmax is for outputs.',
         goDeeper: {
-          explanation: 'Most modern practitioners start with ReLU/Leaky ReLU for hidden layers and use Softmax (classification) or Linear (regression) for the final output. When scaling to massive Transformers, GeLU/SwiGLU are the current state-of-the-art.',
+          explanation: String.raw`OUTPUT VS HIDDEN
+
+Softmax + CE for multi-class logits; sigmoid + BCE per label in multi-label tasks.
+
+HIDDEN DEFAULTS
+
+ReLU family for CNNs; GELU/SwiGLU for Transformers; still domain-specific exceptions.
+
+RESEARCH FRONTIERS
+
+Periodic, rational, and learned activations (Maxout) appear in niche architectures; most gains now from blocks and scaling, not exotic σ.`,
         },
       },
     },

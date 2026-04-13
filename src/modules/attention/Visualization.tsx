@@ -1,14 +1,18 @@
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Text, Float, RoundedBox, Box, Line, Sphere, Cylinder } from '@react-three/drei';
-import * as THREE from 'three';
+import { Text, Float, RoundedBox, Line } from '@react-three/drei';
 import Stage3D from '@/components/shared/Stage3D';
+import { AttentionManimPlayer } from './AttentionManimPlayer';
 
-interface AttentionVisualizationProps {
+type AttentionVisualizationProps = {
+  presentation?: string;
   mode?: string;
-}
+  manimSrc?: string;
+  manimFallback?: string;
+  [key: string]: unknown;
+};
 
 function VectorArrow({ vector, color, label }: { vector: [number, number, number], color: string, label: string }) {
   return (
@@ -23,42 +27,69 @@ function VectorArrow({ vector, color, label }: { vector: [number, number, number
   );
 }
 
-export default function AttentionVisualization({ mode = 'interactive' }: AttentionVisualizationProps) {
+/** Must live under `<Canvas>` — `useFrame` is invalid in the parent that wraps `Stage3D`. */
+function InteractiveAttentionScene() {
   const [qPos, setQPos] = useState<[number, number, number]>([2, 2, 0]);
 
   useFrame((state) => {
-    if (mode === 'interactive') {
-       const t = state.clock.getElapsedTime();
-       setQPos([Math.sin(t) * 3, Math.cos(t) * 3, Math.sin(t * 0.5) * 2]);
-    }
+    const t = state.clock.getElapsedTime();
+    setQPos([Math.sin(t) * 3, Math.cos(t) * 3, Math.sin(t * 0.5) * 2]);
   });
+
+  return (
+    <group>
+      <gridHelper args={[10, 10, 0x475569, 0x1e293b]} rotation={[Math.PI / 2, 0, 0]} />
+
+      <VectorArrow vector={[3, 0, 0]} color="#60a5fa" label="KEY 0" />
+      <VectorArrow vector={[0, 3, 0]} color="#60a5fa" label="KEY 1" />
+      <VectorArrow vector={[0, 0, 3]} color="#60a5fa" label="KEY 2" />
+
+      <VectorArrow vector={qPos} color="#fb923c" label="QUERY" />
+
+      <Line
+        points={[[0, 0, 0], [qPos[0], 0, 0]]}
+        color="#fb923c"
+        opacity={0.3}
+        transparent
+        dashed
+      />
+      <Line
+        points={[[0, 0, 0], [0, qPos[1], 0]]}
+        color="#fb923c"
+        opacity={0.3}
+        transparent
+        dashed
+      />
+
+      <Text position={[0, -5, 0]} fontSize={0.3} color="white">
+        Attention is a weighted sum: Softmax(Q \cdot K^T)V
+      </Text>
+    </group>
+  );
+}
+
+export default function AttentionVisualization({
+  presentation,
+  mode = 'interactive',
+  manimSrc,
+  manimFallback,
+}: AttentionVisualizationProps) {
+  const src =
+    typeof manimSrc === 'string' && manimSrc.trim().length > 0 ? manimSrc.trim() : undefined;
+
+  if (presentation === 'guided' && src) {
+    return (
+      <div className="relative h-full min-h-[480px] w-full flex-1">
+        <AttentionManimPlayer videoSrc={src} manimFallback={manimFallback} />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full flex flex-col gap-4">
       <Stage3D cameraPosition={[8, 8, 12]}>
         <group>
-          {mode === 'interactive' && (
-            <group>
-               {/* 3D Vector Space */}
-               <gridHelper args={[10, 10, 0x475569, 0x1e293b]} rotation={[Math.PI/2, 0, 0]} />
-               
-               {/* Keys */}
-               <VectorArrow vector={[3, 0, 0]} color="#60a5fa" label="KEY 0" />
-               <VectorArrow vector={[0, 3, 0]} color="#60a5fa" label="KEY 1" />
-               <VectorArrow vector={[0, 0, 3]} color="#60a5fa" label="KEY 2" />
-               
-               {/* Animated Query */}
-               <VectorArrow vector={qPos} color="#fb923c" label="QUERY" />
-               
-               {/* Attention Beams (Projections) */}
-               <Line points={[[0, 0, 0], [qPos[0], 0, 0]]} color="#fb923c" opacity={0.3} transparent dashed />
-               <Line points={[[0, 0, 0], [0, qPos[1], 0]]} color="#fb923c" opacity={0.3} transparent dashed />
-               
-               <Text position={[0, -5, 0]} fontSize={0.3} color="white">
-                 Attention is a weighted sum: Softmax(Q \cdot K^T)V
-               </Text>
-            </group>
-          )}
+          {mode === 'interactive' && <InteractiveAttentionScene />}
 
           {mode === 'database' && (
              <group>

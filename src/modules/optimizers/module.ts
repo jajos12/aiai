@@ -10,7 +10,7 @@ const optimizersModule: ModuleData = {
   tags: ['deep-learning', 'optimizers', 'sgd', 'momentum', 'adam', 'loss-landscape'],
   prerequisites: ['backpropagation', 'optimization'],
   difficulty: 'intermediate',
-  estimatedMinutes: 50,
+  estimatedMinutes: 60,
   steps: [
     {
       id: 'loss-landscapes',
@@ -23,7 +23,17 @@ const optimizersModule: ModuleData = {
       content: {
         text: 'Imagine a high-dimensional mountain range where the "height" is the error (loss). Learning is the act of finding the lowest valley. The steeper the terrain, the faster we move—but the riskier it becomes.',
         goDeeper: {
-          explanation: 'In real neural networks, this landscape has millions of dimensions (one for each weight). We can only visualize 2 or 3. The shape of this surface is determined by the network architecture, the activation functions, and the training data.',
+          explanation: String.raw`HIGH-DIMENSIONAL GEOMETRY
+
+Loss L(θ) for θ ∈ ℝ^p with p≈10⁹ is impossible to visualize; 2-D slices can mislead. Empirically many minima are connected by flat valleys (mode connectivity).
+
+NOISY GRADIENTS
+
+Minibatch SGD injects noise whose covariance structure can help escape sharp minima—implicit regularization effect.
+
+HessIAN SPECTRUM
+
+Condition number κ = λ_max/λ_min of ∇²L controls GD speed; optimizers precondition to reduce effective κ.`,
         },
       },
       interactionHint: 'Click anywhere on the landscape to drop a "worker" and watch it slide down the gradient toward the minimum.',
@@ -39,8 +49,18 @@ const optimizersModule: ModuleData = {
       content: {
         text: 'Vanilla SGD (Stochastic Gradient Descent) is like a ball with no mass—it stops the moment the gradient hits 0. Momentum adds "physical inertia." It helps the optimizer blast through small plateaus and stay steady in narrow ravines.',
         goDeeper: {
-          math: 'v_t = \\beta v_{t-1} + (1 - \\beta) \\nabla J(\\theta)',
-          explanation: 'The velocity $v_t$ is a moving average of past gradients. The hyperparameter $\\beta$ (usually 0.9) determines how much of the "previous speed" we keep. This extra push helps escape shallow local minima and dampens oscillations.',
+          math: String.raw`v_t = \beta v_{t-1} + (1-\beta) g_t, \quad \theta_t = \theta_{t-1} - \alpha v_t`,
+          explanation: String.raw`EMA OF GRADIENTS
+
+β≈0.9 keeps history ~10 steps; reduces variance in stochastic gradients.
+
+CONVEX QUADRATIC ANALYSIS
+
+Momentum root convergence rate improves when spectrum of Hessian is spread—aligns update along low-curvature directions faster.
+
+NESTEROV
+
+Lookahead gradient at θ − αv damps oscillations across narrow valleys.`,
         },
       },
       interactionHint: 'Watch how Momentum (blue) avoids the jittery oscillations of vanilla SGD (red) in the narrow ravine.',
@@ -56,8 +76,18 @@ const optimizersModule: ModuleData = {
       content: {
         text: 'Different weights might need different learning rates. Adam (Adaptive Moment Estimation) keeps track of both the average gradient (momentum) AND the average squared gradient (to measure volatility). It automatically scales the step size for each individual weight.',
         goDeeper: {
-          math: 'm_t = \\beta_1 m_{t-1} + (1 - \\beta_1)g_t, \\quad v_t = \\beta_2 v_{t-1} + (1 - \\beta_2)g_t^2',
-          explanation: 'Adam combines the benefits of Momentum and RMSprop. It is the "gold standard" for most deep learning tasks today because it requires very little manual tuning of the learning rate.',
+          math: String.raw`m_t=\beta_1 m_{t-1}+(1-\beta_1)g_t,\quad v_t=\beta_2 v_{t-1}+(1-\beta_2)g_t^2`,
+          explanation: String.raw`BIAS CORRECTION
+
+\hat m_t = m_t/(1-\beta_1^t), \hat v_t = v_t/(1-\beta_2^t) fixes zero initialization.
+
+ADAPTIVE PRECONDITIONER
+
+Effective step ∝ g_t / (√\hat v_t + ε) resembles diagonal AdaGrad with decay.
+
+TRANSFORMER DEFAULT
+
+AdamW decouples weight decay from adaptive step—standard in NLP/CV pretraining.`,
         },
       },
       interactionHint: 'Observe how Adam handles the "Saddle Point" (a flat plateau that looks like a horse saddle)—it speeds up much faster than Momentum.',
@@ -71,7 +101,17 @@ const optimizersModule: ModuleData = {
       content: {
         text: 'Should we calculate the gradient for the WHOLE dataset at once? That is "Batch Gradient Descent". Or one point at a time? That is "Stochastic" (SGD). Most people use "Mini-Batch"—a sweet spot in the middle.',
         goDeeper: {
-          explanation: 'Batch is stable but slow and uses too much memory. SGD is fast but bouncy (noisy). Mini-Batch (e.g., 32 or 64 samples) uses the power of modern GPUs to calculate gradients quickly while providing enough noise to escape small local minima.',
+          explanation: String.raw`NOISE SCALING
+
+Gradient variance ∝ 1/B for batch size B; larger B smoother updates, more memory, better vectorization.
+
+CRITICAL BATCH SIZE
+
+Beyond a point, linear speedup stops due to memory bandwidth; mixed precision and gradient accumulation simulate large B.
+
+GENERALIZATION LORE
+
+Small B often finds flatter minima (debated); learning rate may need scaling with B (linear scaling rule) when increasing batch.`,
         },
       },
     },
@@ -86,7 +126,17 @@ const optimizersModule: ModuleData = {
       content: {
         text: 'Before Adam, we had AdaGrad (which slowed down every weight) and RMSprop (which fixed AdaGrad by using a moving average). Understanding these explains exactly WHY Adam works so well.',
         goDeeper: {
-          explanation: 'AdaGrad can stop learning too early because the accumulated squared gradients only grow, eventually making the learning rate zero. RMSprop "forgets" distant history, allowing the optimizer to keep moving.',
+          explanation: String.raw`ADAGRAD ACCUMULATOR
+
+G_t = Σ g_τ² grows monotonically → learning rate → 0 eventually—good for sparse convex problems, bad for deep nets long-run.
+
+RMSPROP EMA
+
+v_t = β v_{t-1} + (1-β)g_t² forgets ancient past, keeps steps alive.
+
+ADAM = MOMENTUM + RMS
+
+Combine first and second moment tracking with bias fix.`,
         },
       },
     },
@@ -99,7 +149,17 @@ const optimizersModule: ModuleData = {
       content: {
         text: 'At the very start of training, the model is totally random and gradients can be massive. We often start with an extremely tiny learning rate and "warm up" to our target over the first few thousand steps.',
         goDeeper: {
-          explanation: 'This prevents the initial random gradients from completely destroying the fragile early weight initialization. It is essential for training massive Transformer models stabley.',
+          explanation: String.raw`ATTENTION LOGIT SCALE
+
+Early layers with large gradients can push softmax near one-hot, killing gradient flow through attention; warmup stabilizes.
+
+LINEAR RAMP
+
+α_t = α_max · min(1, t/T_warm) is common; cosine thereafter.
+
+LARGE BATCH
+
+Warmup pairs with linear LR scaling when B jumps—avoid shock to dynamics.`,
         },
       },
     },
@@ -112,7 +172,17 @@ const optimizersModule: ModuleData = {
       content: {
         text: 'Standard Momentum calculates the gradient at the current spot and THEN adding speed. Nesterov Momentum is "smarter"—it jumps ahead and calculates the gradient where we are MOVING to.',
         goDeeper: {
-          explanation: 'This "look-ahead" behavior allows Nesterov to adjust its course sooner, resulting in even faster convergence and less overshooting at the bottom of the valley.',
+          explanation: String.raw`UPDATE EQUIVALENT FORM
+
+Some implementations use g_t = ∇L(θ_{t-1} − α v_{t-1}) with standard momentum recursion—same lookahead idea.
+
+CONVEX RATE IMPROVEMENT
+
+For smooth convex functions, NAG achieves O(1/t²) in certain setups vs O(1/t) for GD.
+
+PRACTICE
+
+Less common than Adam in Transformers; still used in some CV CNN schedules.`,
         },
       },
     },
@@ -127,7 +197,17 @@ const optimizersModule: ModuleData = {
       content: {
         text: 'People used to fear "getting stuck" in a shallow local minimum. In millions of dimensions, this is actually rare—there is usually at least one direction that continues to slope down.',
         goDeeper: {
-          explanation: 'The real enemy isn\'t local minima, but "Saddle Points"—vast, flat plateaus where the gradient is near zero. Adaptive optimizers like Adam are specifically designed to power through these flat regions.',
+          explanation: String.raw`SADDLES DOMINATE
+
+Random initialization in high-D rarely lands near strict local minima; plateaus with small negative curvature directions (saddles) slow progress more than minima.
+
+FLAT VS SHARP MINIMA
+
+Flat basins correlate (empirically) with better generalization; SAM optimizer explicitly seeks flat regions.
+
+ADAM AT SADDLES
+
+Second moment estimate adds noise helping escape; still no free lunch on ill-conditioned surfaces.`,
         },
       },
     },

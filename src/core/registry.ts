@@ -105,7 +105,7 @@ export const MODULE_META: ModuleMeta[] = [
   // Tier 1: ML Fundamentals
   { id: 'linear-regression', tierId: 1, clusterId: 'ml-fundamentals', title: 'Linear Regression', description: 'Fitting lines to data.', estimatedMinutes: 45, prerequisites: ['vectors', 'optimization'], difficulty: 'beginner' },
   { id: 'logistic-regression', tierId: 1, clusterId: 'ml-fundamentals', title: 'Logistic Regression', description: 'Probabilistic classification.', estimatedMinutes: 45, prerequisites: ['linear-regression'], difficulty: 'beginner' },
-  { id: 'k-means', tierId: 1, clusterId: 'ml-fundamentals', title: 'K-Means Clustering', description: 'Unsupervised grouping.', estimatedMinutes: 35, prerequisites: ['norms-distance'], difficulty: 'beginner' },
+  { id: 'k-means', tierId: 1, clusterId: 'ml-fundamentals', title: 'K-Means Clustering', description: 'Unsupervised clustering vs supervised learning; Lloyd’s algorithm and choosing K.', estimatedMinutes: 50, prerequisites: ['norms-distance'], difficulty: 'beginner' },
   { id: 'knn', tierId: 1, clusterId: 'ml-fundamentals', title: 'K-Nearest Neighbors', description: 'Simplicity-based inference.', estimatedMinutes: 30, prerequisites: ['norms-distance'], difficulty: 'beginner' },
   { id: 'decision-trees', tierId: 1, clusterId: 'classical-ml', title: 'Decision Trees', description: 'Entropy and splits.', estimatedMinutes: 40, prerequisites: [], difficulty: 'intermediate' },
   { id: 'svm', tierId: 1, clusterId: 'classical-ml', title: 'SVM', description: 'Maximum margin separators.', estimatedMinutes: 50, prerequisites: ['matrices', 'optimization'], difficulty: 'intermediate' },
@@ -119,7 +119,7 @@ export const MODULE_META: ModuleMeta[] = [
   { id: 'cnn-foundations', tierId: 2, clusterId: 'neural-networks', title: 'CNN Foundations', description: 'Vision processing layers.', estimatedMinutes: 55, prerequisites: ['mlps'], difficulty: 'intermediate' },
 
   // Tier 3: Advanced
-  { id: 'attention', tierId: 3, clusterId: 'advanced-architectures', title: 'Attention', description: 'Focus mechanism for sequences.', estimatedMinutes: 60, prerequisites: ['mlps'], difficulty: 'advanced' },
+  { id: 'attention', tierId: 3, clusterId: 'advanced-architectures', title: 'Attention', description: 'Scaled dot-product attention, heads, masks, cross-attention (deep notes).', estimatedMinutes: 120, prerequisites: ['mlps'], difficulty: 'advanced' },
   { id: 'transformers', tierId: 3, clusterId: 'advanced-architectures', title: 'Transformers', description: 'The modern AI backbone.', estimatedMinutes: 60, prerequisites: ['attention'], difficulty: 'advanced' },
   { id: 'vit', tierId: 3, clusterId: 'advanced-architectures', title: 'Vision Transformers', description: 'Attention-based vision.', estimatedMinutes: 60, prerequisites: ['transformers', 'cnn-foundations'], difficulty: 'advanced' },
   { id: 'llm-training', tierId: 3, clusterId: 'advanced-architectures', title: 'LLM Training', description: 'Scale, tuning, and alignment.', estimatedMinutes: 60, prerequisites: ['transformers'], difficulty: 'advanced' },

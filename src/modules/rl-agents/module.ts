@@ -10,7 +10,7 @@ const rlAgentsModule: ModuleData = {
   tags: ['reinforcement-learning', 'q-learning', 'agents', 'rl'],
   prerequisites: ['perceptrons'],
   difficulty: 'intermediate',
-  estimatedMinutes: 60,
+  estimatedMinutes: 75,
   steps: [
     {
       id: 'agent-environment',
@@ -26,8 +26,17 @@ const rlAgentsModule: ModuleData = {
       content: {
         text: 'In Reinforcement Learning (RL), an Agent takes Actions in an Environment to maximize its cumulative Reward.',
         goDeeper: {
-          explanation:
-            'Unlike supervised learning where we have the "correct answers", RL relies on a reward signal. The agent must discover which actions yield the most reward by trying them.',
+          explanation: String.raw`MDP FORMALISM
+
+Markov Decision Process (S, A, P, R, γ): transition kernel P(s'|s,a), reward r(s,a,s'), discount γ∈[0,1). Policy π(a|s) induces trajectories; objective J(π)=𝔼[Σ γ^t r_t].
+
+PARTIALLY OBSERVED WORLDS
+
+POMDPs add observations o ~ Ω(s); agent may need memory (RNN) or belief state.
+
+EXPLORATION OBLIGATION
+
+Unlike i.i.d. supervised data, the agent chooses the data distribution it learns from.`,
         },
       },
     },
@@ -46,7 +55,17 @@ const rlAgentsModule: ModuleData = {
       content: {
         text: 'Should the agent try a random action to discover new paths (Explore), or use what it already knows to get a reward (Exploit)? This is controlled by Epsilon (ε).',
         goDeeper: {
-          explanation: 'If ε = 1, the agent moves completely randomly. If ε = 0, it always picks the action it thinks is best. Typically, we start with high ε and decay it over time.',
+          explanation: String.raw`ε-GREEDY POLICY
+
+With prob ε pick uniform random action; else argmax_a Q(s,a). Decay ε_t schedule balances early exploration vs late exploitation.
+
+REGRET BOUNDS
+
+Multi-armed bandit theory quantifies cost of exploration; MDPs generalize to PAC-MDP / UCB-style bonuses.
+
+BAYESIAN / THOMPSON
+
+Posterior sampling explores optimally in some bandit settings; harder in general MDPs.`,
         },
       },
       interactionHint: 'Change the Epsilon slider and watch the agent\'s behavior',
@@ -67,8 +86,18 @@ const rlAgentsModule: ModuleData = {
       content: {
         text: 'The agent learns the value of being in a state using the Bellman Equation, which updates values backwards from the goal.',
         goDeeper: {
-          math: 'Q(s, a) = (1-\\alpha)Q(s,a) + \\alpha (r + \\gamma \\max_{a\'} Q(s\', a\'))',
-          explanation: 'It updates the Q-value by blending the old value with the new target: the immediate reward plus the discounted max value of the next state.',
+          math: String.raw`Q(s,a) \leftarrow (1-\alpha)Q(s,a) + \alpha\bigl(r + \gamma \max_{a'} Q(s',a')\bigr)`,
+          explanation: String.raw`BOOTSTRAP TARGET
+
+TD target r + γ max Q(s',·) uses current estimate of future—lower variance than Monte Carlo full returns, biased until Q correct.
+
+OPTIMALITY EQUATION
+
+Bellman optimality: Q^*(s,a) = 𝔼[r + γ max_{a'} Q^*(s',a')]; fixed point unique under contractions in finite tabular case.
+
+OFF-POLICY NOTE
+
+Q-learning learns optimal Q even while behaving ε-greedy—off-policy TD control.`,
         },
       },
     },
@@ -81,7 +110,17 @@ const rlAgentsModule: ModuleData = {
       content: {
         text: 'Simple Q-Learning uses a table. But what if we have a billion states (like pixels in a game)? We use a Neural Network to *predict* the Q-values. This is a Deep Q-Network (DQN).',
         goDeeper: {
-          explanation: 'DQN was the first major breakthrough of modern RL, allowing agents to play Atari games at superhuman levels just by looking at the screen.',
+          explanation: String.raw`FUNCTION APPROXIMATION
+
+Q_θ(s,a) or Q_θ(s) with a output per action; θ shared across states—generalization to unseen screens.
+
+STABILIZERS
+
+Experience replay breaks correlation; target network θ^- slows moving target r+γ max Q_{θ^-}(s',a').
+
+DOUBLE DQN
+
+Decouple selection and evaluation of max to reduce overestimation bias.`,
         },
       },
     },
@@ -94,8 +133,18 @@ const rlAgentsModule: ModuleData = {
       content: {
         text: 'Instead of predicting "How good is this action?" (Q-value), we directly predict "What action should I take?". We use the reward to "dial up" the probability of actions that led to a win.',
         goDeeper: {
-          math: '\\nabla J(\\theta) = E[\\nabla \\log \\pi(a|s) R]',
-          explanation: 'This is much more natural for continuous actions (like moving a robot arm) where a discrete Q-table is impossible.',
+          math: String.raw`\nabla_\theta J(\theta) = \mathbb{E}_{\tau\sim\pi_\theta}\Bigl[\sum_t \nabla_\theta \log \pi_\theta(a_t|s_t)\, G_t\Bigr]`,
+          explanation: String.raw`REINFORCE ESTIMATOR
+
+Monte Carlo returns G_t weighted by log-prob gradients—unbiased but high variance.
+
+BASELINE SUBTRACTION
+
+Subtract state-value b(s) (e.g., V(s)) without changing mean gradient—cuts variance.
+
+CONTINUOUS CONTROL
+
+Gaussian policies π_θ = 𝒩(μ_θ(s), Σ_θ(s)) give differentiable sampling (reparam trick) for robotics.`,
         },
       },
     },
@@ -108,7 +157,17 @@ const rlAgentsModule: ModuleData = {
       content: {
         text: 'Why not both? The "Actor" decides what to do, and the "Critic" evaluates how good that choice was. The Actor learns from the Critic\'s feedback.',
         goDeeper: {
-          explanation: 'The Critic reduces "variance" (the noise in the reward signal), making learning much more stable and efficient than pure policy gradients.',
+          explanation: String.raw`ADVANTAGE ESTIMATION
+
+A(s,a)=Q(s,a)−V(s) or GAE-λ blends TD errors—centered signal for policy update.
+
+TD ERROR AS CRITIC TARGET
+
+δ_t = r + γV(s') − V(s) bootstraps like value iteration inside deep nets.
+
+A2C / A3C / SAC
+
+Variants differ sync/async updates, entropy bonuses (max-ent RL), and off-policy critics.`,
         },
       },
     },
@@ -121,7 +180,18 @@ const rlAgentsModule: ModuleData = {
       content: {
         text: 'In RL, one "really bad" update can ruin the whole agent. PPO (Proximal Policy Optimization) ensures that the new policy doesn\'t drift too far from the old one in a single step.',
         goDeeper: {
-          explanation: 'PPO is the current state-of-the-art for stability. It is the algorithm used by OpenAI to train their Dota 2 bots and for general LLM fine-tuning.',
+          math: String.raw`L^{\mathrm{CLIP}} = \mathbb{E}\bigl[\min(r_t A_t,\mathrm{clip}(r_t,1-\epsilon,1+\epsilon)A_t)\bigr]`,
+          explanation: String.raw`IMPORTANCE RATIO
+
+r_t = π_new(a|s)/π_old(a|s); clip prevents huge policy jumps when advantage A_t mis-estimates.
+
+TRUST REGION INTUITION
+
+Related to TRPO natural gradient step constrained in KL divergence ball.
+
+LLM FINE-TUNING
+
+RLHF uses PPO-style updates with learned reward model replacing environment reward.`,
         },
       },
     },
@@ -134,7 +204,17 @@ const rlAgentsModule: ModuleData = {
       content: {
         text: 'If the goal is 1 mile away, a reward at the end is too "sparse". We use "Reward Shaping" to give tiny breadcrumbs along the path to guide the agent.',
         goDeeper: {
-          explanation: 'Warning: If shaped poorly, the agent might "hack" the reward (e.g., spinning in circles to get breadcrumbs without reaching the goal). Alignment is key!',
+          explanation: String.raw`POTENTIAL-BASED SHAPING
+
+F(s,s') = γΦ(s')−Φ(s) preserves optimal policy under mild conditions (Ng et al.)—design Φ to hint progress without changing optimum.
+
+REWARD HACKING
+
+Misspecified shaping creates loopholes (spinning for partial credit)—ties to AI alignment.
+
+INVERSE RL
+
+Learn reward from demonstrations when hand-design is hard.`,
         },
       },
     },
@@ -147,7 +227,17 @@ const rlAgentsModule: ModuleData = {
       content: {
         text: 'In the real world, agents aren\'t alone. Multi-Agent RL study how agents cooperate or compete, leading to complex behaviors like team sports or traffic flow.',
         goDeeper: {
-          explanation: 'The environment becomes non-stationary because other agents are learning too! This makes MARL one of the most challenging and exciting frontiers of AI.',
+          explanation: String.raw`NON-STATIONARITY
+
+From agent i’s view, others’ policies change over training—breaks MDP assumptions; needs opponent modeling or centralized training decentralized execution (CTDE).
+
+NASH / CORRELATED EQUILIBRIA
+
+Game-theoretic solution concepts generalize single-agent optimality.
+
+SCALING
+
+Self-play (AlphaStar), population-based training, and league training diversify strategies.`,
         },
       },
     },

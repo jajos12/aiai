@@ -10,7 +10,7 @@ const decisionTreesModule: ModuleData = {
   tags: ['ml-fundamentals', 'decision-trees', 'entropy', 'information-gain'],
   prerequisites: ['probability-basics'],
   difficulty: 'intermediate',
-  estimatedMinutes: 45,
+  estimatedMinutes: 55,
   steps: [
     {
       id: 'recursive-partitioning',
@@ -23,7 +23,17 @@ const decisionTreesModule: ModuleData = {
       content: {
         text: 'A Decision Tree works by asking a series of yes/no questions to partition the data into pure groups. We start with a messy mix and look for the "best split"—the one that separates the classes most cleanly.',
         goDeeper: {
-          explanation: 'Every split creates two new regions. The goal is to reach "pure" leaf nodes where every point belongs to the same class. This process is recursive: we split, then split the resulting regions again, until we reach a stopping criterion.',
+          explanation: String.raw`AXIS-ALIGNED SPLITS
+
+Each internal node applies a threshold on one feature x_j ≤ t, inducing hyper-rectangular regions. The induced partition is piecewise constant—great for tabular data, unstable for tiny rotations in feature space.
+
+STOPPING RULES
+
+Max depth, min samples per leaf, min impurity decrease, or max leaves cap recursion and prevent memorization.
+
+GREEDY OPTIMALITY
+
+Splits are chosen myopically to maximize immediate impurity drop; global optimum of tree structure is NP-hard in general—hence ensembles (Random Forests) average many greedy trees.`,
         },
       },
       interactionHint: 'Click on the data plot to suggest a horizontal or vertical split line.',
@@ -38,8 +48,18 @@ const decisionTreesModule: ModuleData = {
       content: {
         text: 'How do we mathematically define "messiness"? In Information Theory, we use Entropy. If a bag has an equal mix of red and blue balls, Entropy is at its maximum (1.0). If it has only red balls, Entropy is 0.0.',
         goDeeper: {
-          math: 'H(S) = -\\sum_{i=1}^c p_i \\log_2 p_i',
-          explanation: 'Entropy measures the uncertainty or randomness. In classification, $p_i$ is the probability of a point belonging to class $i$. When one $p_i=1$, then $\\log_2(1)=0$, resulting in 0 entropy—perfect order.',
+          math: String.raw`H(p) = -\sum_{k=1}^c p_k \log_2 p_k`,
+          explanation: String.raw`SHANNON ENTROPY
+
+For empirical class proportions p_k in a node, H measures expected bits to encode a draw. Uniform p → maximum; one-hot p → zero.
+
+DIFFERENT BASES
+
+Using log_2 gives bits; natural log differs by a constant factor only.
+
+RELATION TO LIKELIHOOD
+
+Maximum likelihood split gains connect to entropy reductions when generative model is multinomial.`,
         },
       },
       interactionHint: 'Drag the slider to change the class distribution and watch the Entropy curve react.',
@@ -54,8 +74,18 @@ const decisionTreesModule: ModuleData = {
       content: {
         text: 'Information Gain (IG) is the reduction in entropy achieved by a split. We calculate the entropy before the split and subtract the weighted average entropy of the two new regions. The split with the highest IG is the winner.',
         goDeeper: {
-          math: 'IG(S, A) = H(S) - \\sum_{v \\in Values(A)} \\frac{|S_v|}{|S|} H(S_v)',
-          explanation: 'ID3 and C4.5 algorithms use Information Gain. CART (Classification and Regression Trees) uses a similar metric called Gini Impurity. Both aim to minimize the impurity of the resulting subsets.',
+          math: String.raw`\mathrm{IG}(S,A) = H(S) - \sum_{v} \frac{|S_v|}{|S|} H(S_v)`,
+          explanation: String.raw`WEIGHTED CHILD IMPURITY
+
+Each branch v gets mass |S_v|/|S|. Categorical multi-way splits sum over all children.
+
+BIAS TOWARD MANY-VALUED FEATURES
+
+IG favors features with many outcomes; gain ratio (Quinlan) normalizes by split information.
+
+CART FOR CLASSIFICATION
+
+Gini replaces H for faster computation; both are concave impurity functions minimized toward pure leaves.`,
         },
       },
       interactionHint: 'Drag the vertical split line and observe how the Information Gain changes based on how "pure" the resulting boxes become.',
@@ -70,7 +100,17 @@ const decisionTreesModule: ModuleData = {
       content: {
         text: 'A tree that grows too deep starts memorizing noise. It creates tiny, jagged boxes around every single data point. This model will fail when it sees new, unseen data.',
         goDeeper: {
-          explanation: 'A "Perfect" training accuracy often means your model has zero generalization power. We control this by setting a "Max Depth" or requiring a minimum number of points per leaf node.',
+          explanation: String.raw`VC DIMENSION SKETCH
+
+Deep axis-aligned trees can shatter many points in low dimensions → huge capacity. Training error → 0 is easy; gap risk explodes.
+
+REGULARIZATION VIA PRUNING / DEPTH
+
+Cost-complexity pruning adds λ·(number of leaves) penalty; cross-validation picks λ.
+
+ENSEMBLE VARIANCE REDUCTION
+
+Bagging many deep trees and averaging (Random Forest) trades individual variance for better bias–variance balance.`,
         },
       },
       interactionHint: 'Watch how the boundary becomes incredibly complex as the tree grows deeper.',
@@ -84,8 +124,18 @@ const decisionTreesModule: ModuleData = {
       content: {
         text: 'While we used Entropy, many libraries (like Scikit-Learn) use "Gini Impurity" by default. It is mathematically similar but faster to calculate because it doesn\'t use logarithms.',
         goDeeper: {
-          math: 'G = 1 - \\sum (p_i)^2',
-          explanation: 'Like Entropy, Gini is 0 when a node is 100% pure. It peaks at 0.5 for a 50/50 split. Computationally, it only requires squaring—much easier for a processor than a Log2 function.',
+          math: String.raw`G(p) = 1 - \sum_k p_k^2 = \sum_{k<k'} p_k p_{k'}`,
+          explanation: String.raw`EXPECTED MISCLASSIFICATION RATE
+
+If you label a random draw from the node by majority vote, Gini is the probability two independent draws disagree in class.
+
+SPLITTING EQUIVALENCE
+
+For binary classification, entropy and Gini are different curves but usually pick the same optimal split; ties can differ on multi-way splits.
+
+COMPUTATIONAL EDGE
+
+No logs—vectorized updates in histogram-based implementations (XGBoost/LightGBM).`,
         },
       },
     },
@@ -98,8 +148,18 @@ const decisionTreesModule: ModuleData = {
       content: {
         text: 'Can trees predict prices instead of classes? Yes! Instead of picking the "most common" class, a leaf node predicts the "Average" of all its points.',
         goDeeper: {
-          math: '\\text{Loss} = \\sum (y_i - \\bar{y})_{left}^2 + \\sum (y_i - \\bar{y})_{right}^2',
-          explanation: 'We split by finding the point that minimizes the total Variance (Mean Squared Error) of the children. This creates a "staircase" approximation of the data.',
+          math: String.raw`\min_{\text{splits}} \sum_{\text{leaves } \ell} \sum_{i \in \ell} (y_i - \bar{y}_\ell)^2`,
+          explanation: String.raw`PIECEWISE CONSTANT SURFACES
+
+Prediction is constant per cell; splits minimize within-leaf squared error (L2). L1 variants use medians and absolute error.
+
+CONTINUOUS THRESHOLDS
+
+For ordered x_j, only midpoints between sorted unique values need evaluation—O(n log n) per level with sorting reuse in clever libs.
+
+EXTRAPOLATION
+
+Trees cannot predict outside training range in leaves—flat extrapolation; linear models or ensembles with trend may help.`,
         },
       },
     },
@@ -112,7 +172,17 @@ const decisionTreesModule: ModuleData = {
       content: {
         text: 'Pruning is the process of removing branches that provide little predictive power. It turns an overly complex tree into a simpler, more robust one.',
         goDeeper: {
-          explanation: 'In "Post-Pruning", we grow the tree to its full depth and then walk backward, removing nodes that don\'t improve accuracy on a validation set. This is a form of Regularization.',
+          explanation: String.raw`POST-PRUNING ALGORITHM
+
+Grow large tree T_max, then for each internal node evaluate validation loss if subtree collapsed to leaf. Accept collapse if error + complexity penalty improves.
+
+MINIMAL COST-COMPLEXITY
+
+Breiman et al.: sequence of nested subtrees T_α indexed by penalty α; cross-validation picks α.
+
+EARLY STOPPING
+
+Pre-pruning via max_depth/min_samples_leaf stops growth before full fit—faster but less exhaustive search than post-prune.`,
         },
       },
     },
@@ -125,7 +195,17 @@ const decisionTreesModule: ModuleData = {
       content: {
         text: 'Trees naturally tell us which features are most important. A feature that is used at the very top of the tree to make large splits is much more significant than one dangling at the bottom.',
         goDeeper: {
-          explanation: 'Calculated as the total reduction in Gini/Entropy provided by a given feature across the entire tree. This makes Decision Trees one of the most "Explainable" AI models.',
+          explanation: String.raw`MEAN DECREASE IMPURITY
+
+Sum over nodes using feature j of (N_node/N_total)·Δ impurity when split. Fast but biased toward high-cardinality features.
+
+PERMUTATION IMPORTANCE
+
+Shuffle feature j on validation set, measure drop in score—model-agnostic, more costly.
+
+INTERACTIONS
+
+Trees capture interactions; importance is marginal summary—SHAP values give finer attribution.`,
         },
       },
     },

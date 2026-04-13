@@ -15,6 +15,9 @@ interface Vec3 {
 }
 
 interface VectorTransformProps {
+  presentation?: string;
+  manimSrc?: string;
+  manimTitle?: string;
   mode?: string;
   vectors?: Vec3[];
   draggable?: boolean;
@@ -123,6 +126,9 @@ function Grid3D() {
 
 export function VectorTransform(props: VectorTransformProps) {
   const {
+    presentation,
+    manimSrc,
+    manimTitle,
     mode = 'interactive',
     vectors: initialVectors,
     showGrid = true,
@@ -158,6 +164,23 @@ export function VectorTransform(props: VectorTransformProps) {
   const b = vecs[1] || { x: 1, y: 3, z: 0 };
   const sum: Vec3 = { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
   const scaledA: Vec3 = { x: a.x * scalar, y: a.y * scalar, z: a.z * scalar };
+
+  if (presentation === 'guided' && typeof manimSrc === 'string' && manimSrc.trim().length > 0) {
+    return (
+      <div className="h-full min-h-[480px] w-full rounded-2xl border border-slate-700/70 bg-slate-950/70 p-3">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+          {manimTitle ?? 'Tier 0 Manim lesson'}
+        </div>
+        <video
+          key={manimSrc}
+          className="h-[430px] w-full rounded-xl border border-slate-800 bg-black object-contain"
+          controls
+          preload="metadata"
+          src={manimSrc}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full relative group">

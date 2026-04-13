@@ -58,7 +58,11 @@ export function ChallengeCanvas({ challenge, onComplete }: ChallengeCanvasProps)
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <Visualization {...(challenge.props ?? {})} onCentroidsChange={handleCentroidsChange} />
+      <Visualization
+        {...(challenge.props ?? {})}
+        mode="challenge"
+        onCentroidsChange={handleCentroidsChange}
+      />
 
       <div
         style={{

@@ -16,6 +16,8 @@ const vectorsModule: ModuleData = {
       id: 'what-is-a-vector',
       title: 'What is a Vector?',
       visualizationProps: {
+        manimSrc: '/tier0-manim/Lesson01_WhatIsVector.mp4',
+        manimTitle: 'Lesson 01 · What Is a Vector',
         mode: 'static',
         vectors: [{ x: 3, y: 2, color: 'var(--accent)' }],
       },
@@ -35,6 +37,8 @@ const vectorsModule: ModuleData = {
       id: 'components-coordinates',
       title: 'Components & Coordinates',
       visualizationProps: {
+        manimSrc: '/tier0-manim/Lesson03_CoordinatesBasis.mp4',
+        manimTitle: 'Lesson 03 · Coordinates and Basis',
         mode: 'components',
         vectors: [{ x: 3, y: 2 }],
         showComponentLines: true,
@@ -146,6 +150,8 @@ const vectorsModule: ModuleData = {
       id: 'adding-vectors',
       title: 'Adding Vectors',
       visualizationProps: {
+        manimSrc: '/tier0-manim/Lesson02_VectorArithmetic.mp4',
+        manimTitle: 'Lesson 02 · Vector Arithmetic',
         mode: 'addition',
         vectors: [
           { x: 2, y: 1, color: '#60a5fa', label: 'a' },

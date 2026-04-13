@@ -12,6 +12,9 @@ type Mode = 'norm' | 'distance' | 'nearest' | 'cosine';
 interface Vec3 { x: number; y: number; z: number }
 
 interface NormDistanceVisualizationProps {
+  presentation?: string;
+  manimSrc?: string;
+  manimTitle?: string;
   mode?: Mode;
   metric?: Metric | string;
   interactive?: boolean;
@@ -96,6 +99,9 @@ function Vector3D({
 
 export function NormsDistanceVisualization(props: NormDistanceVisualizationProps) {
   const {
+    presentation,
+    manimSrc,
+    manimTitle,
     mode = 'norm',
     metric = 'l2',
     showUnitBall = true,
@@ -109,6 +115,23 @@ export function NormsDistanceVisualization(props: NormDistanceVisualizationProps
   const [pointB, setPointB] = useState<Vec3>(props.pointB || { x: 1, y: 2, z: 1 });
 
   const currentNorm = norm(vector, selectedMetric);
+
+  if (presentation === 'guided' && typeof manimSrc === 'string' && manimSrc.trim().length > 0) {
+    return (
+      <div className="h-full min-h-[480px] w-full rounded-2xl border border-slate-700/70 bg-slate-950/70 p-3">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+          {manimTitle ?? 'Tier 0 Manim lesson'}
+        </div>
+        <video
+          key={manimSrc}
+          className="h-[430px] w-full rounded-xl border border-slate-800 bg-black object-contain"
+          controls
+          preload="metadata"
+          src={manimSrc}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full relative group">

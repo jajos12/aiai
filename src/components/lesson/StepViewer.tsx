@@ -8,6 +8,58 @@ import { QuizBlock } from '@/components/lesson/QuizBlock';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
+/** K-means guided steps: article-style Learning Note + embedded Manim player. */
+const K_MEANS_GUIDED_STEP_IDS = new Set([
+  'unsupervised-learning',
+  'initializing-centroids',
+  'assignment-step',
+  'update-step',
+  'distance-metrics-depth',
+  'elbow-method',
+  'silhouette-score',
+  'initialization-sensitivity',
+  'convergence-math',
+]);
+
+/** Attention module: long-form Learning Notes (paragraph blocks + optional display math). */
+const ATTENTION_STEP_IDS = new Set([
+  'the-database-analogy',
+  'query-key-dot-product',
+  'softmax-weights',
+  'weighted-sum-values',
+  'self-attention',
+  'multi-head-attention',
+  'scaling-factor-depth',
+  'masked-attention',
+  'cross-attention',
+]);
+
+/** Attention guided steps that embed a Manim MP4 (tall panel + top-right hint). */
+const ATTENTION_MANIM_STEP_IDS = new Set([
+  'the-database-analogy',
+  'query-key-dot-product',
+  'softmax-weights',
+]);
+
+/** Transformers guided steps that embed a Manim MP4. */
+const TRANSFORMER_MANIM_STEP_IDS = new Set(['the-transformer-sandwich']);
+
+/** Transformer module: article-style Learning Notes + Key formulas on every guided step. */
+const TRANSFORMER_BLOCK_ARTICLE_STEP_IDS = new Set([
+  'the-transformer-sandwich',
+  'positional-encoding',
+  'layer-normalization',
+  'residual-connections',
+  'feed-forward-networks',
+  'encoder-vs-decoder',
+  'embedding-space',
+  'tokenization',
+  'the-final-projection',
+  'softmax-temperature',
+  'weight-tying',
+  'scaling-laws',
+]);
+
 interface StepViewerProps {
   step: Step;
   Visualization: Module['Visualization'];
@@ -44,7 +96,18 @@ export function StepViewer({
   onFinishModule,
 }: StepViewerProps) {
   const slideClass = direction === 'next' ? 'step-slide-next' : 'step-slide-back';
-  const learningNote = step.content.goDeeper?.explanation ?? step.quiz?.explanation;
+  const goDeeperExplanation = step.content.goDeeper?.explanation;
+  const learningNote = goDeeperExplanation ?? step.quiz?.explanation;
+  /** Multi-paragraph goDeeper notes (any module) get article layout + formula card when math is set. */
+  const isExpandedCurriculumNote = Boolean(
+    goDeeperExplanation &&
+      goDeeperExplanation.length >= 420 &&
+      /\n\s*\n/.test(goDeeperExplanation) &&
+      goDeeperExplanation
+        .split(/\n\s*\n/)
+        .map((b) => b.trim())
+        .filter((b) => b.length > 0).length >= 3,
+  );
   const isArticleNote =
     (step.id === 'gradient-descent-intuition' && Boolean(learningNote && learningNote.length > 2000)) ||
     (step.id === 'odds-and-log-odds' && Boolean(learningNote && learningNote.length > 600)) ||
@@ -52,8 +115,13 @@ export function StepViewer({
     (step.id === 'the-sigmoid-function' && Boolean(learningNote && learningNote.length > 400)) ||
     (step.id === 'decision-boundary' && Boolean(learningNote && learningNote.length > 400)) ||
     (step.id === 'roc-curve' && Boolean(learningNote && learningNote.length > 400)) ||
+    (step.id === 'softmax-multiclass' && Boolean(learningNote && learningNote.length > 400)) ||
     (step.id === 'thresholding' && Boolean(learningNote && learningNote.length > 400)) ||
-    (step.id === 'precision-recall' && Boolean(learningNote && learningNote.length > 400));
+    (step.id === 'precision-recall' && Boolean(learningNote && learningNote.length > 400)) ||
+    (K_MEANS_GUIDED_STEP_IDS.has(step.id) && Boolean(learningNote && learningNote.length > 320)) ||
+    (ATTENTION_STEP_IDS.has(step.id) && Boolean(learningNote && learningNote.length > 280)) ||
+    (TRANSFORMER_BLOCK_ARTICLE_STEP_IDS.has(step.id) && Boolean(learningNote && learningNote.length > 280)) ||
+    isExpandedCurriculumNote;
   const noteLines = learningNote
     ? learningNote
         .split('\n')
@@ -71,7 +139,11 @@ export function StepViewer({
 
   const showStepFormulaCard =
     Boolean(step.content.goDeeper?.math) &&
-    (step.id === 'gradient-descent-intuition' || step.id === 'odds-and-log-odds');
+    (step.id === 'gradient-descent-intuition' ||
+      step.id === 'odds-and-log-odds' ||
+      ATTENTION_STEP_IDS.has(step.id) ||
+      TRANSFORMER_BLOCK_ARTICLE_STEP_IDS.has(step.id) ||
+      isExpandedCurriculumNote);
   const formulaHtml = useMemo(() => {
     const latex = step.content.goDeeper?.math;
     if (!latex) return '';
@@ -134,7 +206,10 @@ export function StepViewer({
     step.id === 'decision-boundary' ||
     step.id === 'roc-curve' ||
     step.id === 'log-loss' ||
-    step.id === 'softmax-multiclass';
+    step.id === 'softmax-multiclass' ||
+    ATTENTION_MANIM_STEP_IDS.has(step.id) ||
+    TRANSFORMER_MANIM_STEP_IDS.has(step.id) ||
+    K_MEANS_GUIDED_STEP_IDS.has(step.id);
 
   return (
     <div
@@ -179,7 +254,10 @@ export function StepViewer({
               step.id === 'decision-boundary' ||
               step.id === 'roc-curve' ||
               step.id === 'log-loss' ||
-              step.id === 'softmax-multiclass'
+              step.id === 'softmax-multiclass' ||
+              ATTENTION_MANIM_STEP_IDS.has(step.id) ||
+              TRANSFORMER_MANIM_STEP_IDS.has(step.id) ||
+              K_MEANS_GUIDED_STEP_IDS.has(step.id)
                 ? {
                       top: '0.5rem',
                       right: '0.5rem',
@@ -445,12 +523,16 @@ export function StepViewer({
         )}
 
         {step.content.goDeeper &&
+          !ATTENTION_STEP_IDS.has(step.id) &&
+          !TRANSFORMER_BLOCK_ARTICLE_STEP_IDS.has(step.id) &&
           step.id !== 'why-not-linear' &&
           step.id !== 'the-sigmoid-function' &&
           step.id !== 'decision-boundary' &&
           step.id !== 'roc-curve' &&
+          step.id !== 'softmax-multiclass' &&
           step.id !== 'thresholding' &&
           step.id !== 'precision-recall' &&
+          !K_MEANS_GUIDED_STEP_IDS.has(step.id) &&
           !(
             (step.id === 'gradient-descent-intuition' || step.id === 'odds-and-log-odds') &&
             showStepFormulaCard &&

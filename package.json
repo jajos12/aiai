@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "render:attention-manim": "bash ../manim/copy_attention_manims_to_app.sh",
+    "render:transformers-manim": "bash ../manim/copy_transformers_manims_to_app.sh",
+    "render:transformer-manimgl": "bash ../manimgl-lessons/render_to_video.sh"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

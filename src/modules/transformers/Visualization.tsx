@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { RoundedBox, Text, Line, Float, Sphere, MeshDistortMaterial } from '@react-three/drei';
-import * as THREE from 'three';
+import React from 'react';
+import { RoundedBox, Text, Line, Float, Sphere } from '@react-three/drei';
 import Stage3D from '@/components/shared/Stage3D';
+import { TransformerManimPlayer } from './TransformerManimPlayer';
 
 interface TransformerVizProps {
+  presentation?: string;
   mode?: string;
   intensity?: number;
+  manimSrc?: string;
+  manimFallback?: string;
+  [key: string]: unknown;
 }
 
 /**
@@ -41,28 +44,36 @@ function BlockLayer({ position, label, color = '#1e293b' }: { position: [number,
   );
 }
 
-export default function TransformerVisualization({ mode = 'block-overview', intensity = 1 }: TransformerVizProps) {
+export default function TransformerVisualization({
+  presentation,
+  mode = 'block-overview',
+  intensity = 1,
+  manimSrc,
+  manimFallback,
+}: TransformerVizProps) {
+  const src =
+    typeof manimSrc === 'string' && manimSrc.trim().length > 0 ? manimSrc.trim() : undefined;
+
+  if (presentation === 'guided' && src) {
+    return (
+      <div className="relative h-full min-h-[480px] w-full flex-1">
+        <TransformerManimPlayer videoSrc={src} manimFallback={manimFallback} />
+      </div>
+    );
+  }
+
   return (
     <Stage3D cameraPosition={[6, 4, 8]}>
       <group>
         {mode === 'block-overview' && (
           <group>
-            <BlockLayer position={[0, 2, 0]} label="FEED FORWARD (FFN)" color="#a78bfa" />
-            <BlockLayer position={[0, 0, 0]} label="ADD & NORM" />
-            <BlockLayer position={[0, -2, 0]} label="MULTI-HEAD ATTENTION" color="#6366f1" />
-            
-            {/* Connection Spine */}
-            <Line points={[[0, -4, 0], [0, 4, 0]]} color="#475569" lineWidth={2} dashed dashScale={1} />
-            
-            {/* Animation Particles */}
-            <Float speed={5} rotationIntensity={0} floatIntensity={0}>
-                {Array.from({length: 3}).map((_, i) => (
-                    <mesh key={i} position={[0, -4 + (Date.now()/1000 + i*2) % 8, 0.5]}>
-                        <sphereGeometry args={[0.1, 8, 8]} />
-                        <meshStandardMaterial color="#6366f1" emissive="#6366f1" emissiveIntensity={2} />
-                    </mesh>
-                ))}
-            </Float>
+            {/* Bottom → top matches Pre-LN: two sublayers, each LN → op → residual */}
+            <BlockLayer position={[0, 2.2, 0]} label="Sublayer 2: LN → FFN → +" color="#a78bfa" />
+            <BlockLayer position={[0, 0, 0]} label="Sublayer 1: LN → MHA → +" color="#6366f1" />
+            <Text position={[0, -2.1, 0]} fontSize={0.22} color="#94a3b8">
+              x in → ... → x out
+            </Text>
+            <Line points={[[0, -3.2, 0], [0, 3.6, 0]]} color="#475569" lineWidth={2} dashed dashScale={1} />
           </group>
         )}
 

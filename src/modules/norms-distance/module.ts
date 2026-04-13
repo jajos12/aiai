@@ -16,6 +16,8 @@ const normsDistanceModule: ModuleData = {
       id: 'one-vector-many-lengths',
       title: 'One Vector, Many Lengths',
       visualizationProps: {
+        manimSrc: '/tier0-manim/Lesson09_NormDotProduct.mp4',
+        manimTitle: 'Lesson 09 · Norm and Dot Product',
         mode: 'norm',
         vector: { x: 3, y: 2 },
         showUnitBall: true,

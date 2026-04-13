@@ -313,19 +313,46 @@ const logisticRegressionModule: ModuleData = {
         mode: 'softmax-manim',
       },
       content: {
-        text: 'Three or more classes need a whole probability vector, not a single p. The softmax turns K real-valued logits into K nonnegative scores that sum to 1 — a proper categorical distribution.',
+        text:
+          'The Manim lesson shows K logits becoming a probability vector: the softmax formula, a small numeric example, bar charts, and how shifting all logits together leaves probabilities unchanged. The Learning Note below ties that to training loss, the two-class special case, and stable implementation.',
         goDeeper: {
-          math:
-            '\\begin{aligned}' +
-            'p_i &= \\frac{e^{z_i}}{\\sum_{j=1}^{K} e^{z_j}} \\\\' +
-            'L &= -\\sum_{k=1}^{K} y_k \\log p_k' +
-            '\\end{aligned}',
           explanation:
-            'Each class gets a logit z_i from the last linear layer. Exponentiating makes every term positive; dividing by the sum normalizes to 1. Adding the same constant to all logits leaves p unchanged, which is why implementations subtract max(z) before exp (numerical stability). For K = 2, softmax on (z_1, z_2) is equivalent to a sigmoid on the difference z_1 - z_2. Training uses multi-class cross-entropy with a one-hot label y. Convolutional and transformer classifiers typically end with linear logits + softmax (or equivalent) for prediction.',
+            'FROM BINARY TO K-WAY LABELS\n\n' +
+            'Logistic regression outputs one probability p for the positive class; the other class is 1 − p. When there are K ≥ 3 mutually exclusive categories, you need a full distribution: a vector p ∈ ℝ^K with p_i ≥ 0 and ∑_i p_i = 1. Each p_i is P(class i | x). A single sigmoid cannot encode that constraint; softmax is the standard map from unconstrained scores to a categorical distribution.\n\n' +
+            'LOGITS AND THE SOFTMAX MAP\n\n' +
+            'A linear layer (or any scoring head) produces one real number z_i per class, called a logit. Stack them as z = (z_1, …, z_K). The softmax turns z into probabilities:\n\n' +
+            '$$\n' +
+            'p_i = \\frac{e^{z_i}}{\\sum_{j=1}^{K} e^{z_j}}, \\qquad i = 1,\\ldots,K\n' +
+            '$$\n\n' +
+            'Exponentiation makes every numerator positive; dividing by the sum enforces ∑_i p_i = 1. If one z_i is much larger than the others, p_i → 1 and the vector looks almost one-hot — that is the model being decisive.\n\n' +
+            'INVARIANCE AND NUMERICAL STABILITY\n\n' +
+            'Adding the same constant c to every z_j does not change p, because c appears in every exp and factors out of the numerator and denominator. Libraries therefore compute\n\n' +
+            '$$\n' +
+            "p_i = \\frac{e^{z_i - m}}{\\sum_j e^{z_j - m}}, \\quad m = \\max_k z_k\n" +
+            '$$\n\n' +
+            'so the largest exponent is 0 and the rest are non-positive, avoiding overflow from huge logits.\n\n' +
+            'K = 2 AND THE LINK TO SIGMOID\n\n' +
+            'For two classes, write p_1 = e^{z_1} / (e^{z_1} + e^{z_2}). Divide numerator and denominator by e^{z_2} and set s = z_1 − z_2:\n\n' +
+            '$$\n' +
+            'p_1 = \\frac{e^{s}}{1 + e^{s}} = \\sigma(s)\n' +
+            '$$\n\n' +
+            'So binary softmax is the same story as logistic regression on the score difference z_1 − z_2; only the relative gap matters.\n\n' +
+            'TRAINING: MULTI-CLASS CROSS-ENTROPY\n\n' +
+            'For a one-hot label y (1 on the true class, 0 elsewhere), the usual loss is\n\n' +
+            '$$\n' +
+            'L = -\\sum_{k=1}^{K} y_k \\log p_k\n' +
+            '$$\n\n' +
+            'which picks out −log p_{k^*} for the true class k^*. This is the negative log-likelihood of the categorical model. It pairs naturally with softmax because gradients flow back into logits in a clean way. In frameworks you often see log_softmax plus negative log-likelihood for the same math with better numerics.\n\n' +
+            'MINI EXAMPLE (THREE CLASSES)\n\n' +
+            'Suppose z = (1, 2, 0.5). Then e^z ≈ (2.72, 7.39, 1.65); sum ≈ 11.76; so p ≈ (0.23, 0.63, 0.14). The middle class wins most mass because its logit is largest. Nudging only z_2 up shifts probability toward class 2 without renormalizing by hand — the softmax does it automatically.\n\n' +
+            'WHERE YOU SEE IT\n\n' +
+            'Image classifiers and transformer language models typically end with a linear layer producing K logits, then softmax (or an equivalent) for class probabilities at the output head. Attention weights use the same exponential-normalize pattern over keys. The video is the geometric companion to this algebra.\n\n' +
+            'SUMMARY\n\n' +
+            'Softmax maps logits to a valid K-way probability vector; multi-class cross-entropy trains it. It generalizes the sigmoid story from two classes to many, with a stable max-subtraction trick in code.',
         },
       },
       interactionHint:
-        'Manim video: formula, 3-class numeric example, bar chart, logit shift, K=2 ↔ sigmoid, multi-class cross-entropy. Re-render: `manim/softmax_lesson.py` → `public/logistic-softmax-manim/SoftmaxLesson.mp4`.',
+        'Video: play / pause / scrub. If the MP4 is missing, a static softmax bar example loads.',
     },
   ],
   playground: {

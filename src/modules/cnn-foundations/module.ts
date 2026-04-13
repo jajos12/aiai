@@ -10,7 +10,7 @@ const cnnFoundationsModule: ModuleData = {
   tags: ['deep-learning', 'cnn', 'convolution', 'kernels', 'computer-vision'],
   prerequisites: ['mlps'],
   difficulty: 'intermediate',
-  estimatedMinutes: 45,
+  estimatedMinutes: 60,
   steps: [
     {
       id: 'what-is-convolution',
@@ -23,7 +23,18 @@ const cnnFoundationsModule: ModuleData = {
       content: {
         text: 'A convolution is a mathematical operation where a small matrix (the **Kernel**) slides over an image to extract features. Instead of looking at every pixel independently, the network looks at local patterns.',
         goDeeper: {
-          explanation: 'Each output pixel is a weighted sum: $O_{i,j} = \sum_{m,n} I_{i+m, j+n} \cdot K_{m,n}$. This local connectivity is biologically inspired by the primary visual cortex (V1) in the human brain.',
+          math: String.raw`Y_{i,j} = \sum_{m,n} K_{m,n} X_{i+m,j+n} + b`,
+          explanation: String.raw`CROSS-CORRELATION IN CODE
+
+Most DL frameworks implement cross-correlation (no kernel flip) but call it conv; true convolution flips K—difference absorbed into learned weights.
+
+TRANSLATION EQUIVARIANCE
+
+If input shifts, output feature map shifts equally—shared weights enforce this structure.
+
+LINEAR OPERATOR
+
+Fixed K, conv is linear in X; nonlinearity comes later (ReLU, etc.).`,
         },
       },
       interactionHint: 'Hover over the input grid (left) to see the convolution window slide and calculate the feature map (right).',
@@ -38,7 +49,17 @@ const cnnFoundationsModule: ModuleData = {
       content: {
         text: 'By changing the numbers in the kernel, we can detect different things. A "Sobel" kernel detects vertical or horizontal edges. A "Blur" kernel averages nearby pixels to smooth the image.',
         goDeeper: {
-          explanation: 'In a real CNN, we don\'t hand-design these kernels. The network *learns* the best weights for these kernels through backpropagation to minimize the classification error.',
+          explanation: String.raw`BASIS OF FILTERS
+
+Handcrafted kernels illustrate what conv can detect; CNNs learn K from data via ∂L/∂K backprop.
+
+GABOR-LIKE EMERGENCE
+
+Early layers often resemble edge detectors without explicit supervision—data-induced inductive bias.
+
+STACKING
+
+Later layers compose simple filters into textures and parts.`,
         },
       },
       interactionHint: 'Switch between different kernels (Edge, Sharpen, Blur) and watch how the output feature map changes.',
@@ -54,8 +75,18 @@ const cnnFoundationsModule: ModuleData = {
       content: {
         text: '**Stride** is how many pixels the window jumps at each step. **Padding** adds extra zero-pixels around the border. These parameters control the size of the output feature map.',
         goDeeper: {
-          math: 'O = \\lfloor \\frac{I - K + 2P}{S} \\rfloor + 1',
-          explanation: 'Where $I$ is input size, $K$ is kernel size, $P$ is padding, and $S$ is stride. Padding is often used to ensure the output has the same spatial dimensions as the input ("Same" padding).',
+          math: String.raw`O = \left\lfloor \frac{I - K + 2P}{S} \right\rfloor + 1`,
+          explanation: String.raw`SAME CONVOLUTION
+
+Choose P = ⌊K/2⌋ for odd K with S=1 to preserve H×W (approximately) for stride-1 stacks.
+
+DOWNSAMPLING
+
+S>1 shrinks spatial dims, widening receptive field per layer depth cheaply.
+
+DILATION
+
+Empty skips between kernel taps—expands receptive field without more parameters.`,
         },
       },
       interactionHint: 'Adjust the Stride and Padding sliders to see how the output grid shrinks or grows.',
@@ -72,8 +103,18 @@ const cnnFoundationsModule: ModuleData = {
       content: {
         text: 'Convolution is a "Weighted Sum." We multiply each pixel in the patch by its corresponding weight in the kernel, then add them all together. This one number becomes a single pixel in our output "Feature Map".',
         goDeeper: {
-          math: 'y_{i,j} = \\sum_{m,n} w_{m,n} x_{i+m, j+n} + b',
-          explanation: 'It looks complex, but it is just a Dot Product. The kernel (filter) acts as a pattern finder. If the filter looks like an edge, the resulting feature map will have bright spots wherever an edge exists in the image.',
+          math: String.raw`y_{i,j} = w^\top x_{(i,j)} + b`,
+          explanation: String.raw`IM2COL VIEW
+
+Unrolling patches into columns turns conv into matrix multiply GEMM—highly optimized on GPUs.
+
+FLOPs COUNT
+
+Per output pixel ≈ 2 K² C_in C_out multiply-adds for multi-channel conv.
+
+GROUPS / DEPTHWISE
+
+Group conv factorizes channel mixing; depthwise separable (MobileNet) splits spatial and channel mixing.`,
         },
       },
       interactionHint: 'Tweak the kernel weights (e.g., set the middle column to 1 and the others to -1) and see how it highlights vertical edges.',
@@ -87,7 +128,17 @@ const cnnFoundationsModule: ModuleData = {
       content: {
         text: 'Real images aren\'t just flat grids; they have depth (Red, Green, Blue). A single filter isn\'t a 3×3 square, but a 3×3×3 cube that looks at all three colors simultaneously.',
         goDeeper: {
-          explanation: 'Despite having 3 channels of input, the sum still results in a single output number per position. This means the filter can learn to look for "a blue horizontal edge" or "a red circular glow".',
+          explanation: String.raw`INPUT DEPTH C_in
+
+Kernel tensor K ∈ ℝ^{K×K×C_in×C_out}; each of C_out filters mixes channels linearly at each spatial offset.
+
+COLOR EDGES
+
+Filters can be color-opponent (e.g., R−G) or luminance-only depending on learned weights.
+
+HYPERSPECTRAL
+
+Same math with C_in ≫ 3 for satellite / scientific imaging.`,
         },
       },
     },
@@ -100,7 +151,17 @@ const cnnFoundationsModule: ModuleData = {
       content: {
         text: 'One filter finds edges. Another finds corners. A third finds spots. In a real CNN layer, we might use 64 or 128 different filters at once, creating a "stack" of 128 feature maps.',
         goDeeper: {
-          explanation: 'This is why the output of a convolution layer has more "channels" than the input. We are transforming a 3-channel (RGB) image into a 64-channel "semantic" representation of its features.',
+          explanation: String.raw`OUTPUT CHANNELS C_out
+
+Each filter is one detector; stack forms new 3D tensor H×W×C_out fed to next layer.
+
+BANK OF GABORS ANALOGY
+
+Learned filters span subspace of local patterns; width C_out trades capacity vs compute.
+
+1×1 CONV
+
+Mixes channels only at each pixel—used in Network-in-Network, Inception, ResNet bottlenecks.`,
         },
       },
     },
@@ -115,7 +176,17 @@ const cnnFoundationsModule: ModuleData = {
       content: {
         text: 'After convolution, we use "Pooling" to shrink the image. Max-Pooling looks at a 2×2 block and only keeps the single brightest pixel. This reduces computation and makes the model more robust.',
         goDeeper: {
-          explanation: 'Pooling provides "Spatial Invariance." If a feature (like an eye) moves by just 1 pixel, the result of Max-Pooling remains exactly the same. This helps the network ignore tiny, irrelevant shifts in the input.',
+          explanation: String.raw`LOCAL LIPSCHITZ CONST
+
+Max-pool is non-smooth; small input shifts can switch argmax—some modern nets use strided conv instead for learnable downsampling.
+
+AVG POOL
+
+Smoother; common at network end for global summary.
+
+INVARIANCE
+
+Pooling trades spatial resolution for tolerance to micro translations.`,
         },
       },
     },
@@ -128,7 +199,17 @@ const cnnFoundationsModule: ModuleData = {
       content: {
         text: 'In the first layer, a neuron only sees 3×3 pixels. But in the next layer, a neuron sees 3×3 pixels *of the previous feature map*—which themselves represent a larger area of the original image. As we go deeper, neurons "see" more of the world.',
         goDeeper: {
-          explanation: 'By the 10th layer, a single neuron might have a "receptive field" that covers the entire image. This is how the network goes from seeing "curves" to seeing "ears" to seeing "a whole golden retriever".',
+          explanation: String.raw`RECURSIVE FORMULA
+
+RF grows with depth, kernel size, stride, dilation; effective RF often smaller than theoretical due to weight decay.
+
+SKIP CONNECTIONS
+
+ResNets allow shortest paths so gradients and signals mix multiple scales.
+
+GLOBAL CONTEXT
+
+Stack enough layers or use attention to cover full image.`,
         },
       },
     },
@@ -141,7 +222,17 @@ const cnnFoundationsModule: ModuleData = {
       content: {
         text: 'A good AI should know a cat is a cat, whether it is in the top-left or bottom-right corner. CNNs achieve this naturally because the SAME weights (the kernel) are used across every single part of the image.',
         goDeeper: {
-          explanation: 'This is called "Weight Sharing." It makes CNNs incredibly efficient compared to MLPs. An MLP would need new weights for every possible location, while a CNN uses one small set of weights to scan the entire world.',
+          explanation: String.raw`WEIGHT SHARING
+
+Parameters tied across space → far fewer weights than fully connected vision layers; also encodes locality prior.
+
+GROUP CONV BREAKS FULL SHARING
+
+Per-group kernels still share within group—used in grouped ResNeXt.
+
+DATA AUGMENTATION
+
+Random crops/flips complement equivariance with approximate invariance at decision layer.`,
         },
       },
     },
