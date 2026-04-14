@@ -11,14 +11,7 @@ const FALLBACK_MODELS = [
   'Qwen/Qwen2.5-0.5B-Instruct',
 ];
 
-/** Prefer HF’s own serverless stack. Set HUGGINGFACE_INFERENCE_PROVIDER=auto for full router. */
-function chatProviderArgs(): { provider: 'hf-inference' } | Record<string, never> {
-  const v = process.env.HUGGINGFACE_INFERENCE_PROVIDER?.trim().toLowerCase();
-  if (v === 'auto') return {};
-  return { provider: 'hf-inference' };
-}
-
-const SYSTEM_PROMPT = `
+const DEFAULT_SYSTEM_PROMPT = `
 You are an expert AI tutor.
 
 - Explain concepts step-by-step
@@ -29,6 +22,18 @@ You are an expert AI tutor.
 
 If the user asks for JSON, return ONLY valid JSON without markdown.
 `.trim();
+
+export type ChatMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+};
+
+/** Prefer HF's own serverless stack. Set HUGGINGFACE_INFERENCE_PROVIDER=auto for full router. */
+function chatProviderArgs(): { provider: 'hf-inference' } | Record<string, never> {
+  const v = process.env.HUGGINGFACE_INFERENCE_PROVIDER?.trim().toLowerCase();
+  if (v === 'auto') return {};
+  return { provider: 'hf-inference' };
+}
 
 function hfAccessToken(): string {
   return (
@@ -95,23 +100,23 @@ export type HuggingFaceGenerateResult = {
   error?: string;
 };
 
+function noTokenError(): HuggingFaceGenerateResult {
+  return {
+    text: null,
+    error:
+      'No HF_TOKEN (or HUGGINGFACE_API_KEY) found. Add it to aiai/.env.local and restart the dev server.',
+  };
+}
+
 /**
- * Uses **chat completion only** (conversational task). Do not fall back to `textGeneration`:
- * some providers (e.g. featherless-ai) expose Mistral as conversational only, and text-generation
- * returns misleading "not supported for task text-generation" errors.
+ * Core chat completion with an explicit messages array.
+ * Use this when you need a custom system prompt (e.g. the AI tutor).
  */
-export async function generateWithHuggingFace(
-  prompt: string,
+export async function chatWithMessages(
+  messages: ChatMessage[],
 ): Promise<HuggingFaceGenerateResult> {
   const token = hfAccessToken();
-
-  if (!token) {
-    return {
-      text: null,
-      error:
-        'No HF_TOKEN (or HUGGINGFACE_API_KEY) found. Add it to aiai/.env.local and restart the dev server.',
-    };
-  }
+  if (!token) return noTokenError();
 
   const client = new InferenceClient(token);
   const models = modelCandidates();
@@ -127,12 +132,9 @@ export async function generateWithHuggingFace(
           client.chatCompletion({
             model,
             ...chatProviderArgs(),
-            messages: [
-              { role: 'system', content: SYSTEM_PROMPT },
-              { role: 'user', content: prompt },
-            ],
-            max_tokens: 2048,
-            temperature: 0.3,
+            messages,
+            max_tokens: 1024,
+            temperature: 0.4,
           }),
           timeoutMs,
         );
@@ -155,6 +157,80 @@ export async function generateWithHuggingFace(
   }
 
   return { text: null, error: lastError };
+}
+
+/**
+ * Streaming chat completion with an explicit messages array.
+ * Yields text delta chunks as they arrive from the model.
+ * The caller is responsible for assembling the full response.
+ *
+ * @throws if no HF token is configured or all models fail to start streaming.
+ */
+export async function* streamChatWithMessages(
+  messages: ChatMessage[],
+): AsyncGenerator<string> {
+  const token = hfAccessToken();
+  if (!token) {
+    throw new Error(
+      'No HF_TOKEN (or HUGGINGFACE_API_KEY) found. Add it to .env.local and restart the dev server.',
+    );
+  }
+
+  const client = new InferenceClient(token);
+  const models = modelCandidates();
+
+  let lastError = 'Every model failed to start streaming.';
+
+  for (const model of models) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const stream = client.chatCompletionStream({
+          model,
+          ...chatProviderArgs(),
+          messages,
+          max_tokens: 1024,
+          temperature: 0.4,
+        });
+
+        let yielded = false;
+        for await (const chunk of stream) {
+          const delta = chunk.choices?.[0]?.delta?.content;
+          if (typeof delta === 'string' && delta) {
+            yielded = true;
+            yield delta;
+          }
+        }
+
+        if (yielded) return;
+        lastError = `Model "${model}" stream produced no content.`;
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+
+        if (isLikelyModelLoading(error) && attempt < 1) {
+          await sleep(4000);
+          continue;
+        }
+
+        break;
+      }
+    }
+  }
+
+  throw new Error(lastError);
+}
+
+/**
+ * Uses **chat completion only** (conversational task). Do not fall back to `textGeneration`:
+ * some providers (e.g. featherless-ai) expose Mistral as conversational only, and text-generation
+ * returns misleading "not supported for task text-generation" errors.
+ */
+export async function generateWithHuggingFace(
+  prompt: string,
+): Promise<HuggingFaceGenerateResult> {
+  return chatWithMessages([
+    { role: 'system', content: DEFAULT_SYSTEM_PROMPT },
+    { role: 'user', content: prompt },
+  ]);
 }
 
 export function getModelName(): string {
