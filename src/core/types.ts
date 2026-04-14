@@ -67,6 +67,7 @@ export interface ModuleBundle {
 export interface Step {
   id: string;
   title: string;
+  concepts?: string[];
   /**
    * Props passed to the module's Visualization component during this step.
    */
@@ -125,6 +126,7 @@ export interface Challenge {
   id: string;
   title: string;
   description: string;
+  concepts?: string[];
   /** Which visualization component to use for this challenge */
   component?: string;
   /** Override props for the visualization in this challenge */

@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { ProgressState, ModuleProgress, TierProgress, ActivityEntry } from '@/types/progress';
+import { updateSkillFromChallenge, updateSkillFromQuiz } from '@/core/personalization';
 
 const STORAGE_KEY = 'ai-playground-progress';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 5;
 const SAVE_DEBOUNCE_MS = 500;
 
 function createDefaultProgress(): ProgressState {
@@ -28,6 +29,12 @@ function createDefaultProgress(): ProgressState {
       animationSpeed: 'normal',
       sidebarCollapsed: false,
     },
+    learnerProfile: {
+      skillByConcept: {},
+      weakConcepts: [],
+      strongConcepts: [],
+      preferredPace: 'normal',
+    },
   };
 }
 
@@ -36,6 +43,8 @@ function createDefaultModuleProgress(): ModuleProgress {
     status: 'available',
     stepsCompleted: [],
     quizAnswers: {},
+    expandedConceptNodes: [],
+    conceptConfidence: {},
     challengesCompleted: [],
     playgroundVisited: false,
     lastAccessedStep: '',
@@ -50,8 +59,32 @@ function loadProgress(): ProgressState {
     const parsed = JSON.parse(raw) as ProgressState;
     // Schema migration — for now just check version
     if (parsed.version !== SCHEMA_VERSION) {
-      // Future: migrate from old schema
-      return { ...createDefaultProgress(), ...parsed, version: SCHEMA_VERSION };
+      // Merge old snapshots with new defaults when schema changes.
+      const defaults = createDefaultProgress();
+      const mergedTiers = Object.fromEntries(
+        Object.entries(parsed.tiers ?? {}).map(([tierId, tier]) => [
+          tierId,
+          {
+            unlocked: tier.unlocked,
+            modules: Object.fromEntries(
+              Object.entries(tier.modules ?? {}).map(([moduleId, moduleProgress]) => [
+                moduleId,
+                { ...createDefaultModuleProgress(), ...moduleProgress },
+              ]),
+            ),
+          },
+        ]),
+      );
+      return {
+        ...defaults,
+        ...parsed,
+        tiers: { ...defaults.tiers, ...mergedTiers },
+        learnerProfile: {
+          ...defaults.learnerProfile,
+          ...parsed.learnerProfile,
+        },
+        version: SCHEMA_VERSION,
+      };
     }
     return parsed;
   } catch {
@@ -211,13 +244,62 @@ export function useProgress() {
   );
 
   const answerQuiz = useCallback(
-    (tierId: number, moduleId: string, stepId: string, answerIndex: number) => {
-      updateModule(tierId, moduleId, (mod) => ({
-        ...mod,
-        quizAnswers: { ...mod.quizAnswers, [stepId]: answerIndex },
-      }));
+    (
+      tierId: number,
+      moduleId: string,
+      stepId: string,
+      answerIndex: number,
+      meta?: { isCorrect?: boolean; concept?: string },
+    ) => {
+      update((prev) => {
+        const tier: TierProgress = prev.tiers[tierId] ?? { unlocked: true, modules: {} };
+        const mod = tier.modules[moduleId] ?? createDefaultModuleProgress();
+        const conceptKey = meta?.concept;
+        const nextProfile =
+          typeof meta?.isCorrect === 'boolean'
+            ? updateSkillFromQuiz(
+                prev.learnerProfile,
+                conceptKey ?? moduleId,
+                meta.isCorrect,
+              )
+            : prev.learnerProfile;
+        const currentConfidence = conceptKey ? mod.conceptConfidence[conceptKey] ?? 50 : null;
+        const nextConfidence =
+          conceptKey && typeof meta?.isCorrect === 'boolean'
+            ? Math.max(0, Math.min(100, currentConfidence! + (meta.isCorrect ? 6 : -8)))
+            : null;
+
+        return {
+          ...prev,
+          learnerProfile: nextProfile,
+          tiers: {
+            ...prev.tiers,
+            [tierId]: {
+              ...tier,
+              modules: {
+                ...tier.modules,
+                [moduleId]: {
+                  ...mod,
+                  quizAnswers: { ...mod.quizAnswers, [stepId]: answerIndex },
+                  conceptConfidence:
+                    conceptKey && nextConfidence !== null
+                      ? { ...mod.conceptConfidence, [conceptKey]: nextConfidence }
+                      : mod.conceptConfidence,
+                },
+              },
+            },
+          },
+        };
+      });
+      logActivity({
+        type: 'quiz',
+        moduleId,
+        stepId,
+        concept: meta?.concept,
+        isCorrect: meta?.isCorrect,
+      });
     },
-    [updateModule],
+    [update, logActivity],
   );
 
   const completeModule = useCallback(
@@ -232,16 +314,38 @@ export function useProgress() {
   );
 
   const completeChallenge = useCallback(
-    (tierId: number, moduleId: string, challengeId: string) => {
-      updateModule(tierId, moduleId, (mod) => ({
-        ...mod,
-        challengesCompleted: mod.challengesCompleted.includes(challengeId)
+    (tierId: number, moduleId: string, challengeId: string, meta?: { concept?: string }) => {
+      update((prev) => {
+        const tier: TierProgress = prev.tiers[tierId] ?? { unlocked: true, modules: {} };
+        const mod = tier.modules[moduleId] ?? createDefaultModuleProgress();
+        const nextChallenges = mod.challengesCompleted.includes(challengeId)
           ? mod.challengesCompleted
-          : [...mod.challengesCompleted, challengeId],
-      }));
+          : [...mod.challengesCompleted, challengeId];
+
+        return {
+          ...prev,
+          learnerProfile: updateSkillFromChallenge(
+            prev.learnerProfile,
+            meta?.concept ?? moduleId,
+          ),
+          tiers: {
+            ...prev.tiers,
+            [tierId]: {
+              ...tier,
+              modules: {
+                ...tier.modules,
+                [moduleId]: {
+                  ...mod,
+                  challengesCompleted: nextChallenges,
+                },
+              },
+            },
+          },
+        };
+      });
       logActivity({ type: 'challenge', moduleId, challengeId });
     },
-    [updateModule, logActivity],
+    [update, logActivity],
   );
 
   const setLastAccessedStep = useCallback(
@@ -249,6 +353,16 @@ export function useProgress() {
       updateModule(tierId, moduleId, (mod) => ({
         ...mod,
         lastAccessedStep: stepId,
+      }));
+    },
+    [updateModule],
+  );
+
+  const setExpandedConceptNodes = useCallback(
+    (tierId: number, moduleId: string, nodeIds: string[]) => {
+      updateModule(tierId, moduleId, (mod) => ({
+        ...mod,
+        expandedConceptNodes: nodeIds,
       }));
     },
     [updateModule],
@@ -291,6 +405,7 @@ export function useProgress() {
     answerQuiz,
     completeModule,
     completeChallenge,
+    setExpandedConceptNodes,
     setLastAccessedStep,
     logActivity,
     update,

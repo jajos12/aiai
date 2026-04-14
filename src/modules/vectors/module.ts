@@ -6,11 +6,11 @@ const vectorsModule: ModuleData = {
   clusterId: 'linear-algebra',
   title: 'Vectors',
   description:
-    'Arrows, magnitudes, dot products — the fundamental objects of linear algebra and the language of machine learning.',
+    'Arrows, magnitudes, dot products, and projections — developed in depth as both geometry and computation, the common language of linear algebra and ML.',
   tags: ['vectors', 'linear-algebra', 'fundamentals'],
   prerequisites: [],
   difficulty: 'beginner',
-  estimatedMinutes: 30,
+  estimatedMinutes: 45,
   steps: [
     {
       id: 'what-is-a-vector',
@@ -22,11 +22,11 @@ const vectorsModule: ModuleData = {
         vectors: [{ x: 3, y: 2, color: 'var(--accent)' }],
       },
       content: {
-        text: "A vector is an arrow that encodes movement. It tells you both how far to go and which way to go. For example, the vector (3, 2) means move 3 units to the right and 2 units up from the origin. Unlike a plain number, a vector always carries direction with magnitude. Keep this mental model in mind: vectors describe change, motion, and position shifts.",
+        text: "A vector is an arrow that encodes movement through space. It answers two questions at once: how far, and in which direction? For example, (3, 2) means “move 3 units along the horizontal axis and 2 along the vertical” — usually drawn from the origin, but the same displacement could start anywhere; what matters is the step, not the label of the starting point. That is why physicists distinguish a displacement vector from a position vector: numerically they look alike, but conceptually one is a change and the other is a location relative to an agreed origin. Unlike a scalar (a single number), a vector is inherently multi-dimensional: each component is one independent knob you can turn. Keep this mental model: almost everything in ML that is not a plain scalar is, at bottom, a long list of numbers treated as a vector — a row of pixels, a bag-of-words count, a gradient, or an embedding.",
         goDeeper: {
           math: '\\vec{v} = \\begin{bmatrix} x \\\\ y \\end{bmatrix} \\in \\mathbb{R}^2',
           explanation:
-            'A vector in 2D is an ordered pair of real numbers, so order matters: (3, 2) is not (2, 3). Geometrically, the same pair can be viewed as a point in the plane or as a displacement from one location to another. In linear algebra, vectors are the main objects we transform, compare, and combine. In machine learning, feature representations, embeddings, and gradients are all vectors.',
+            'Formally, a vector in ℝ² is an element of a vector space: you will later require closure under addition and scalar multiplication. For now, focus on three equivalences you should be able to switch between fluently: (1) column or tuple (x, y), (2) arrow from the origin to the point (x, y), (3) instruction “go x along î and y along j-hat.” Order matters — (3, 2) ≠ (2, 3). The zero vector (0, 0) is special: it has no direction in the usual sense and is the additive identity. In ML, “feature vectors” are often row vectors in code but column vectors on paper; transpose conventions are worth noticing early so matrix multiplication later feels natural.',
           references: [
             { title: 'Essence of Linear Algebra, Ch.1', author: '3Blue1Brown', url: 'https://www.3blue1brown.com/topics/linear-algebra' },
           ],
@@ -44,10 +44,10 @@ const vectorsModule: ModuleData = {
         showComponentLines: true,
       },
       content: {
-        text: 'Every vector can be split into components along the axes. The x-component tells you horizontal movement, and the y-component tells you vertical movement. When you see (3, 2), you can read it as 3 units of x-motion plus 2 units of y-motion. This component view is powerful because it lets you compute with vectors using simple arithmetic. If you understand components, you can add, subtract, and scale vectors reliably.',
+        text: 'Every vector in a chosen coordinate system splits into components along the axes. The x-component is how far you move parallel to the x-axis; the y-component is how far parallel to the y-axis. So (3, 2) is "3 horizontally, then 2 vertically" — the same diagonal you get by laying those axis-aligned moves tip-to-tail. This is how machines store a vector: an ordered list of numbers, one per axis. Trusting that picture, addition is "add each slot," scaling is "multiply every slot," and later ideas (dot products, matrices, gradients) are built from those slot-wise rules. In higher dimensions you cannot draw, but the slot picture still holds.',
         goDeeper: {
           explanation:
-            'Component notation is v = (vₓ, vᵧ), where each component is the projection onto a coordinate axis. In physics this separates motion into independent horizontal and vertical effects. The same idea extends to higher dimensions: a vector in ℝ¹⁰ has 10 components, one per axis. Most machine learning pipelines operate in high-dimensional spaces where each feature is one component of a vector.',
+            'Each component is the signed coordinate after projecting orthogonally onto that axis (projection is formalized when you study bases). In physics, splitting velocity into horizontal and vertical parts is the same idea. In ML, one component might be one pixel channel, one word count, or one log-transformed feature — the vector is the full state of those features together. Rotating axes or choosing a new orthonormal basis changes the numbers, not the underlying arrow; PCA later exploits that freedom. For now, read v = (v_x, v_y) as the recipe in the standard basis.',
         },
       },
       quiz: {
@@ -67,13 +67,14 @@ const vectorsModule: ModuleData = {
         showCoordinates: true,
       },
       content: {
-        text: "Drag the arrow tip and watch the numbers update immediately. This interaction shows that coordinates are not extra metadata; they are the exact description of the arrow. When the tip moves, the vector changes, and so do its components, angle, and length. This builds intuition that geometric movement and numeric representation are two views of the same object. Pause and predict the new coordinates before you drag, then verify visually.",
+        text: "Drag the arrow tip: the coordinate readout, length, and angle all respond together. That coupling is the point — there is no separate “geometry layer” and “number layer.” The pair (v_x, v_y) is the vector; the arrow is one faithful picture of it. Before each drag, try to predict: will the magnitude grow or shrink? Will the angle move toward 0°, 90°, or something else? Checking against the live values builds the reflex that ℝ² is small enough to visualize but rich enough to be representative of much higher dimensions, where you cannot draw but the same formulas still run.",
         goDeeper: {
           math: '\\|\\vec{v}\\| = \\sqrt{v_x^2 + v_y^2}',
-          explanation: 'As the vector moves, its magnitude changes according to the Pythagorean formula. In n dimensions, the same idea becomes ‖v‖ = √(Σvᵢ²), which is the Euclidean norm. This norm is the default distance notion in many ML algorithms, including nearest-neighbor methods and gradient-based optimization. Interactive dragging helps learners connect formula behavior to geometry.',
+          explanation:
+            'Continuity matters: small changes in components produce small changes in length and angle (away from the origin), which is why optimization can use gradients — locally, the vector field is smooth. The Euclidean norm ‖·‖₂ is rotation-invariant: rotating both axes together does not change lengths. Other norms (L₁, L∞) change geometry of “balls” and sparsity patterns; L₂ is the Pythagorean default. In ML, weight decay often penalizes ‖w‖₂², pulling weights toward smaller magnitudes; understanding norms clarifies what such penalties actually do geometrically.',
         },
         authorNote:
-          "This is the moment it clicks — vectors aren't abstract math, they're just arrows you can grab and move.",
+          'If one interaction should stick: the numbers are not annotations on the picture — they are the vector. Everything later (matrices, layers, gradients) is elaboration on that idea.',
       },
       interactionHint: 'Drag the arrow tip to explore',
     },
@@ -87,10 +88,11 @@ const vectorsModule: ModuleData = {
         showPythagorean: true,
       },
       content: {
-        text: 'Magnitude means the length of a vector, independent of direction. Draw a right triangle from the vector tip to the axes, and the vector becomes the hypotenuse. That gives the formula √(x² + y²). For (3, 4), the magnitude is 5, which is a classic sanity check. In practice, magnitude often represents strength, speed, or intensity in applications.',
+        text: 'Magnitude is the length of the arrow — how big the displacement is, without naming a direction. Geometrically, drop perpendiculars from the tip to both axes: you get a right triangle whose legs are |v_x| and |v_y| (with signs from placement) and whose hypotenuse is ‖v‖. Pythagoras gives ‖v‖ = √(v_x² + v_y²). Internalize (3, 4) ↦ 5 as a quick sanity check; if your computed length is off, trace whether you squared, summed, and rooted in the right order. Magnitude scales linearly when you scale the vector: ‖c v‖ = |c| ‖v‖ — the absolute value on c matters because reversing direction does not change length. In applications, magnitude often maps to speed, force magnitude, signal energy, or the “size” of an activation vector.',
         goDeeper: {
           math: '\\|\\vec{v}\\|_2 = \\sqrt{\\sum_{i=1}^{n} v_i^2}',
-          explanation: 'The Euclidean magnitude is the L2 norm and is the most common default in geometry and ML. Compare with L1 norm (sum of absolute values) and L∞ norm (largest absolute component), which behave differently in optimization and regularization. Choosing a norm changes how distance and similarity are measured. That choice can affect model behavior significantly.',
+          explanation:
+            'The L₂ norm is the default “ordinary length” and is induced by the dot product: ‖v‖₂ = √(v·v). Other norms trade off sensitivity to outliers and sparsity: L₁ encourages many exact zeros in solutions (lasso), L∞ measures worst-coordinate deviation. In high dimensions, random vectors’ lengths concentrate (norms grow like √n while typical coordinates stay O(1)) — a fact that shapes how we normalize embeddings and initialize neural nets. For now, Euclidean length is the ruler you should reach for unless a problem explicitly asks otherwise.',
         },
       },
       quiz: {
@@ -111,10 +113,11 @@ const vectorsModule: ModuleData = {
         showArc: true,
       },
       content: {
-        text: 'Direction tells you where the vector points, usually measured as an angle from the positive x-axis. Two vectors can have equal length but completely different directions. Together, magnitude and direction fully characterize a vector in 2D. If magnitude answers "how much," direction answers "which way." This distinction appears everywhere from physics forces to optimization gradients.',
+        text: 'Direction is “which way,” independent of how long the arrow is. In 2D we often encode direction by the angle θ measured counterclockwise from the positive x-axis. Two vectors of the same length but different θ are different vectors; two vectors of different lengths but the same θ point the same way (one is a positive scalar multiple of the other). Pairing magnitude r = ‖v‖ with direction θ gives polar form: v_x = r cos θ and v_y = r sin θ — the bridge between “length and angle” and “x and y.” Gradients in optimization are vectors too: their direction is the direction of steepest ascent of a loss surface (in the local linear approximation), and their magnitude relates to how steep the slope is.',
         goDeeper: {
           math: '\\theta = \\text{atan2}(v_y, v_x)',
-          explanation: 'Use atan2 instead of atan because atan2 correctly handles signs of both components and returns the right quadrant. This prevents common angle mistakes when vectors point left or down. Angles can be expressed in degrees for intuition or radians for computation. In many ML and graphics systems, radians are the default.',
+          explanation:
+            'Always prefer atan2(y, x) over atan(y/x): the latter loses quadrant information when x < 0 and blows up at x = 0. The zero vector has magnitude zero and no well-defined direction — a subtle edge case in code. Radians are the natural unit for calculus: derivatives of sin and cos are simplest in radians, which is why neural-network libraries assume radians in trig ops. When you normalize a nonzero vector to unit length, you strip magnitude and keep direction; many similarity measures deliberately compare directions only (cosine similarity) so that document length or image brightness does not dominate.',
         },
       },
       quiz: {
@@ -133,10 +136,11 @@ const vectorsModule: ModuleData = {
         showOriginal: true,
       },
       content: {
-        text: "A unit vector captures direction only by rescaling a vector to length 1. You keep the arrow's orientation but remove its original size. This is useful when you want to compare direction fairly across vectors of different magnitudes. For example, recommendation systems often normalize embeddings before similarity comparisons. Think of a unit vector as pure direction information.",
+        text: "A unit vector is direction with the length knob locked at 1. Given any nonzero v, dividing by ‖v‖ yields a vector pointing the same way with norm exactly 1. The zero vector has no direction and cannot be normalized — guard against division by zero in code. Unit vectors isolate bearing: wind direction, the normal to a decision boundary, or which way a gradient step moves before you choose a step size.",
         goDeeper: {
           math: '\\hat{v} = \\frac{\\vec{v}}{\\|\\vec{v}\\|}',
-          explanation: 'Normalization divides by magnitude, producing a vector with norm 1. The standard basis vectors î and ĵ are unit vectors along coordinate axes, and any 2D vector can be written as vₓî + vᵧĵ. In machine learning, normalization helps when scale should not dominate comparison. Cosine similarity, for example, depends heavily on normalized vectors.',
+          explanation:
+            'The map v ↦ v/‖v‖ multiplies by the scalar 1/‖v‖; it preserves the line through v and fixes the L₂ norm at 1. The standard basis vectors î and ĵ are already unit vectors, and v = v_x î + v_y ĵ expands v in fixed directions with coordinates as coefficients. Batch and layer normalization keep activations in a stable numeric range — the same geometric instinct at network width. For nonzero a and b, cosine similarity (a·b)/(‖a‖‖b‖) is the dot product of a/‖a‖ with b/‖b‖, so comparing normalized embeddings is comparing directions only.',
         },
       },
       quiz: {
@@ -161,10 +165,11 @@ const vectorsModule: ModuleData = {
         draggable: true,
       },
       content: {
-        text: 'Vector addition combines movements. Start with vector a, then follow vector b from the tip of a; the resulting displacement is a + b. This is called the tip-to-tail rule and gives a direct geometric interpretation. If you drag either vector, the sum changes continuously, revealing how both contributions combine. Addition is how we aggregate effects such as forces, velocities, and feature updates.',
+        text: 'Vector addition is “do one displacement, then the other.” Put the tail of b on the tip of a; the arrow from the start of a to the end of b is a + b. That tip-to-tail picture is the same as adding coordinates slot by slot: (a_x + b_x, a_y + b_y). If you instead draw a and b from the same origin, they span a parallelogram and a + b is the diagonal through that origin — two drawings, one operation. The visualization should feel like composition of moves: net force, net velocity, or stacking two feature deltas before you apply the next layer.',
         goDeeper: {
           math: '\\vec{a} + \\vec{b} = \\begin{bmatrix} a_x + b_x \\\\ a_y + b_y \\end{bmatrix}',
-          explanation: 'Addition is component-wise and commutative: a + b = b + a. Geometrically, placing the vectors tail-to-tail forms a parallelogram, and the sum is the diagonal from the shared origin. This dual view (algebraic and geometric) is essential for later matrix operations. In optimization, gradient updates also behave like vector additions.',
+          explanation:
+            'Vector addition is commutative and associative, with the zero vector as identity — the axioms you will see for abstract vector spaces. The parallelogram law is not a separate definition; it follows from the same rule as tip-to-tail when you translate b so its tail meets a’s tip. In ℝ^n, “add each component” scales cleanly to thousands of dimensions: residual connections in transformers literally add a learned update vector to an embedding vector. Seeing addition as both geometry and per-slot arithmetic prevents matrices from feeling arbitrary later.',
         },
       },
       quiz: {
@@ -184,10 +189,11 @@ const vectorsModule: ModuleData = {
         showDifference: true,
       },
       content: {
-        text: "Vector subtraction answers a relative-position question: what change moves you from b to a? Geometrically, a - b points from the tip of b to the tip of a. This makes subtraction the natural language of error and difference. In ML, prediction error vectors are often actual vector differences. So subtraction is not just arithmetic; it is comparison in space.",
+        text: "Subtraction is addition’s partner: a − b is the vector you must add to b to land on a. Draw a and b from the same origin; the arrow from b’s tip to a’s tip is a − b. That is why the residual (target minus prediction) in regression is a vector (or slot-wise difference) in feature space: it is the gap from prediction to truth. Components subtract just like they add: (a_x − b_x, a_y − b_y). Order matters — a − b and b − a are negatives of each other.",
         goDeeper: {
           math: '\\vec{a} - \\vec{b} = \\vec{a} + (-\\vec{b})',
-          explanation: 'Subtracting b is the same as adding its opposite direction, -b. This creates the other diagonal of the vector parallelogram. The length ‖a - b‖ gives Euclidean distance between two points represented as vectors. Distance-based ML methods depend directly on this quantity.',
+          explanation:
+            'Because −b is b reflected through the origin, a − b lies along the other diagonal of the parallelogram built from a and b (the one not used for a + b). The norm ‖a − b‖ is Euclidean distance between the points a and b when both are position vectors from the origin. k-NN, clustering losses, and contrastive learning all lean on such distances; gradient descent on squared error is deeply tied to L₂ distance in weight or activation space.',
         },
       },
       quiz: {
@@ -207,10 +213,11 @@ const vectorsModule: ModuleData = {
         scalarRange: [-3, 3],
       },
       content: {
-        text: 'Scalar multiplication scales a vector by a single number. Values greater than 1 stretch it, values between 0 and 1 shrink it, and negative values reverse direction. This operation lets you control strength without changing the underlying direction logic. Try the slider and predict the effect before looking. This same rule powers weighted combinations in models.',
+        text: 'Multiply a vector by a scalar c and every component scales by the same factor: the arrow stays on the same line through the origin, but its length is scaled by |c| and its orientation flips if c < 0. So scalars are “how much” knobs on a fixed direction (until c = 0, which kills the vector entirely). This is the operation behind learning rates (step size along a gradient), blending weights in attention, and any “α times this vector plus β times that one” recipe.',
         goDeeper: {
           math: 'c\\vec{v} = \\begin{bmatrix} cv_x \\\\ cv_y \\end{bmatrix}',
-          explanation: 'Each component is multiplied by the same scalar c, so scaling is uniform along the vector direction. c > 1 stretches, 0 < c < 1 shrinks, c < 0 flips direction, and c = 0 collapses to the zero vector. Scalar multiplication is one half of linear combinations. Together with vector addition, it defines linear structure.',
+          explanation:
+            'Uniform scaling per component is what makes scalar multiplication commute with many geometric notions: ‖c v‖ = |c| ‖v‖, and if v ≠ 0 the direction is unchanged for c > 0. The distributive law c(v + w) = c v + c w is the algebraic reason linear maps play nicely with both operations. In ML, a linear layer is matrix–vector multiplication — rows dotted with the input — but the scalar “gain” on a channel or feature is still this same idea at smaller scale.',
         },
       },
       quiz: {
@@ -230,10 +237,11 @@ const vectorsModule: ModuleData = {
         showParallelogram: true,
       },
       content: {
-        text: "A linear combination is a recipe: choose vectors, then scale and add them. With two non-parallel vectors in 2D, you can reach any point in the plane using the right coefficients. With parallel vectors, your reachable set collapses to a line. This idea transitions directly to span, basis, and dimension in the next module. Understanding the recipe view now makes abstract vector space language much easier later.",
+        text: "A linear combination is one pass of the vector toolkit: scale each chosen vector, then add. In the plane, two vectors that are not parallel point in genuinely different directions, so varying the two scalars sweeps the whole ℝ² — you can hit any target (as in the Basis Builder challenge). If the two vectors line up, you only ever get points on a single line through the origin: one degree of freedom, not two. That distinction is the seed of independence, span, rank, and dimension.",
         goDeeper: {
           math: 'c_1 \\vec{v}_1 + c_2 \\vec{v}_2',
-          explanation: 'A linear combination scales each vector then adds the results. The full set of outputs from all possible coefficients is the span of those vectors. Span tells you what region of space your vectors can represent. In ML terms, it mirrors representational capacity: what outputs can be constructed from available features.',
+          explanation:
+            'The set {c₁v₁ + c₂v₂ : c₁, c₂ ∈ ℝ} is the span of {v₁, v₂}. Span is a subspace: closed under addition and scalar multiplication by construction. When v₁ and v₂ are linearly independent in ℝ², they form a basis and the pair (c₁, c₂) is unique for each target. When they are dependent, infinitely many coefficient pairs can describe the same point (or none, if you leave their line). Neural nets compose linear maps and nonlinearities; each linear piece is still “linear combinations of columns” — so this recipe is the atomic unit of representational geometry.',
         },
       },
       quiz: {
@@ -253,10 +261,11 @@ const vectorsModule: ModuleData = {
         showAngle: true,
       },
       content: {
-        text: "The dot product measures directional alignment between two vectors. Large positive values mean they point similarly, values near zero mean they are close to perpendicular, and negative values mean they oppose each other. This gives a single number summarizing both magnitude and direction relation. Dot products are everywhere in ML, from similarity scoring to linear layers. Treat it as a core operation, not a niche formula.",
+        text: "The dot product packs two vectors into one number that answers: how much do these arrows line up, weighted by how long they are? Same-direction vectors get a large positive value; orthogonal ones score zero; opposing ones go negative. Algebraically it is “multiply matching components, then add” — the natural pairing when each coordinate measures the same kind of quantity. That pattern is exactly what a single linear neuron does before its activation: weights dotted with inputs, plus bias.",
         goDeeper: {
           math: '\\vec{a} \\cdot \\vec{b} = a_x b_x + a_y b_y = \\|\\vec{a}\\| \\|\\vec{b}\\| \\cos\\theta',
-          explanation: 'The algebraic form multiplies matching components and sums them. The geometric form uses magnitudes and the cosine of the angle, explaining why orientation matters. Equality of these forms links coordinate computation with geometric intuition. In neural networks, each neuron computes a dot product before applying nonlinearity.',
+          explanation:
+            'The identity a·b = ‖a‖‖b‖cos θ is why the dot product detects angles: cos θ is the factor by which one vector’s length is “visible” along the other. Bilinearity (linear in each argument when the other is fixed) makes derivatives of quadratic losses simple — many convex optimization proofs hinge on expanding ‖x − y‖² via dot products. In attention mechanisms, query–key dot products score how much one position should attend to another; softmax then turns those scores into weights.',
         },
       },
       quiz: {
@@ -276,9 +285,11 @@ const vectorsModule: ModuleData = {
         showRightAngle: true,
       },
       content: {
-        text: 'Perpendicular vectors meet at a right angle and share no directional overlap. In dot-product language, that means their product is exactly zero. Dragging to make the value approach zero builds practical intuition for orthogonality. This concept appears in coordinate systems, projections, and decorrelated features. You can think of orthogonal directions as independent channels of information.',
+        text: 'Perpendicular means “no component along the other direction.” Geometrically the angle is 90°; algebraically a·b = 0 (for the Euclidean dot product). Neither statement cares which vector is longer — scaling one perpendicular vector does not suddenly create overlap. Drag until the readout hits zero: you are hunting for a right angle. Orthogonality is the linear-algebra version of “uncorrelated axes”: movement along one does not advance you along the other.',
         goDeeper: {
-          explanation: 'The condition a ⊥ b if and only if a · b = 0 extends beyond 2D into any dimension. Orthogonal vectors simplify computations because interactions between dimensions vanish in dot products. Many numerical methods intentionally build orthogonal bases for stability. PCA and QR-related techniques rely on this property heavily.',
+          math: '\\vec{a} \\cdot \\vec{b} = 0 \\;\\Leftrightarrow\\; \\vec{a} \\perp \\vec{b} \\quad (\\vec{a},\\vec{b} \\neq \\vec{0})',
+          explanation:
+            'In ℝ^n the same test applies: zero dot product means the vectors are orthogonal (modulo the degenerate case where one is zero). Orthonormal bases make coordinates easy: projections onto basis directions do not interfere. Gram–Schmidt and QR factorization systematically manufacture orthogonality for stable solvers. PCA finds orthogonal directions of maximal variance — perpendicularity is not a quirk of 2D drawings but a workhorse for high-dimensional data.',
         },
       },
       quiz: {
@@ -298,10 +309,11 @@ const vectorsModule: ModuleData = {
         showProjection: true,
       },
       content: {
-        text: "Projection asks: how much of vector a points along vector b? Visually, it is the shadow of a cast onto the line of b. This separates a into aligned and perpendicular parts, which is useful for interpretation and optimization. If the projection is small, a carries little information in b's direction. If large, a strongly aligns with b.",
+        text: "Projection answers: if I could only describe vector a along the line through b, what vector would I keep? Geometrically it is the shadow of a onto that line (with light rays perpendicular to the line — orthogonal projection). What remains, a minus its projection, is perpendicular to b. That decomposition is unique and shows up whenever you isolate one factor: regression coefficients, PCA loadings, or splitting a force into parallel and normal components.",
         goDeeper: {
           math: '\\text{proj}_{\\vec{b}} \\vec{a} = \\frac{\\vec{a} \\cdot \\vec{b}}{\\vec{b} \\cdot \\vec{b}} \\vec{b}',
-          explanation: 'The scalar projection gives signed length along b, while the vector projection gives the full shadow vector in b direction. Projections are central to least squares fitting, Gram-Schmidt orthogonalization, and PCA geometry. They tell you how much signal lies in a chosen direction. This makes them foundational for dimensionality reduction and regression.',
+          explanation:
+            'The factor (a·b)/(b·b) is the scalar that best scales b to approximate a in the least-squares sense along that line — the normal equations for one unknown are hiding here. If b is a unit vector, the formula collapses to (a·b) b. Repeating projection onto an orthonormal basis recovers coordinates. In ML, attention can be read as soft, learned projections; PCA is rigid projection onto variance-ranked orthogonal directions.',
         },
       },
       quiz: {
@@ -320,10 +332,11 @@ const vectorsModule: ModuleData = {
         showDecomposition: true,
       },
       content: {
-        text: "The standard basis vectors î = (1, 0) and ĵ = (0, 1) are the building blocks of 2D coordinates. Any vector can be reconstructed by scaling these two basis vectors and adding them. This gives a universal coordinate language for the plane. Once basis is understood, coordinates become recipes rather than mysterious labels. That perspective prepares you for basis changes in later modules.",
+        text: "The standard basis î = (1, 0) and ĵ = (0, 1) are the agreed-on rulers for the plane: î is one step in x, ĵ one step in y. Every (v_x, v_y) is the recipe v_x î + v_y ĵ — coordinates are the coefficients in that expansion. Other bases (rotated axes, PCA axes, Fourier modes) assign different numbers to the same geometric vector; much of linear algebra is knowing when to change the recipe.",
         goDeeper: {
           math: '\\vec{v} = v_x \\hat{i} + v_y \\hat{j}',
-          explanation: "A basis is a minimal set of independent vectors that can generate the whole space through linear combinations. In ℝ², exactly two independent basis vectors are needed. Changing basis changes coordinate values but not the underlying geometric vector. This is the key bridge to eigenvectors, diagonalization, and PCA.",
+          explanation:
+            'A basis is a linearly independent spanning set: each vector has a unique coordinate tuple in that basis. The standard basis is orthonormal, so lengths and dot products look simple in those coordinates. Eigenbases diagonalize linear maps; PCA picks an orthonormal basis ordered by variance. The mantra “change basis, not vector” links raw arrays in code to geometry that stays the same.',
         },
       },
       quiz: {
@@ -340,12 +353,13 @@ const vectorsModule: ModuleData = {
         mode: 'ai-applications',
       },
       content: {
-        text: "Modern AI turns real-world objects into vectors so models can compute on them. Words become embeddings, images become long numeric arrays, and user behavior becomes feature vectors. The operations from this module - add, scale, dot, project - are exactly what models execute repeatedly. Once you see vectors as the common language, many AI systems become less mysterious. This module gives the mathematical vocabulary for the rest of your learning path.",
+        text: "Most of what neural networks consume and produce is vectors (or stacks of them). A patch of pixels is a vector of intensities; a user session is a feature vector; hidden states flowing through layers are vectors evolving under learned linear maps and nonlinearities. The primitives you practiced — add, scale, dot, project, expand in a basis — are the instructions executed billions of times in training and inference. Recognizing that continuity makes papers and stack traces easier to read.",
         goDeeper: {
-          explanation: 'Embedding models map tokens, images, or events into high-dimensional vector spaces where geometry encodes meaning. Famous examples include king - man + woman ≈ queen in word embeddings. Similarity search, retrieval, recommendation, and clustering all rely on vector distances or dot products. In practice, AI engineering is often about designing, transforming, and comparing vectors well.',
+          explanation:
+            'Embedding spaces are shaped so useful similarity is geometric: nearby vectors mean related inputs; vector arithmetic can capture analogies (e.g. king − man + woman ≈ queen in classic word2vec). Retrieval and recommenders index vectors for fast nearest-neighbor search; clustering and PCA reshape vectors for analysis. Solid vector intuition is one of the highest-leverage foundations for ML engineering.',
         },
         authorNote:
-          'This is the bridge. Everything from here on is about doing clever things with vectors and matrices.',
+          'Treat this module as vocabulary, not trivia: matrices, gradients, and attention are elaborations on vectors.',
       },
     },
   ],

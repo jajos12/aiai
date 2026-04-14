@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useLesson } from '@/hooks/useLesson';
 import { useModuleData } from '@/hooks/useModuleData';
 import { useProgress } from '@/hooks/useProgress';
@@ -9,10 +9,13 @@ import { StepViewer } from '@/components/lesson/StepViewer';
 import { LessonSidebar } from '@/components/lesson/LessonSidebar';
 import { ModuleHubSkeleton } from '@/components/ui/Skeleton';
 import { StreakPopup, CompletionPopup } from '@/components/ui/CelebrationPopup';
+import { stepIdsForConcept } from '@/core/moduleConceptTree';
 
 export default function GuidedPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const focusStepId = searchParams.get('step');
   const tierId = Number(params.tierId);
   const moduleId = params.moduleId as string;
 
@@ -20,10 +23,42 @@ export default function GuidedPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
-
-  const { completeStep, answerQuiz, getModuleProgress, completeModule, stats, streakJustEarned, dismissStreakPopup } = useProgress();
+  const {
+    completeStep,
+    answerQuiz,
+    getModuleProgress,
+    completeModule,
+    setExpandedConceptNodes,
+    progress,
+    stats,
+    streakJustEarned,
+    dismissStreakPopup,
+  } = useProgress();
 
   const moduleProgress = getModuleProgress(tierId, moduleId);
+  const hasStudyArtifacts = progress.learnerProfile.skillByConcept !== undefined;
+  const reviewQueue = useMemo(() => {
+    const entries = Object.entries(moduleProgress.conceptConfidence ?? {});
+    return entries.sort((a, b) => a[1] - b[1]).slice(0, 3);
+  }, [moduleProgress.conceptConfidence]);
+
+  useEffect(() => {
+    if (!hasStudyArtifacts || reviewQueue.length === 0) return;
+    if (!moduleData) return;
+    if ((moduleProgress.expandedConceptNodes ?? []).length > 0) return;
+    const stepIds = reviewQueue.flatMap(([concept]) => stepIdsForConcept(moduleData, concept));
+    const unique = Array.from(new Set(stepIds));
+    if (unique.length === 0) return;
+    setExpandedConceptNodes(tierId, moduleId, unique);
+  }, [
+    hasStudyArtifacts,
+    reviewQueue,
+    moduleProgress.expandedConceptNodes,
+    setExpandedConceptNodes,
+    tierId,
+    moduleId,
+    moduleData,
+  ]);
 
   const handleCompleteStep = useCallback(
     (stepId: string) => {
@@ -34,20 +69,40 @@ export default function GuidedPage() {
 
   const handleAnswerQuiz = useCallback(
     (stepId: string, answerIndex: number) => {
-      answerQuiz(tierId, moduleId, stepId, answerIndex);
+      const step = moduleData?.steps.find((lessonStep) => lessonStep.id === stepId);
+      const isCorrect = step?.quiz ? step.quiz.correctIndex === answerIndex : undefined;
+      answerQuiz(tierId, moduleId, stepId, answerIndex, {
+        isCorrect,
+        concept: step?.concepts?.[0] ?? moduleData?.clusterId ?? moduleId,
+      });
     },
-    [tierId, moduleId, answerQuiz],
+    [tierId, moduleId, answerQuiz, moduleData],
   );
+
+  const initialStepIndex = useMemo(() => {
+    const steps = moduleData?.steps ?? [];
+    if (!focusStepId || steps.length === 0) return 0;
+    const idx = steps.findIndex((s) => s.id === focusStepId);
+    return idx >= 0 ? idx : 0;
+  }, [moduleData, focusStepId]);
 
   const lesson = useLesson({
     steps: moduleData?.steps ?? [],
     tierId,
     moduleId,
-    initialStepIndex: 0,
+    initialStepIndex,
     initialCompletedSteps: moduleProgress.stepsCompleted,
     onCompleteStep: handleCompleteStep,
     onAnswerQuiz: handleAnswerQuiz,
   });
+
+  useEffect(() => {
+    if (!moduleData?.steps.length || !focusStepId) return;
+    const idx = moduleData.steps.findIndex((s) => s.id === focusStepId);
+    if (idx >= 0 && idx !== lesson.currentStepIndex) {
+      lesson.goToStep(idx);
+    }
+  }, [focusStepId, moduleData, lesson.currentStepIndex, lesson.goToStep]);
 
   if (isLoading) {
     return <ModuleHubSkeleton />;
@@ -196,27 +251,94 @@ export default function GuidedPage() {
             minHeight: 0,
           }}
         >
-          <StepViewer
-            key={`step-${lesson.currentStepIndex}`}
-            step={lesson.currentStep}
-            Visualization={moduleData.Visualization}
-            direction={lesson.navigationDirection}
-            stepIndex={lesson.currentStepIndex}
-            totalSteps={lesson.totalSteps}
-            isCompleted={lesson.completedSteps.has(lesson.currentStep.id)}
-            quizAnswer={lesson.quizAnswers[lesson.currentStep.id]}
-            onComplete={lesson.completeCurrentStep}
-            onNext={lesson.goNext}
-            onBack={lesson.goBack}
-            onQuizAnswer={lesson.submitQuizAnswer}
-            canGoNext={lesson.canGoNext}
-            canGoBack={lesson.canGoBack}
-            isLastStep={lesson.isLastStep}
-            onFinishModule={() => {
-              completeModule(tierId, moduleId);
-              setShowCompletion(true);
+          <div
+            style={{
+              marginBottom: '0.85rem',
+              padding: '0.7rem 0.8rem',
+              border: '1px solid rgba(99,102,241,0.25)',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(99,102,241,0.08)',
             }}
-          />
+          >
+            <div style={{ fontSize: '0.74rem', color: 'var(--accent)', fontWeight: 700, marginBottom: '0.5rem' }}>
+              Study tools
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                className="btn btn--ghost btn--sm"
+                onClick={() => router.push(`/tier/${tierId}/${moduleId}/guided/concept-tree`)}
+              >
+                Open lesson map
+              </button>
+              <button
+                className="btn btn--ghost btn--sm"
+                onClick={() => router.push(`/tier/${tierId}/${moduleId}/guided/flashcards`)}
+              >
+                Open Flashcards
+              </button>
+              <button
+                className="btn btn--ghost btn--sm"
+                onClick={() => router.push(`/tier/${tierId}/${moduleId}/guided/quizzes`)}
+              >
+                Open Adaptive Quizzes
+              </button>
+            </div>
+          </div>
+          {reviewQueue.length > 0 && (
+            <div
+              style={{
+                marginBottom: '0.75rem',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: '0.45rem',
+              }}
+            >
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Review queue:
+              </span>
+              {reviewQueue.map(([concept, score]) => (
+                <button
+                  key={concept}
+                  className="btn btn--ghost btn--sm"
+                  style={{ fontSize: '0.72rem' }}
+                  onClick={() => {
+                    const stepIds = stepIdsForConcept(moduleData, concept);
+                    const nextExpanded = Array.from(
+                      new Set([...(moduleProgress.expandedConceptNodes ?? []), ...stepIds]),
+                    );
+                    setExpandedConceptNodes(tierId, moduleId, nextExpanded);
+                    router.push(`/tier/${tierId}/${moduleId}/guided/concept-tree`);
+                  }}
+                >
+                  {concept} ({Math.round(score)}%)
+                </button>
+              ))}
+            </div>
+          )}
+          <div>
+            <StepViewer
+              key={`step-${lesson.currentStepIndex}`}
+              step={lesson.currentStep}
+              Visualization={moduleData.Visualization}
+              direction={lesson.navigationDirection}
+              stepIndex={lesson.currentStepIndex}
+              totalSteps={lesson.totalSteps}
+              isCompleted={lesson.completedSteps.has(lesson.currentStep.id)}
+              quizAnswer={lesson.quizAnswers[lesson.currentStep.id]}
+              onComplete={lesson.completeCurrentStep}
+              onNext={lesson.goNext}
+              onBack={lesson.goBack}
+              onQuizAnswer={lesson.submitQuizAnswer}
+              canGoNext={lesson.canGoNext}
+              canGoBack={lesson.canGoBack}
+              isLastStep={lesson.isLastStep}
+              onFinishModule={() => {
+                completeModule(tierId, moduleId);
+                setShowCompletion(true);
+              }}
+            />
+          </div>
         </div>
       </div>
 

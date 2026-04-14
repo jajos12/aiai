@@ -24,14 +24,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.9,
   }));
 
-  // Module pages (hub, guided, playground, challenge)
+  // Module pages (hub, guided, playground)
   const modulePages: MetadataRoute.Sitemap = MODULE_META.flatMap((mod) => {
     const base = `${siteUrl}/tier/${mod.tierId}/${mod.id}`;
     return [
       { url: base, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.8 },
       { url: `${base}/guided`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 },
       { url: `${base}/playground`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.6 },
-      { url: `${base}/challenge`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.6 },
     ];
   });
 

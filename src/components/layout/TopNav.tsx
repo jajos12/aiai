@@ -1,17 +1,50 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useProgress } from '@/hooks/useProgress';
+
+interface User {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+}
 
 interface TopNavProps {
   currentPath?: string;
 }
 
 export function TopNav({ currentPath = '/' }: TopNavProps) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const { isLoaded } = useProgress();
+
+  useEffect(() => {
+    const stored = localStorage.getItem('user');
+    if (stored) {
+      setUser(JSON.parse(stored));
+    }
+  }, []);
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    router.push('/login');
+  };
+
+  const excludeNav = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify', '/admin'];
+  if (excludeNav.some(path => pathname?.startsWith(path))) {
+    return null;
+  }
+
   return (
     <nav
-      className="nav-frosted"
+      className='nav-frosted'
       style={{
         height: 'var(--topnav-height)',
         display: 'flex',
@@ -25,7 +58,7 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
       }}
     >
       <Link
-        href="/"
+        href='/'
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -69,6 +102,70 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
         }}
       >
         <StreakDisplay />
+        {user ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {user.role === 'admin' && (
+              <Link
+                href='/admin'
+                style={{
+                  padding: '0.375rem 0.75rem',
+                  background: 'var(--accent)',
+                  color: '#fff',
+                  borderRadius: 'var(--radius-sm)',
+                  textDecoration: 'none',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                }}
+              >
+                Admin
+              </Link>
+            )}
+            <button
+              onClick={handleLogout}
+              style={{
+                padding: '0.375rem 0.75rem',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-primary)',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Link
+              href='/login'
+              style={{
+                padding: '0.375rem 0.75rem',
+                color: 'var(--text-secondary)',
+                textDecoration: 'none',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+              }}
+            >
+              Login
+            </Link>
+            <Link
+              href='/signup'
+              style={{
+                padding: '0.375rem 0.75rem',
+                background: 'var(--accent)',
+                color: '#fff',
+                borderRadius: 'var(--radius-sm)',
+                textDecoration: 'none',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+              }}
+            >
+              Sign Up
+            </Link>
+          </div>
+        )}
         <ThemeToggle />
       </div>
     </nav>

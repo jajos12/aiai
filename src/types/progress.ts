@@ -9,6 +9,7 @@ export interface ProgressState {
   badges: string[];
   activityLog: ActivityEntry[];
   settings: UserSettings;
+  learnerProfile: LearnerProfile;
 }
 
 export interface StreakData {
@@ -26,6 +27,8 @@ export interface ModuleProgress {
   status: 'locked' | 'available' | 'in-progress' | 'completed';
   stepsCompleted: string[];
   quizAnswers: Record<string, number>;
+  expandedConceptNodes: string[];
+  conceptConfidence: Record<string, number>;
   challengesCompleted: string[];
   playgroundVisited: boolean;
   lastAccessedStep: string;
@@ -39,6 +42,16 @@ export interface ActivityEntry {
   moduleId: string;
   stepId?: string;
   challengeId?: string;
+  concept?: string;
+  isCorrect?: boolean;
+}
+
+export interface LearnerProfile {
+  skillByConcept: Record<string, number>;
+  weakConcepts: string[];
+  strongConcepts: string[];
+  preferredPace: 'slow' | 'normal' | 'fast';
+  lastRecommendedModuleId?: string;
 }
 
 export interface UserSettings {

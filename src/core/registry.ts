@@ -1,4 +1,4 @@
-import type { Module, ModuleBundle } from './types';
+import type { Module, ModuleBundle, ModuleData } from './types';
 
 /**
  * Module Registry
@@ -47,24 +47,206 @@ const moduleRegistry: Record<string, () => Promise<Module | ModuleBundle>> = {
   'pytorch-basics': () => import('@/modules/pytorch-basics'),
 };
 
+const moduleDataRegistry: Record<string, () => Promise<Record<string, unknown>>> = {
+  vectors: () => import('@/modules/vectors/module'),
+  'vector-spaces': () => import('@/modules/vector-spaces/module'),
+  'norms-distance': () => import('@/modules/norms-distance/module'),
+  matrices: () => import('@/modules/matrices/module'),
+  eigenvalues: () => import('@/modules/eigenvalues/module'),
+  'partial-derivatives': () => import('@/modules/partial-derivatives/module'),
+  optimization: () => import('@/modules/optimization/module'),
+  'chain-rule': () => import('@/modules/chain-rule/module'),
+  'linear-regression': () => import('@/modules/linear-regression/module'),
+  'logistic-regression': () => import('@/modules/logistic-regression/module'),
+  'k-means': () => import('@/modules/k-means/module'),
+  knn: () => import('@/modules/knn/module'),
+  'decision-trees': () => import('@/modules/decision-trees/module'),
+  svm: () => import('@/modules/svm/module'),
+  backpropagation: () => import('@/modules/backpropagation/module'),
+  activations: () => import('@/modules/activations/module'),
+  mlps: () => import('@/modules/mlps/module'),
+  perceptrons: () => import('@/modules/perceptrons/module'),
+  optimizers: () => import('@/modules/optimizers/module'),
+  'cnn-foundations': () => import('@/modules/cnn-foundations/module'),
+  attention: () => import('@/modules/attention/module'),
+  transformers: () => import('@/modules/transformers/module'),
+  vit: () => import('@/modules/vit/module'),
+  'llm-training': () => import('@/modules/llm-training/module'),
+  'rl-agents': () => import('@/modules/rl-agents/module'),
+  diffusion: () => import('@/modules/diffusion/module'),
+  gans: () => import('@/modules/gans/module'),
+  vaes: () => import('@/modules/vaes/module'),
+  alignment: () => import('@/modules/alignment/module'),
+  'python-zero-to-ai-scripting': () => import('@/modules/python-basics/module'),
+  'numpy-data-and-performance': () => import('@/modules/numpy-foundations/module'),
+  'pytorch-training-workflows': () => import('@/modules/pytorch-basics/module'),
+  'ml-engineering-practices': () => import('@/modules/ml-engineering-practices/module'),
+  'python-basics': () => import('@/modules/python-basics/module'),
+  'numpy-foundations': () => import('@/modules/numpy-foundations/module'),
+  'pytorch-basics': () => import('@/modules/pytorch-basics/module'),
+};
+
+const runtimeModuleRegistry: Record<string, () => Promise<Record<string, unknown>>> = {
+  vectors: () => import('@/modules/vectors'),
+  'vector-spaces': () => import('@/modules/vector-spaces'),
+  'norms-distance': () => import('@/modules/norms-distance'),
+  matrices: () => import('@/modules/matrices'),
+  eigenvalues: () => import('@/modules/eigenvalues'),
+  'partial-derivatives': () => import('@/modules/partial-derivatives'),
+  optimization: () => import('@/modules/optimization'),
+  'chain-rule': () => import('@/modules/chain-rule'),
+  'linear-regression': () => import('@/modules/linear-regression'),
+  'logistic-regression': () => import('@/modules/logistic-regression'),
+  'k-means': () => import('@/modules/k-means'),
+  knn: () => import('@/modules/knn'),
+  'decision-trees': () => import('@/modules/decision-trees'),
+  svm: () => import('@/modules/svm'),
+  backpropagation: () => import('@/modules/backpropagation'),
+  activations: () => import('@/modules/activations'),
+  mlps: () => import('@/modules/mlps'),
+  perceptrons: () => import('@/modules/perceptrons'),
+  optimizers: () => import('@/modules/optimizers'),
+  'cnn-foundations': () => import('@/modules/cnn-foundations'),
+  attention: () => import('@/modules/attention'),
+  transformers: () => import('@/modules/transformers'),
+  vit: () => import('@/modules/vit'),
+  'llm-training': () => import('@/modules/llm-training'),
+  'rl-agents': () => import('@/modules/rl-agents'),
+  diffusion: () => import('@/modules/diffusion'),
+  gans: () => import('@/modules/gans'),
+  vaes: () => import('@/modules/vaes'),
+  alignment: () => import('@/modules/alignment'),
+  'python-zero-to-ai-scripting': () => import('@/modules/python-basics'),
+  'numpy-data-and-performance': () => import('@/modules/numpy-foundations'),
+  'pytorch-training-workflows': () => import('@/modules/pytorch-basics'),
+  'ml-engineering-practices': () => import('@/modules/ml-engineering-practices'),
+  'python-basics': () => import('@/modules/python-basics'),
+  'numpy-foundations': () => import('@/modules/numpy-foundations'),
+  'pytorch-basics': () => import('@/modules/pytorch-basics'),
+};
+
 function isModuleBundle(mod: Module | ModuleBundle): mod is ModuleBundle {
   return 'moduleData' in mod;
 }
 
-export async function getModule(moduleId: string): Promise<Module | null> {
-  const loader = moduleRegistry[moduleId];
+function looksLikeModuleData(value: unknown): value is ModuleData {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<ModuleData>;
+  return typeof candidate.id === 'string' && typeof candidate.title === 'string';
+}
+
+function resolveContentSource(): 'db' | 'code' {
+  const configured = process.env.CONTENT_SOURCE?.toLowerCase();
+  if (configured === 'db') return 'db';
+  return 'code';
+}
+
+async function getRuntimeParts(moduleId: string): Promise<Pick<Module, 'Visualization' | 'ChallengeCanvas'> | null> {
+  const loader = runtimeModuleRegistry[moduleId];
   if (!loader) return null;
-  const mod = await loader();
-  // If the module has moduleData export (new structure), merge it.
-  // Otherwise, it might be the module object itself.
-  if (isModuleBundle(mod)) {
+  const runtimeNs = await loader();
+  return {
+    Visualization: runtimeNs.Visualization as Module['Visualization'],
+    ChallengeCanvas: runtimeNs.ChallengeCanvas as Module['ChallengeCanvas'],
+  };
+}
+
+async function getModuleDataFromApi(moduleId: string): Promise<ModuleData | null> {
+  try {
+    const res = await fetch(`/api/modules/${moduleId}`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const payload = (await res.json()) as { module: ModuleData | null };
+    return payload.module ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function getModuleDataFromDb(moduleId: string): Promise<ModuleData | null> {
+  if (typeof window !== 'undefined') return null;
+  const { getContentModuleData } = await import('@/lib/db/content');
+  return getContentModuleData(moduleId, { publishedOnly: false });
+}
+
+export async function getModule(moduleId: string): Promise<Module | null> {
+  const runtimeParts = await getRuntimeParts(moduleId);
+  if (!runtimeParts) return null;
+  let contentData: ModuleData | null = null;
+
+  const source = resolveContentSource();
+  if (source === 'db') {
+    if (typeof window === 'undefined') {
+      contentData = await getModuleDataFromDb(moduleId);
+    } else {
+      contentData = await getModuleDataFromApi(moduleId);
+    }
+  }
+
+  if (!contentData) {
+    const loader = moduleRegistry[moduleId];
+    if (!loader) return null;
+    const mod = await loader();
+    // If the module has moduleData export (new structure), merge it.
+    // Otherwise, it might be the module object itself.
+    if (isModuleBundle(mod) && looksLikeModuleData(mod.moduleData)) {
+      contentData = mod.moduleData;
+    } else {
+      const namespace = mod as unknown as Record<string, unknown>;
+      const moduleDataCandidate =
+        namespace.moduleData ??
+        (namespace.default as { moduleData?: unknown } | undefined)?.moduleData ??
+        namespace.default;
+      if (looksLikeModuleData(moduleDataCandidate)) {
+        contentData = moduleDataCandidate;
+      }
+    }
+  }
+
+  if (contentData) {
     return {
-      ...mod.moduleData,
-      Visualization: mod.Visualization,
-      ChallengeCanvas: mod.ChallengeCanvas,
+      ...contentData,
+      ...runtimeParts,
     };
   }
-  return mod;
+
+  const meta = MODULE_META.find((entry) => entry.id === moduleId);
+  if (!meta) return null;
+  return {
+    id: meta.id,
+    tierId: meta.tierId,
+    clusterId: meta.clusterId,
+    title: meta.title,
+    description: meta.description,
+    tags: [meta.clusterId, meta.id],
+    prerequisites: meta.prerequisites,
+    difficulty: meta.difficulty,
+    estimatedMinutes: meta.estimatedMinutes,
+    steps: [],
+    playground: { description: '', parameters: [], tryThis: [] },
+    challenges: [],
+  };
+}
+
+export async function getModuleData(moduleId: string): Promise<ModuleData | null> {
+  const source = resolveContentSource();
+  if (source === 'db' && typeof window === 'undefined') {
+    const dbData = await getModuleDataFromDb(moduleId);
+    if (dbData) return dbData;
+  }
+
+  const loader = moduleDataRegistry[moduleId];
+  if (!loader) return null;
+  try {
+    const loaded = await loader();
+    const candidate =
+      loaded.default ??
+      loaded.moduleData ??
+      (loaded.default as { moduleData?: unknown } | undefined)?.moduleData;
+    if (looksLikeModuleData(candidate)) return candidate;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export function getModuleIds(): string[] {

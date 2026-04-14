@@ -6,12 +6,14 @@ import { TierCard } from '@/components/dashboard/TierCard';
 import { StreakCounter } from '@/components/dashboard/StreakCounter';
 import { ActivityCalendar } from '@/components/dashboard/ActivityCalendar';
 import { getTierSummaries } from '@/core/curriculum';
+import { recommendNextModule } from '@/core/personalization';
 import { useProgress } from '@/hooks/useProgress';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { progress, isLoaded } = useProgress();
   const tiers = getTierSummaries(isLoaded ? progress : undefined);
+  const nextRecommendation = isLoaded ? recommendNextModule(progress) : null;
 
   return (
     <div
@@ -56,6 +58,45 @@ export default function DashboardPage() {
             No prerequisites - just curiosity.
           </p>
         </div>
+
+        {nextRecommendation && (
+          <div
+            className="animate-fade-in"
+            style={{
+              marginBottom: '1.25rem',
+              padding: '1rem 1.25rem',
+              border: '1px solid var(--accent-soft)',
+              background: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-lg)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 700, marginBottom: '0.2rem' }}>
+                Personalized next lesson
+              </div>
+              <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                {nextRecommendation.title}
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                {nextRecommendation.reason}
+              </div>
+            </div>
+            <button
+              className="btn btn--primary btn--sm"
+              onClick={() =>
+                router.push(
+                  `/tier/${nextRecommendation.tierId}/${nextRecommendation.moduleId}`,
+                )
+              }
+            >
+              Open
+            </button>
+          </div>
+        )}
 
         <div
           style={{
