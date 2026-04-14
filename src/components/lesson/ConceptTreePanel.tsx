@@ -388,19 +388,25 @@ type FilterType = 'all' | 'not-completed' | 'low-confidence';
 function TreeContent({
   treeNodes,
   completedNodeIds,
+  expandedNodeIds,
   conceptConfidence = {},
+  conceptTrends,
   modelName,
   generatedAt,
   isCached,
+  onExpandedChange,
   jumpableStepIds,
   onJumpToLesson,
 }: {
   treeNodes: ConceptTreeNode[];
   completedNodeIds?: Set<string>;
+  expandedNodeIds?: string[];
   conceptConfidence?: Record<string, number>;
+  conceptTrends?: Record<string, string>;
   modelName?: string;
   generatedAt?: string;
   isCached?: boolean;
+  onExpandedChange?: (nodeIds: string[]) => void;
   jumpableStepIds?: Set<string>;
   onJumpToLesson?: (stepId: string) => void;
 }) {
@@ -410,20 +416,22 @@ function TreeContent({
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [focusMode, setFocusMode] = useState(false);
-  const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set<string>());
+  const [expandedNodeIdSet, setExpandedNodeIdSet] = useState<Set<string>>(new Set<string>());
   const { fitView, setViewport, getViewport } = useReactFlow();
 
   const doneIds = completedNodeIds ?? new Set<string>();
 
   const allNodes = useMemo(() => {
-    return buildRadialTree(treeNodes, doneIds, conceptConfidence, expandedNodeIds);
-  }, [treeNodes, doneIds, conceptConfidence, expandedNodeIds]);
+    return buildRadialTree(treeNodes, doneIds, conceptConfidence, expandedNodeIdSet);
+  }, [treeNodes, doneIds, conceptConfidence, expandedNodeIdSet]);
 
   useEffect(() => {
     const rootId = treeNodes?.[0]?.id;
     if (!rootId) return;
-    setExpandedNodeIds(new Set<string>([rootId]));
-  }, [treeNodes]);
+    const incoming = expandedNodeIds ?? [];
+    const base = incoming.length > 0 ? incoming : [rootId];
+    setExpandedNodeIdSet(new Set<string>(base));
+  }, [treeNodes, expandedNodeIds]);
 
   const stats = useMemo(() => {
     const total = treeNodes && treeNodes.length > 0 ? countAllNodes(treeNodes[0]) : 0;
@@ -508,15 +516,16 @@ function TreeContent({
       const nodeData = node.data as TreeNodeData;
       setSelectedNode(nodeData.node);
       if (nodeData.hasChildren) {
-        setExpandedNodeIds((prev) => {
+        setExpandedNodeIdSet((prev) => {
           const next = new Set(prev);
           if (next.has(node.id)) next.delete(node.id);
           else next.add(node.id);
+          onExpandedChange?.(Array.from(next));
           return next;
         });
       }
     },
-    []
+    [onExpandedChange]
   );
 
   useEffect(() => {
@@ -757,20 +766,26 @@ function TreeContent({
 export function ConceptTreePanel(props: {
   nodes: ConceptTreeNode[];
   completedNodeIds?: Set<string>;
+  expandedNodeIds?: string[];
   conceptConfidence?: Record<string, number>;
+  conceptTrends?: Record<string, string>;
   modelName?: string;
   generatedAt?: string;
   isCached?: boolean;
+  onExpandedChange?: (nodeIds: string[]) => void;
   jumpableStepIds?: Set<string>;
   onJumpToLesson?: (stepId: string) => void;
 }) {
   const {
     nodes,
     completedNodeIds,
+    expandedNodeIds,
     conceptConfidence,
+    conceptTrends,
     modelName,
     generatedAt,
     isCached,
+    onExpandedChange,
     jumpableStepIds,
     onJumpToLesson,
   } = props;
@@ -780,10 +795,13 @@ export function ConceptTreePanel(props: {
       <TreeContent
         treeNodes={nodes}
         completedNodeIds={completedNodeIds}
+        expandedNodeIds={expandedNodeIds}
         conceptConfidence={conceptConfidence}
+        conceptTrends={conceptTrends}
         modelName={modelName}
         generatedAt={generatedAt}
         isCached={isCached}
+        onExpandedChange={onExpandedChange}
         jumpableStepIds={jumpableStepIds}
         onJumpToLesson={onJumpToLesson}
       />

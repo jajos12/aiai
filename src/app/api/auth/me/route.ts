@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { validateSession } from '@/lib/auth/session';
-import { getUserById, updateUser, getUserPreferences, upsertUserPreferences } from '@/lib/db/users';
+import { getUserById, updateUser, getUserPreferences, upsertUserPreferences, getUserProgress } from '@/lib/db/users';
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -90,7 +90,7 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: error.errors[0].message },
+        { error: error.issues[0]?.message ?? 'Invalid request payload' },
         { status: 400 }
       );
     }
