@@ -76,6 +76,16 @@ export interface Step {
     text: string;
     goDeeper?: GoDeeper;
     authorNote?: string;
+    image?: {
+      url: string;
+      provider?: string;
+      assetId?: string;
+    };
+    video?: {
+      url: string;
+      provider?: string;
+      assetId?: string;
+    };
   };
   quiz?: Quiz;
   interactionHint?: string;

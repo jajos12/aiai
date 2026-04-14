@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession } from '@/lib/auth/session';
 import { getUserById } from '@/lib/db/users';
-import { listContentModules, upsertContentModule } from '@/lib/db/content';
+import { listContentModules, upsertContentModule, validateModuleAuthoring } from '@/lib/db/content';
 import type { ModuleData } from '@/core/types';
 
 async function requireAdmin(request: NextRequest): Promise<number | null> {
@@ -39,6 +39,10 @@ export async function PUT(request: NextRequest) {
     const body = (await request.json()) as { module: ModuleData; status?: 'draft' | 'published' };
     if (!body?.module?.id) {
       return NextResponse.json({ error: 'Invalid module payload' }, { status: 400 });
+    }
+    const validationError = validateModuleAuthoring(body.module);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
     const status = body.status === 'published' ? 'published' : 'draft';
