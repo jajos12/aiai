@@ -1,15 +1,15 @@
+import Groq from 'groq-sdk';
 import { InferenceClient } from '@huggingface/inference';
 
-/**
- * Small instruct models that usually work on Hugging Face serverless inference (free tier with a token).
- * Avoid large models here unless you set HUGGINGFACE_MODEL — routing may send them to third-party providers
- * that do not match every task.
- */
-const FALLBACK_MODELS = [
-  'Qwen/Qwen2.5-1.5B-Instruct',
-  'HuggingFaceTB/SmolLM2-1.7B-Instruct',
-  'Qwen/Qwen2.5-0.5B-Instruct',
-];
+export type ChatMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+};
+
+export type HuggingFaceGenerateResult = {
+  text: string | null;
+  error?: string;
+};
 
 const DEFAULT_SYSTEM_PROMPT = `
 You are an expert AI tutor.
@@ -23,16 +23,20 @@ You are an expert AI tutor.
 If the user asks for JSON, return ONLY valid JSON without markdown.
 `.trim();
 
-export type ChatMessage = {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-};
+const GROQ_MODELS = [
+  'llama-3.1-8b-instant',
+  'gemma2-9b-it',
+  'llama3-8b-8192',
+];
 
-/** Prefer HF's own serverless stack. Set HUGGINGFACE_INFERENCE_PROVIDER=auto for full router. */
-function chatProviderArgs(): { provider: 'hf-inference' } | Record<string, never> {
-  const v = process.env.HUGGINGFACE_INFERENCE_PROVIDER?.trim().toLowerCase();
-  if (v === 'auto') return {};
-  return { provider: 'hf-inference' };
+const HF_FALLBACK_MODELS = [
+  'Qwen/Qwen2.5-1.5B-Instruct',
+  'HuggingFaceTB/SmolLM2-1.7B-Instruct',
+  'Qwen/Qwen2.5-0.5B-Instruct',
+];
+
+function groqApiKey(): string {
+  return process.env.GROQ_API_KEY?.trim() || '';
 }
 
 function hfAccessToken(): string {
@@ -43,47 +47,23 @@ function hfAccessToken(): string {
   );
 }
 
-function modelCandidates(): string[] {
+function hfModelCandidates(): string[] {
   const configured = process.env.HUGGINGFACE_MODEL?.trim();
-  if (configured) {
-    return [configured, ...FALLBACK_MODELS.filter((m) => m !== configured)];
-  }
-  return [...FALLBACK_MODELS];
+  if (configured) return [configured, ...HF_FALLBACK_MODELS.filter((m) => m !== configured)];
+  return [...HF_FALLBACK_MODELS];
 }
 
-function assistantText(content: unknown): string | null {
-  if (typeof content === 'string' && content.trim()) return content;
-
-  if (Array.isArray(content)) {
-    const parts = content
-      .map((chunk) => {
-        if (typeof chunk === 'object' && chunk !== null && 'text' in chunk) {
-          const t = (chunk as { text?: unknown }).text;
-          return typeof t === 'string' ? t : '';
-        }
-        return '';
-      })
-      .join('');
-    if (parts.trim()) return parts;
-  }
-
-  return null;
-}
-
-async function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isLikelyModelLoading(error: unknown): boolean {
-  const msg = error instanceof Error ? error.message : String(error);
-  return /loading|warmup|503|unavailable/i.test(msg);
+function hfProviderArgs(): { provider: 'hf-inference' } | Record<string, never> {
+  const v = process.env.HUGGINGFACE_INFERENCE_PROVIDER?.trim().toLowerCase();
+  if (v === 'auto') return {};
+  return { provider: 'hf-inference' };
 }
 
 function requestTimeoutMs(): number {
   const raw = process.env.HUGGINGFACE_REQUEST_TIMEOUT_MS?.trim();
   const n = raw ? Number(raw) : NaN;
   if (Number.isFinite(n) && n >= 5000) return Math.floor(n);
-  return 120_000;
+  return 60_000;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -95,103 +75,121 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-export type HuggingFaceGenerateResult = {
-  text: string | null;
-  error?: string;
-};
-
-function noTokenError(): HuggingFaceGenerateResult {
-  return {
-    text: null,
-    error:
-      'No HF_TOKEN (or HUGGINGFACE_API_KEY) found. Add it to aiai/.env.local and restart the dev server.',
-  };
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Core chat completion with an explicit messages array.
- * Use this when you need a custom system prompt (e.g. the AI tutor).
- */
-export async function chatWithMessages(
-  messages: ChatMessage[],
-): Promise<HuggingFaceGenerateResult> {
+function isModelLoading(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return /loading|warmup|503|unavailable/i.test(msg);
+}
+
+async function chatWithGroq(messages: ChatMessage[]): Promise<HuggingFaceGenerateResult> {
+  const key = groqApiKey();
+  if (!key) return { text: null, error: 'GROQ_API_KEY not set' };
+
+  const client = new Groq({ apiKey: key });
+
+  for (const model of GROQ_MODELS) {
+    try {
+      const completion = await withTimeout(
+        client.chat.completions.create({
+          model,
+          messages,
+          max_tokens: 1024,
+          temperature: 0.4,
+        }),
+        requestTimeoutMs(),
+      );
+      const text = completion.choices?.[0]?.message?.content?.trim() || null;
+      if (text) return { text };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (isModelLoading(error)) {
+        await sleep(3000);
+        continue;
+      }
+      if (msg.includes('401') || msg.includes('invalid_api_key')) {
+        return { text: null, error: `Groq auth failed: ${msg}` };
+      }
+    }
+  }
+
+  return { text: null, error: 'All Groq models failed' };
+}
+
+async function chatWithHF(messages: ChatMessage[]): Promise<HuggingFaceGenerateResult> {
   const token = hfAccessToken();
-  if (!token) return noTokenError();
+  if (!token) return { text: null, error: 'HF_TOKEN not set' };
 
   const client = new InferenceClient(token);
-  const models = modelCandidates();
+  const models = hfModelCandidates();
   const timeoutMs = requestTimeoutMs();
 
-  let lastError =
-    'Every model failed or returned empty text. Try HUGGINGFACE_INFERENCE_PROVIDER=auto or a different HUGGINGFACE_MODEL.';
-
   for (const model of models) {
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const completion = await withTimeout(
           client.chatCompletion({
             model,
-            ...chatProviderArgs(),
+            ...hfProviderArgs(),
             messages,
             max_tokens: 1024,
             temperature: 0.4,
           }),
           timeoutMs,
         );
-
-        const text = assistantText(completion.choices?.[0]?.message?.content);
+        const raw = completion.choices?.[0]?.message?.content;
+        const text = typeof raw === 'string' ? raw.trim() : null;
         if (text) return { text };
-
-        lastError = `Model "${model}" returned no assistant text. Try another HUGGINGFACE_MODEL.`;
       } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
-
-        if (isLikelyModelLoading(error) && attempt < 2) {
-          await sleep(4000 * (attempt + 1));
+        if (isModelLoading(error) && attempt < 1) {
+          await sleep(4000);
           continue;
         }
-
         break;
       }
     }
   }
 
-  return { text: null, error: lastError };
+  return { text: null, error: 'All HF models failed' };
 }
 
-/**
- * Streaming chat completion with an explicit messages array.
- * Yields text delta chunks as they arrive from the model.
- * The caller is responsible for assembling the full response.
- *
- * @throws if no HF token is configured or all models fail to start streaming.
- */
+export async function chatWithMessages(
+  messages: ChatMessage[],
+): Promise<HuggingFaceGenerateResult> {
+  if (groqApiKey()) {
+    const result = await chatWithGroq(messages);
+    if (result.text) return result;
+    console.warn('[ai] Groq failed, falling back to HF:', result.error);
+  }
+
+  if (hfAccessToken()) {
+    return chatWithHF(messages);
+  }
+
+  return {
+    text: null,
+    error: 'No AI provider configured. Set GROQ_API_KEY (recommended, free at console.groq.com) or HF_TOKEN.',
+  };
+}
+
 export async function* streamChatWithMessages(
   messages: ChatMessage[],
 ): AsyncGenerator<string> {
-  const token = hfAccessToken();
-  if (!token) {
-    throw new Error(
-      'No HF_TOKEN (or HUGGINGFACE_API_KEY) found. Add it to .env.local and restart the dev server.',
-    );
-  }
+  const groqKey = groqApiKey();
 
-  const client = new InferenceClient(token);
-  const models = modelCandidates();
-
-  let lastError = 'Every model failed to start streaming.';
-
-  for (const model of models) {
-    for (let attempt = 0; attempt < 2; attempt++) {
+  if (groqKey) {
+    const client = new Groq({ apiKey: groqKey });
+    for (const model of GROQ_MODELS) {
       try {
-        const stream = client.chatCompletionStream({
+        const stream = await client.chat.completions.create({
           model,
-          ...chatProviderArgs(),
           messages,
           max_tokens: 1024,
           temperature: 0.4,
+          stream: true,
         });
-
         let yielded = false;
         for await (const chunk of stream) {
           const delta = chunk.choices?.[0]?.delta?.content;
@@ -200,30 +198,51 @@ export async function* streamChatWithMessages(
             yield delta;
           }
         }
-
         if (yielded) return;
-        lastError = `Model "${model}" stream produced no content.`;
       } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
-
-        if (isLikelyModelLoading(error) && attempt < 1) {
-          await sleep(4000);
-          continue;
-        }
-
+        const msg = error instanceof Error ? error.message : String(error);
+        if (msg.includes('401') || msg.includes('invalid_api_key')) break;
+        if (isModelLoading(error)) { await sleep(3000); continue; }
         break;
       }
     }
   }
 
-  throw new Error(lastError);
+  const hfToken = hfAccessToken();
+  if (!hfToken) {
+    throw new Error('No AI provider configured. Set GROQ_API_KEY or HF_TOKEN.');
+  }
+
+  const client = new InferenceClient(hfToken);
+  const models = hfModelCandidates();
+
+  for (const model of models) {
+    try {
+      const stream = client.chatCompletionStream({
+        model,
+        ...hfProviderArgs(),
+        messages,
+        max_tokens: 1024,
+        temperature: 0.4,
+      });
+      let yielded = false;
+      for await (const chunk of stream) {
+        const delta = chunk.choices?.[0]?.delta?.content;
+        if (typeof delta === 'string' && delta) {
+          yielded = true;
+          yield delta;
+        }
+      }
+      if (yielded) return;
+    } catch (error) {
+      if (isModelLoading(error)) { await sleep(4000); continue; }
+      break;
+    }
+  }
+
+  throw new Error('All AI providers failed to stream a response.');
 }
 
-/**
- * Uses **chat completion only** (conversational task). Do not fall back to `textGeneration`:
- * some providers (e.g. featherless-ai) expose Mistral as conversational only, and text-generation
- * returns misleading "not supported for task text-generation" errors.
- */
 export async function generateWithHuggingFace(
   prompt: string,
 ): Promise<HuggingFaceGenerateResult> {
@@ -234,6 +253,7 @@ export async function generateWithHuggingFace(
 }
 
 export function getModelName(): string {
-  const primary = process.env.HUGGINGFACE_MODEL?.trim() || FALLBACK_MODELS[0];
+  if (groqApiKey()) return `groq:${GROQ_MODELS[0]}`;
+  const primary = process.env.HUGGINGFACE_MODEL?.trim() || HF_FALLBACK_MODELS[0];
   return `huggingface:${primary}`;
 }
