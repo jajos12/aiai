@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifyPassword } from '@/lib/auth/password';
 import { getUserByEmail } from '@/lib/db/users';
-import { createSession } from '@/lib/auth/session';
 import { createToken } from '@/lib/auth/jwt';
 
 const loginSchema = z.object({
@@ -38,7 +37,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { token, expiresAt } = createSession(user.id);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
     const jwt = await createToken({
       userId: user.id,
       email: user.email,
@@ -47,12 +48,11 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({
       user: { id: user.id, email: user.email, name: user.name, role: user.role },
-      token,
-      jwt,
+      token: jwt,
       expiresAt: expiresAt.toISOString(),
     });
 
-    response.cookies.set('session', token, {
+    response.cookies.set('session', jwt, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
