@@ -3,11 +3,25 @@ import fs from 'fs';
 import path from 'path';
 
 function resolveDbPath(): string {
+  const onVercel = Boolean(process.env.VERCEL);
+  const customPath = process.env.AIAI_DB_PATH?.trim();
+
+  if (onVercel && !customPath) {
+    console.warn(
+      '[aiai/db] WARNING: Running on Vercel without AIAI_DB_PATH set.\n' +
+      '  The database will use /tmp which is EPHEMERAL — all data (sessions, progress,\n' +
+      '  chat history) is lost on every cold start and deployment.\n' +
+      '  For persistence, set AIAI_DB_PATH to a mounted volume path, or migrate to\n' +
+      '  a cloud database (Turso, Neon, PlanetScale) before going to production.',
+    );
+  }
+
   const candidates = [
-    process.env.AIAI_DB_PATH,
-    // Writable ephemeral path for production/serverless runtimes.
+    customPath,
+    // /tmp is writable on Vercel/serverless but NOT persistent across cold starts or deploys.
+    // Only used as a last resort when no custom path is provided.
+    onVercel ? '/tmp/aiai-data/aiai.db' : undefined,
     process.env.NODE_ENV === 'production' ? '/tmp/aiai-data/aiai.db' : undefined,
-    process.env.VERCEL ? '/tmp/aiai-data/aiai.db' : undefined,
     path.join(process.cwd(), 'data', 'aiai.db'),
   ].filter(Boolean) as string[];
 
