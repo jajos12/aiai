@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { getUserByEmail, createPasswordResetToken } from '@/lib/db/users';
+import { sendPasswordResetEmail } from '@/lib/auth/email';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email(),
@@ -27,10 +28,15 @@ export async function POST(request: NextRequest) {
 
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
     
-    console.log(`Password reset email sent to ${email}: ${resetUrl}`);
+    const mailResult = await sendPasswordResetEmail(email, resetUrl);
+    if (!mailResult.ok) {
+      console.warn(`Password reset email delivery failed for ${email}: ${mailResult.reason}`);
+      console.log(`Fallback reset URL for ${email}: ${resetUrl}`);
+    }
 
     return NextResponse.json({
       message: 'If that email exists, we have sent a reset link.',
+      emailSent: mailResult.ok,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

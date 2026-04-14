@@ -3,6 +3,7 @@ import { z } from 'zod';
 import crypto from 'crypto';
 import { hashPassword } from '@/lib/auth/password';
 import { createUser, getUserByEmail } from '@/lib/db/users';
+import { sendVerificationEmail } from '@/lib/auth/email';
 
 const signupSchema = z.object({
   email: z.string().email(),
@@ -30,7 +31,11 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const verificationUrl = `${baseUrl}/verify?token=${encodeURIComponent(verificationToken)}`;
     
-    console.log(`Verification email sent to ${email}: ${verificationUrl}`);
+    const mailResult = await sendVerificationEmail(email, verificationUrl);
+    if (!mailResult.ok) {
+      console.warn(`Verification email delivery failed for ${email}: ${mailResult.reason}`);
+      console.log(`Fallback verification URL for ${email}: ${verificationUrl}`);
+    }
     
     return NextResponse.json({
       message: 'Signup successful. Please check your email to verify your account.',
@@ -38,6 +43,7 @@ export async function POST(request: NextRequest) {
       requiresVerification: true,
       // Exposed for local/dev flow where no mail provider is configured.
       verificationUrl,
+      emailSent: mailResult.ok,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
