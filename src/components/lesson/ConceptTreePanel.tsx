@@ -385,6 +385,14 @@ function countAllNodes(node: ConceptTreeNode): number {
 
 type FilterType = 'all' | 'not-completed' | 'low-confidence';
 
+function setsEqual(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const item of a) {
+    if (!b.has(item)) return false;
+  }
+  return true;
+}
+
 function TreeContent({
   treeNodes,
   completedNodeIds,
@@ -430,8 +438,16 @@ function TreeContent({
     if (!rootId) return;
     const incoming = expandedNodeIds ?? [];
     const base = incoming.length > 0 ? incoming : [rootId];
-    setExpandedNodeIdSet(new Set<string>(base));
+    const nextSet = new Set<string>(base);
+    setExpandedNodeIdSet((prev) => (setsEqual(prev, nextSet) ? prev : nextSet));
   }, [treeNodes, expandedNodeIds]);
+
+  useEffect(() => {
+    if (!onExpandedChange) return;
+    const propSet = new Set(expandedNodeIds ?? []);
+    if (setsEqual(expandedNodeIdSet, propSet)) return;
+    onExpandedChange(Array.from(expandedNodeIdSet));
+  }, [expandedNodeIdSet, expandedNodeIds, onExpandedChange]);
 
   const stats = useMemo(() => {
     const total = treeNodes && treeNodes.length > 0 ? countAllNodes(treeNodes[0]) : 0;
@@ -520,7 +536,6 @@ function TreeContent({
           const next = new Set(prev);
           if (next.has(node.id)) next.delete(node.id);
           else next.add(node.id);
-          onExpandedChange?.(Array.from(next));
           return next;
         });
       }
