@@ -6,7 +6,7 @@ import { InferenceClient } from '@huggingface/inference';
  * that do not match every task.
  */
 const FALLBACK_MODELS = [
-  'HuggingFaceTB/SmolLM2-360M-Instruct',
+  'Qwen/Qwen2.5-1.5B-Instruct',
   'HuggingFaceTB/SmolLM2-1.7B-Instruct',
   'Qwen/Qwen2.5-0.5B-Instruct',
 ];
