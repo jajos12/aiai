@@ -2,12 +2,41 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 
-const dataDir = path.join(process.cwd(), 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+function resolveDbPath(): string {
+  const candidates = [
+    process.env.AIAI_DB_PATH,
+    // Writable ephemeral path for production/serverless runtimes.
+    process.env.NODE_ENV === 'production' ? '/tmp/aiai-data/aiai.db' : undefined,
+    process.env.VERCEL ? '/tmp/aiai-data/aiai.db' : undefined,
+    path.join(process.cwd(), 'data', 'aiai.db'),
+  ].filter(Boolean) as string[];
+
+  let lastError: unknown = null;
+  for (const candidate of candidates) {
+    try {
+      const dir = path.dirname(candidate);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      return candidate;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw new Error(`Could not initialize database directory: ${String(lastError)}`);
 }
-const dbPath = path.join(dataDir, 'aiai.db');
-export const db = new Database(dbPath);
+
+const dbPath = resolveDbPath();
+let db: Database.Database;
+try {
+  db = new Database(dbPath);
+} catch (error) {
+  // Last-resort fallback avoids hard crashing API route module eval.
+  console.error(`Failed to open SQLite at ${dbPath}, falling back to in-memory DB:`, error);
+  db = new Database(':memory:');
+}
+export { db };
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
