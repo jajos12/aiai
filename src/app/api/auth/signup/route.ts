@@ -28,23 +28,29 @@ export async function POST(request: NextRequest) {
     const passwordHash = hashPassword(password);
     const user = createUser(email, passwordHash, name, verificationToken);
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const verificationUrl = `${baseUrl}/verify?token=${encodeURIComponent(verificationToken)}`;
     
     const mailResult = await sendVerificationEmail(email, verificationUrl);
     if (!mailResult.ok) {
       console.warn(`Verification email delivery failed for ${email}: ${mailResult.reason}`);
-      console.log(`Fallback verification URL for ${email}: ${verificationUrl}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[DEV] Fallback verification URL for ${email}: ${verificationUrl}`);
+      }
     }
     
-    return NextResponse.json({
+    const responseBody: Record<string, unknown> = {
       message: 'Signup successful. Please check your email to verify your account.',
       user: { id: user.id, email: user.email, name: user.name, role: user.role, is_verified: 0 },
       requiresVerification: true,
-      // Exposed for local/dev flow where no mail provider is configured.
-      verificationUrl,
       emailSent: mailResult.ok,
-    });
+    };
+
+    if (process.env.NODE_ENV !== 'production' && !mailResult.ok) {
+      responseBody.verificationUrl = verificationUrl;
+    }
+
+    return NextResponse.json(responseBody);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

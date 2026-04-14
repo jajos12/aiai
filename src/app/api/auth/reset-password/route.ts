@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hashPassword } from '@/lib/auth/password';
-import { getUserByPasswordResetToken } from '@/lib/db/users';
+import { getUserByPasswordResetToken, updateUserPassword, consumePasswordResetToken } from '@/lib/db/users';
+import { deleteUserSessions } from '@/lib/auth/session';
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1),
@@ -22,8 +23,9 @@ export async function POST(request: NextRequest) {
     }
 
     const passwordHash = hashPassword(password);
-    const { updateUserPassword } = await import('@/lib/db/users');
     updateUserPassword(user.id, passwordHash);
+    consumePasswordResetToken(token);
+    deleteUserSessions(user.id);
 
     return NextResponse.json({
       message: 'Password reset successfully. You can now log in with your new password.',

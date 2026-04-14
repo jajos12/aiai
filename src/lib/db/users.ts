@@ -85,12 +85,13 @@ export function getUserByPasswordResetToken(token: string): User | undefined {
     JOIN password_reset_tokens t ON u.id = t.user_id
     WHERE t.token_hash = ? AND t.expires_at > ?
   `);
-  const result = stmt.get(tokenHash, now) as User | undefined;
-  if (result) {
-    const deleteStmt = db.prepare('DELETE FROM password_reset_tokens WHERE token_hash = ?');
-    deleteStmt.run(tokenHash);
-  }
-  return result;
+  return stmt.get(tokenHash, now) as User | undefined;
+}
+
+export function consumePasswordResetToken(token: string): void {
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const stmt = db.prepare('DELETE FROM password_reset_tokens WHERE token_hash = ?');
+  stmt.run(tokenHash);
 }
 
 export function getUserProgress(userId: number): UserProgress[] {

@@ -26,12 +26,15 @@ export async function POST(request: NextRequest) {
 
     createPasswordResetToken(user.id, token, expiresAt);
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
     
     const mailResult = await sendPasswordResetEmail(email, resetUrl);
     if (!mailResult.ok) {
       console.warn(`Password reset email delivery failed for ${email}: ${mailResult.reason}`);
-      console.log(`Fallback reset URL for ${email}: ${resetUrl}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[DEV] Fallback reset URL for ${email}: ${resetUrl}`);
+      }
     }
 
     return NextResponse.json({
