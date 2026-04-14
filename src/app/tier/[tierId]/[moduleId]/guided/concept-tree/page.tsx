@@ -62,7 +62,7 @@ export default function GuidedConceptTreePage() {
     let cancelled = false;
     setAiLoading(true);
     setAiError(null);
-    fetch(`/api/ai/lesson-map?moduleId=${encodeURIComponent(moduleId)}`)
+    fetch(`/api/ai/lesson-map?moduleId=${encodeURIComponent(moduleId)}`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
       .then((data: { insights: LessonMapInsights; cached: boolean }) => {
         if (!cancelled) {
@@ -146,9 +146,9 @@ export default function GuidedConceptTreePage() {
     setAiLoading(true);
     setAiError(null);
     setAiInsights(null);
-    fetch(`/api/ai/lesson-map?moduleId=${encodeURIComponent(moduleId)}`, { method: 'DELETE' })
+    fetch(`/api/ai/lesson-map?moduleId=${encodeURIComponent(moduleId)}`, { method: 'DELETE', credentials: 'include' })
       .then(() =>
-        fetch(`/api/ai/lesson-map?moduleId=${encodeURIComponent(moduleId)}`),
+        fetch(`/api/ai/lesson-map?moduleId=${encodeURIComponent(moduleId)}`, { credentials: 'include' }),
       )
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
       .then((data: { insights: LessonMapInsights; cached: boolean }) => {

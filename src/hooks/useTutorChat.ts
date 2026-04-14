@@ -34,7 +34,7 @@ export function useTutorChat({
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/ai/tutor-chat?moduleId=${encodeURIComponent(moduleId)}`)
+    fetch(`/api/ai/tutor-chat?moduleId=${encodeURIComponent(moduleId)}`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.statusText)))
       .then((data: { messages: TutorMessage[] }) => {
         if (!cancelled) setMessages(data.messages);
@@ -75,6 +75,7 @@ export function useTutorChat({
         const res = await fetch('/api/ai/tutor-chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             moduleId,
             moduleTitle,

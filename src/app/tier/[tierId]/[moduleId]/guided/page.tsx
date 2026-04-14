@@ -126,6 +126,7 @@ export default function GuidedPage() {
         const res = await fetch('/api/ai/explain-level', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ moduleId, stepId: currentStep.id, level: newLevel }),
         });
         if (res.ok) {
