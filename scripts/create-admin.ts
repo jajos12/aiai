@@ -1,5 +1,5 @@
-import { db } from '../lib/db/database';
-import { hashPassword } from '../lib/auth/password';
+import { db } from '../src/lib/db/database';
+import { hashPassword } from '../src/lib/auth/password';
 
 const adminEmail = 'abrhamhabtom17@gmail.com';
 const adminPassword = 'Chuchu@2255';
