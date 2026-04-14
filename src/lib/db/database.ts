@@ -133,9 +133,6 @@ db.exec(`
     content_text TEXT NOT NULL DEFAULT '',
     go_deeper_json TEXT,
     author_note TEXT,
-    video_url TEXT,
-    video_provider TEXT,
-    video_asset_id TEXT,
     interaction_hint TEXT,
     quiz_json TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -189,53 +186,24 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_content_steps_module ON content_module_steps(module_id, sort_order);
   CREATE INDEX IF NOT EXISTS idx_content_challenges_module ON content_module_challenges(module_id, sort_order);
 
-  CREATE TABLE IF NOT EXISTS content_courses (
-    course_id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    status TEXT NOT NULL DEFAULT 'draft',
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS content_course_sections (
-    section_id TEXT PRIMARY KEY,
-    course_id TEXT NOT NULL,
-    title TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (course_id) REFERENCES content_courses(course_id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS content_section_modules (
+  CREATE TABLE IF NOT EXISTS tutor_chat_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    section_id TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
     module_id TEXT NOT NULL,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (section_id) REFERENCES content_course_sections(section_id) ON DELETE CASCADE,
-    FOREIGN KEY (module_id) REFERENCES content_modules(module_id) ON DELETE CASCADE,
-    UNIQUE(section_id, module_id)
+    role TEXT NOT NULL CHECK(role IN ('user','assistant')),
+    content TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
-  CREATE INDEX IF NOT EXISTS idx_content_courses_sort ON content_courses(sort_order);
-  CREATE INDEX IF NOT EXISTS idx_content_sections_course_sort ON content_course_sections(course_id, sort_order);
-  CREATE INDEX IF NOT EXISTS idx_content_section_modules_sort ON content_section_modules(section_id, sort_order);
+  CREATE INDEX IF NOT EXISTS idx_tutor_msgs ON tutor_chat_messages(user_id, module_id, created_at);
+
+  CREATE TABLE IF NOT EXISTS lesson_map_insights (
+    module_id TEXT PRIMARY KEY,
+    insights_json TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 `);
-
-function ensureColumn(table: string, column: string, sqlType: string): void {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-  if (!cols.some((c) => c.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${sqlType}`);
-  }
-}
-
-ensureColumn('content_module_steps', 'image_url', 'TEXT');
-ensureColumn('content_module_steps', 'image_provider', 'TEXT');
-ensureColumn('content_module_steps', 'image_asset_id', 'TEXT');
 
 export interface User {
   id: number;

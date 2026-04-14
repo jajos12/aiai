@@ -7,9 +7,12 @@ import { useModuleData } from '@/hooks/useModuleData';
 import { useProgress } from '@/hooks/useProgress';
 import { StepViewer } from '@/components/lesson/StepViewer';
 import { LessonSidebar } from '@/components/lesson/LessonSidebar';
+import { ExplanationLevelToggle } from '@/components/lesson/ExplanationLevelToggle';
+import { TutorChat } from '@/components/lesson/TutorChat';
 import { ModuleHubSkeleton } from '@/components/ui/Skeleton';
 import { StreakPopup, CompletionPopup } from '@/components/ui/CelebrationPopup';
 import { stepIdsForConcept } from '@/core/moduleConceptTree';
+import type { ExplainLevel, StepExplanation } from '@/types/tutor';
 
 export default function GuidedPage() {
   const params = useParams();
@@ -23,6 +26,10 @@ export default function GuidedPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
+  const [tutorOpen, setTutorOpen] = useState(false);
+  const [explanationLevel, setExplanationLevel] = useState<ExplainLevel>('standard');
+  const [isGeneratingLevel, setIsGeneratingLevel] = useState(false);
+  const [levelError, setLevelError] = useState<string | null>(null);
   const {
     completeStep,
     answerQuiz,
@@ -103,6 +110,50 @@ export default function GuidedPage() {
       lesson.goToStep(idx);
     }
   }, [focusStepId, moduleData, lesson.currentStepIndex, lesson.goToStep]);
+
+  const handleLevelChange = useCallback(
+    async (newLevel: ExplainLevel) => {
+      setExplanationLevel(newLevel);
+      setLevelError(null);
+      const currentStep = lesson.currentStep;
+      if (newLevel === 'standard') {
+        lesson.clearStepContentOverride(currentStep.id);
+        return;
+      }
+      if (lesson.currentStepContentOverride && explanationLevel === newLevel) return;
+      setIsGeneratingLevel(true);
+      try {
+        const res = await fetch('/api/ai/explain-level', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ moduleId, stepId: currentStep.id, level: newLevel }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as StepExplanation;
+          if (data.text) {
+            lesson.overrideStepContent(currentStep.id, data);
+          } else {
+            setLevelError('AI returned empty content. Try again.');
+          }
+        } else {
+          const err = await res.json().catch(() => ({})) as { error?: string };
+          setLevelError(err.error ?? `AI generation failed (${res.status}). Try again.`);
+        }
+      } catch {
+        setLevelError('Network error. Check your connection and try again.');
+      } finally {
+        setIsGeneratingLevel(false);
+      }
+    },
+    [lesson, moduleId, explanationLevel],
+  );
+
+  useEffect(() => {
+    if (explanationLevel === 'standard') return;
+    if (lesson.currentStepContentOverride) return;
+    handleLevelChange(explanationLevel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lesson.currentStepIndex, explanationLevel]);
 
   if (isLoading) {
     return <ModuleHubSkeleton />;
@@ -212,16 +263,19 @@ export default function GuidedPage() {
             </span>
           </div>
 
-          {/* Progress bar */}
+          {/* Right side: level toggle + progress + tutor button */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span
-              style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
-            >
+            <ExplanationLevelToggle
+              level={explanationLevel}
+              onChange={handleLevelChange}
+              isLoading={isGeneratingLevel}
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               {Math.round(lesson.progressFraction * 100)}%
             </span>
             <div
               style={{
-                width: '120px',
+                width: '80px',
                 height: '4px',
                 borderRadius: '2px',
                 background: 'var(--bg-hover)',
@@ -238,6 +292,20 @@ export default function GuidedPage() {
                 }}
               />
             </div>
+            <button
+              onClick={() => setTutorOpen((v) => !v)}
+              className="btn btn--ghost btn--sm"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                background: tutorOpen ? 'rgba(99,102,241,0.15)' : undefined,
+                borderColor: tutorOpen ? 'var(--accent)' : undefined,
+              }}
+              title="AI Tutor"
+            >
+              🤖 Tutor
+            </button>
           </div>
         </div>
 
@@ -337,10 +405,25 @@ export default function GuidedPage() {
                 completeModule(tierId, moduleId);
                 setShowCompletion(true);
               }}
+              contentOverride={lesson.currentStepContentOverride}
+              isGeneratingLevel={isGeneratingLevel}
+              levelError={levelError}
+              onClearLevelError={() => setLevelError(null)}
             />
           </div>
         </div>
       </div>
+
+      {/* AI Tutor chat panel */}
+      <TutorChat
+        open={tutorOpen}
+        onClose={() => setTutorOpen(false)}
+        moduleId={moduleId}
+        moduleTitle={moduleData.title}
+        stepId={lesson.currentStep.id}
+        level={explanationLevel}
+        learnerProfile={progress.learnerProfile}
+      />
 
       {/* Streak celebration popup */}
       <StreakPopup

@@ -1,7 +1,12 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import type { Step } from '@/core/types';
+import type { Step, GoDeeper } from '@/core/types';
+
+export interface StepContentOverride {
+  text: string;
+  goDeeper?: GoDeeper;
+}
 
 interface UseLessonOptions {
   steps: Step[];
@@ -46,6 +51,12 @@ interface UseLessonReturn {
   totalSteps: number;
   /** Fraction of steps completed (0 to 1) */
   progressFraction: number;
+  /** AI-generated content override for the current step (eli5 / expert level) */
+  currentStepContentOverride: StepContentOverride | undefined;
+  /** Store an AI-generated content override for a step */
+  overrideStepContent: (stepId: string, content: StepContentOverride) => void;
+  /** Remove the override for a step (revert to static content) */
+  clearStepContentOverride: (stepId: string) => void;
 }
 
 export function useLesson({
@@ -61,6 +72,7 @@ export function useLesson({
   const [navigationDirection, setNavigationDirection] = useState<'next' | 'back'>('next');
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set(initialCompletedSteps));
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
+  const [contentOverrides, setContentOverrides] = useState<Record<string, StepContentOverride>>({});
 
   // Sync completedSteps when persisted data loads (async from localStorage)
   const completedKey = JSON.stringify(initialCompletedSteps.slice().sort());
@@ -138,6 +150,22 @@ export function useLesson({
     [currentStep.id, onAnswerQuiz],
   );
 
+  const overrideStepContent = useCallback(
+    (stepId: string, content: StepContentOverride) => {
+      setContentOverrides((prev) => ({ ...prev, [stepId]: content }));
+    },
+    [],
+  );
+
+  const clearStepContentOverride = useCallback((stepId: string) => {
+    setContentOverrides((prev) => {
+      if (!(stepId in prev)) return prev;
+      const next = { ...prev };
+      delete next[stepId];
+      return next;
+    });
+  }, []);
+
   // Keyboard navigation (← → only)
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -180,5 +208,8 @@ export function useLesson({
     isFirstStep,
     totalSteps,
     progressFraction,
+    currentStepContentOverride: contentOverrides[currentStep.id],
+    overrideStepContent,
+    clearStepContentOverride,
   };
 }

@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import type { Module, Step } from '@/core/types';
+import type { StepContentOverride } from '@/hooks/useLesson';
 import { GoDeeper } from '@/components/lesson/GoDeeper';
 import { AuthorNote } from '@/components/lesson/AuthorNote';
 import { QuizBlock } from '@/components/lesson/QuizBlock';
@@ -76,6 +77,10 @@ interface StepViewerProps {
   canGoBack: boolean;
   isLastStep: boolean;
   onFinishModule?: () => void;
+  contentOverride?: StepContentOverride;
+  isGeneratingLevel?: boolean;
+  levelError?: string | null;
+  onClearLevelError?: () => void;
 }
 
 export function StepViewer({
@@ -94,9 +99,15 @@ export function StepViewer({
   canGoBack,
   isLastStep,
   onFinishModule,
+  contentOverride,
+  isGeneratingLevel,
+  levelError,
+  onClearLevelError,
 }: StepViewerProps) {
   const slideClass = direction === 'next' ? 'step-slide-next' : 'step-slide-back';
-  const goDeeperExplanation = step.content.goDeeper?.explanation;
+  const displayText = contentOverride?.text ?? step.content.text;
+  const displayGoDeeper = contentOverride?.goDeeper ?? step.content.goDeeper;
+  const goDeeperExplanation = displayGoDeeper?.explanation;
   const learningNote = goDeeperExplanation ?? step.quiz?.explanation;
   /** Multi-paragraph goDeeper notes (any module) get article layout + formula card when math is set. */
   const isExpandedCurriculumNote = Boolean(
@@ -138,14 +149,14 @@ export function StepViewer({
     : [];
 
   const showStepFormulaCard =
-    Boolean(step.content.goDeeper?.math) &&
+    Boolean(displayGoDeeper?.math) &&
     (step.id === 'gradient-descent-intuition' ||
       step.id === 'odds-and-log-odds' ||
       ATTENTION_STEP_IDS.has(step.id) ||
       TRANSFORMER_BLOCK_ARTICLE_STEP_IDS.has(step.id) ||
       isExpandedCurriculumNote);
   const formulaHtml = useMemo(() => {
-    const latex = step.content.goDeeper?.math;
+    const latex = displayGoDeeper?.math;
     if (!latex) return '';
     try {
       return katex.renderToString(latex, {
@@ -329,16 +340,99 @@ export function StepViewer({
           {step.title}
         </h2>
 
-        <p
-          style={{
-            fontSize: '0.9375rem',
-            color: 'var(--text-secondary)',
-            lineHeight: 1.75,
-            margin: 0,
-          }}
-        >
-          {step.content.text}
-        </p>
+        {levelError && (
+          <div
+            style={{
+              marginBottom: '0.75rem',
+              padding: '0.5rem 0.75rem',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(239,68,68,0.1)',
+              border: '1px solid rgba(239,68,68,0.3)',
+              fontSize: '0.78rem',
+              color: '#fca5a5',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <span>⚠️ {levelError}</span>
+            {onClearLevelError && (
+              <button
+                onClick={onClearLevelError}
+                style={{ background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: '0.85rem', padding: 0 }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        )}
+
+        {contentOverride && !isGeneratingLevel && (
+          <div
+            style={{
+              marginBottom: '0.5rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              padding: '0.15rem 0.55rem',
+              borderRadius: '999px',
+              background: 'rgba(99,102,241,0.15)',
+              border: '1px solid rgba(99,102,241,0.35)',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              color: 'var(--accent)',
+            }}
+          >
+            ✨ AI-rewritten
+          </div>
+        )}
+
+        <div style={{ position: 'relative' }}>
+          {isGeneratingLevel && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(var(--bg-base-rgb, 2,6,23),0.65)',
+                borderRadius: 'var(--radius-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 5,
+                gap: '0.5rem',
+                fontSize: '0.82rem',
+                color: 'var(--accent)',
+                fontStyle: 'italic',
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: '14px',
+                  height: '14px',
+                  border: '2px solid var(--accent)',
+                  borderTopColor: 'transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 0.7s linear infinite',
+                }}
+              />
+              Generating explanation…
+            </div>
+          )}
+          <p
+            style={{
+              fontSize: '0.9375rem',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.75,
+              margin: 0,
+              opacity: isGeneratingLevel ? 0.35 : 1,
+              transition: 'opacity 200ms ease',
+            }}
+          >
+            {displayText}
+          </p>
+        </div>
 
         {learningNote && (
           <div
@@ -522,7 +616,7 @@ export function StepViewer({
           </div>
         )}
 
-        {step.content.goDeeper &&
+        {displayGoDeeper &&
           !ATTENTION_STEP_IDS.has(step.id) &&
           !TRANSFORMER_BLOCK_ARTICLE_STEP_IDS.has(step.id) &&
           step.id !== 'why-not-linear' &&
@@ -538,7 +632,7 @@ export function StepViewer({
             showStepFormulaCard &&
             formulaHtml
           ) && (
-            <GoDeeper data={step.content.goDeeper} hideExplanation />
+            <GoDeeper data={displayGoDeeper} hideExplanation />
           )}
 
         {step.content.authorNote && (
