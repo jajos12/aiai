@@ -25,7 +25,7 @@ function ensureLocalUser(email: string, name?: string | null) {
   return user;
 }
 
-const providers = [
+const providers: NonNullable<NextAuthOptions['providers']> = [
   Credentials({
     name: 'Email and Password',
     credentials: {
