@@ -13,6 +13,8 @@ export default function SignupPage() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [verificationUrl, setVerificationUrl] = useState('');
+  const [requiresVerification, setRequiresVerification] = useState(false);
+  const [emailSent, setEmailSent] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +36,8 @@ export default function SignupPage() {
       }
 
       setVerificationUrl(data.verificationUrl || '');
+      setRequiresVerification(!!data.requiresVerification);
+      setEmailSent(data.emailSent !== false);
       setSuccess(true);
     } catch (err) {
       setError('An error occurred. Please try again.');
@@ -90,12 +94,27 @@ export default function SignupPage() {
               color: 'var(--text-primary)',
             }}
           >
-            Check Your Email
+            {!requiresVerification
+              ? 'Account ready'
+              : emailSent
+                ? 'Check Your Email'
+                : 'Verification email not sent'}
           </h1>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-            We&apos;ve sent a verification link to <strong>{email}</strong>.
-            Click the link to verify your account.
-          </p>
+          {!requiresVerification ? (
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+              Your account is active. You can sign in now.
+            </p>
+          ) : emailSent ? (
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+              We&apos;ve sent a verification link to <strong>{email}</strong>. Click the link to verify your account.
+            </p>
+          ) : (
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+              We could not send mail to <strong>{email}</strong>. Ask your administrator to set{' '}
+              <code style={{ fontSize: '0.8em' }}>RESEND_API_KEY</code> (recommended) or valid SMTP variables, then try
+              signing up again or use password reset after mail works.
+            </p>
+          )}
           {verificationUrl && (
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
               Dev quick access:{' '}
@@ -105,7 +124,7 @@ export default function SignupPage() {
             </p>
           )}
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-            Already verified?{' '}
+            {requiresVerification && emailSent ? 'Already verified? ' : ''}
             <Link href='/login' style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}>
               Sign in
             </Link>

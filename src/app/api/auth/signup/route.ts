@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { hashPassword } from '@/lib/auth/password';
-import { createUser, getUserByEmail } from '@/lib/db/users';
-import { sendVerificationEmail } from '@/lib/auth/email';
+import { createUser, getUserByEmail, verifyUser } from '@/lib/db/users';
+import { isEmailTransportConfigured, sendVerificationEmail } from '@/lib/auth/email';
 
 const signupSchema = z.object({
   email: z.string().email(),
@@ -32,21 +32,31 @@ export async function POST(request: NextRequest) {
     const verificationUrl = `${baseUrl}/verify?token=${encodeURIComponent(verificationToken)}`;
     
     const mailResult = await sendVerificationEmail(email, verificationUrl);
+    const smtpConfigured = isEmailTransportConfigured();
+
     if (!mailResult.ok) {
       console.warn(`Verification email delivery failed for ${email}: ${mailResult.reason}`);
       if (process.env.NODE_ENV !== 'production') {
         console.log(`[DEV] Fallback verification URL for ${email}: ${verificationUrl}`);
       }
     }
-    
+
+    let isVerified = false;
+    if (!smtpConfigured) {
+      verifyUser(verificationToken);
+      isVerified = true;
+    }
+
     const responseBody: Record<string, unknown> = {
-      message: 'Signup successful. Please check your email to verify your account.',
-      user: { id: user.id, email: user.email, name: user.name, role: user.role, is_verified: 0 },
-      requiresVerification: true,
+      message: smtpConfigured
+        ? 'Signup successful. Please check your email to verify your account.'
+        : 'Signup successful. You can log in immediately.',
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, is_verified: isVerified ? 1 : 0 },
+      requiresVerification: smtpConfigured,
       emailSent: mailResult.ok,
     };
 
-    if (process.env.NODE_ENV !== 'production' && !mailResult.ok) {
+    if (process.env.NODE_ENV !== 'production' && !mailResult.ok && smtpConfigured) {
       responseBody.verificationUrl = verificationUrl;
     }
 

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ConceptTreePanel } from '@/components/lesson/ConceptTreePanel';
+import { SelectionAskChatPopup } from '@/components/lesson/SelectionAskChatPopup';
 import { buildModuleConceptTree, conceptNodeId } from '@/core/moduleConceptTree';
 import { useModuleData } from '@/hooks/useModuleData';
 import { useProgress } from '@/hooks/useProgress';
@@ -49,8 +50,30 @@ export default function GuidedConceptTreePage() {
   const moduleId = params.moduleId as string;
 
   const { moduleData, isLoading: moduleLoading } = useModuleData(moduleId);
-  const { getModuleProgress, setExpandedConceptNodes, stats } = useProgress();
+  const { getModuleProgress, setExpandedConceptNodes, stats, progress } = useProgress();
   const moduleProgress = getModuleProgress(tierId, moduleId);
+
+  const stepsDoneKey = moduleProgress.stepsCompleted?.join('|') ?? '';
+  const completedNodeIdsStable = useMemo(
+    () => new Set(moduleProgress.stepsCompleted ?? []),
+    [stepsDoneKey],
+  );
+
+  const onExpandedChange = useCallback(
+    (ids: string[]) => setExpandedConceptNodes(tierId, moduleId, ids),
+    [tierId, moduleId, setExpandedConceptNodes],
+  );
+
+  const [selectionChat, setSelectionChat] = useState<{ text: string; x: number; y: number } | null>(
+    null,
+  );
+
+  const handleSelectionContextMenu = useCallback((e: MouseEvent<HTMLDivElement>) => {
+    const sel = window.getSelection()?.toString().trim() ?? '';
+    if (sel.length < 2) return;
+    e.preventDefault();
+    setSelectionChat({ text: sel, x: e.clientX, y: e.clientY });
+  }, []);
 
   const [aiInsights, setAiInsights] = useState<LessonMapInsights | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -159,8 +182,13 @@ export default function GuidedConceptTreePage() {
       .finally(() => setAiLoading(false));
   }
 
+  const firstStepId = moduleData?.steps?.[0]?.id ?? '';
+
   return (
-    <div style={{ minHeight: 'calc(100vh - var(--topnav-height))', background: 'var(--bg-base)', padding: '1.25rem' }}>
+    <div
+      style={{ minHeight: 'calc(100vh - var(--topnav-height))', background: 'var(--bg-base)', padding: '1.25rem' }}
+      onContextMenu={handleSelectionContextMenu}
+    >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
         <button className="btn btn--ghost btn--sm" onClick={() => router.push(`/tier/${tierId}/${moduleId}/guided`)}>
           ← Back to guided
@@ -222,19 +250,53 @@ export default function GuidedConceptTreePage() {
         <div style={{ color: 'var(--warning)' }}>Module not found.</div>
       )}
       {moduleData && (
-        <ConceptTreePanel
-          nodes={conceptTree}
-          completedNodeIds={new Set(moduleProgress.stepsCompleted)}
-          expandedNodeIds={moduleProgress.expandedConceptNodes}
-          conceptConfidence={conceptConfidenceForTree}
-          conceptTrends={conceptTrendsForTree}
-          onExpandedChange={(ids) => setExpandedConceptNodes(tierId, moduleId, ids)}
-          jumpableStepIds={jumpableStepIds}
-          onJumpToLesson={(stepId) => {
-            if (stepIndexById.has(stepId)) {
-              router.push(`/tier/${tierId}/${moduleId}/guided?step=${encodeURIComponent(stepId)}`);
-            }
-          }}
+        <>
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)',
+              marginBottom: '0.75rem',
+              maxWidth: '52rem',
+              lineHeight: 1.5,
+            }}
+          >
+            <strong style={{ color: 'var(--text-secondary)' }}>How this map works:</strong> each{' '}
+            <strong>subtopic</strong> is a lesson step built from that step&apos;s notes (main text, go deeper, and
+            author notes). <strong>Regenerate</strong> runs the <strong>lesson-map AI</strong> to add tags and short
+            insights per step — that is separate from the guided view&apos;s &quot;Explain level&quot; controls, which
+            only rewrite the current step&apos;s wording.
+          </p>
+          <ConceptTreePanel
+            nodes={conceptTree}
+            moduleId={moduleId}
+            moduleTitle={moduleData.title}
+            anchorStepId={firstStepId}
+            learnerProfile={progress.learnerProfile}
+            completedNodeIds={completedNodeIdsStable}
+            expandedNodeIds={moduleProgress.expandedConceptNodes}
+            conceptConfidence={conceptConfidenceForTree}
+            conceptTrends={conceptTrendsForTree}
+            onExpandedChange={onExpandedChange}
+            jumpableStepIds={jumpableStepIds}
+            onJumpToLesson={(stepId) => {
+              if (stepIndexById.has(stepId)) {
+                router.push(`/tier/${tierId}/${moduleId}/guided?step=${encodeURIComponent(stepId)}`);
+              }
+            }}
+          />
+        </>
+      )}
+
+      {firstStepId && (
+        <SelectionAskChatPopup
+          open={selectionChat !== null}
+          onClose={() => setSelectionChat(null)}
+          anchor={{ x: selectionChat?.x ?? 0, y: selectionChat?.y ?? 0 }}
+          selectedText={selectionChat?.text ?? ''}
+          moduleId={moduleId}
+          moduleTitle={moduleData?.title ?? moduleId}
+          stepId={firstStepId}
+          learnerProfile={progress.learnerProfile}
         />
       )}
     </div>

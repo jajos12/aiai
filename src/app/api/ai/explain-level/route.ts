@@ -38,12 +38,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Step not found' }, { status: 404 });
     }
 
-    const explanation = await generateStepExplanation(step, level);
-    if (!explanation) {
-      return NextResponse.json({ error: 'AI generation failed — try again' }, { status: 502 });
+    const result = await generateStepExplanation(step, level);
+    if (!result.ok) {
+      const msg = result.error;
+      const noProvider =
+        /no ai provider|not set|GROQ_API_KEY|HF_TOKEN/i.test(msg) ||
+        msg.includes('No AI provider configured');
+      return NextResponse.json({ error: msg }, { status: noProvider ? 503 : 502 });
     }
 
-    return NextResponse.json(explanation);
+    return NextResponse.json(result.explanation);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });

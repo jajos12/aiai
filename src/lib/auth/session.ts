@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { db } from '../db/database';
-import { verifyToken } from './jwt';
+import { verifyToken, JWTPayload } from './jwt';
 
 const TOKEN_EXPIRY_DAYS = 7;
 
@@ -19,6 +19,10 @@ export function createSession(userId: number): { token: string; expiresAt: Date 
   }
 
   return { token, expiresAt };
+}
+
+export async function getSessionPayload(token: string): Promise<JWTPayload | null> {
+  return verifyToken(token);
 }
 
 export async function validateSession(token: string): Promise<number | null> {

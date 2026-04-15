@@ -16,13 +16,13 @@ function resolveDbPath(): string {
     );
   }
 
+  // Prefer project ./data on laptops and `next start` so signup + /verify share one file.
+  // On Vercel, cwd is often read-only — mkdir fails here and we fall through to /tmp (still ephemeral unless AIAI_DB_PATH).
   const candidates = [
     customPath,
-    // /tmp is writable on Vercel/serverless but NOT persistent across cold starts or deploys.
-    // Only used as a last resort when no custom path is provided.
+    path.join(process.cwd(), 'data', 'aiai.db'),
     onVercel ? '/tmp/aiai-data/aiai.db' : undefined,
     process.env.NODE_ENV === 'production' ? '/tmp/aiai-data/aiai.db' : undefined,
-    path.join(process.cwd(), 'data', 'aiai.db'),
   ].filter(Boolean) as string[];
 
   let lastError: unknown = null;

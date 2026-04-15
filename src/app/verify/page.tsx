@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { verifyEmailTokenOnce } from '@/lib/auth/verifyEmailToken';
 
 function VerifyForm() {
   const searchParams = useSearchParams();
@@ -12,37 +13,28 @@ function VerifyForm() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    const verify = async () => {
-      if (!token) {
-        setStatus('error');
-        setMessage('Invalid verification link.');
-        return;
-      }
+    if (!token) {
+      setStatus('error');
+      setMessage('Invalid verification link.');
+      return;
+    }
 
-      try {
-        const res = await fetch('/api/auth/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-        });
+    let cancelled = false;
 
-        const data = await res.json();
-
-        if (!res.ok) {
-          setStatus('error');
-          setMessage(data.error || 'Verification failed');
-          return;
-        }
-
+    verifyEmailTokenOnce(token).then((result) => {
+      if (cancelled) return;
+      if (result.ok) {
         setStatus('success');
         setMessage('Email verified successfully! You can now sign in.');
-      } catch (err) {
+      } else {
         setStatus('error');
-        setMessage('An error occurred. Please try again.');
+        setMessage(result.error);
       }
-    };
+    });
 
-    verify();
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import StatusBadge from '@/components/admin/shared/StatusBadge';
 
 interface User {
@@ -12,30 +12,54 @@ interface User {
   created_at: string;
 }
 
+function readCurrentUserId(): number | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return null;
+    const u = JSON.parse(raw) as { id?: number };
+    return typeof u.id === 'number' ? u.id : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'user'>('all');
+  const [banner, setBanner] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const res = await fetch('/api/admin/users', { credentials: 'include' });
-        const data = await res.json();
-        if (data.users) {
-          setUsers(data.users);
-        }
-      } catch (err) {
-        console.error('Failed to fetch users:', err);
-      } finally {
-        setLoading(false);
+  const fetchUsers = useCallback(async () => {
+    setBanner(null);
+    try {
+      const res = await fetch('/api/admin/users', { credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) {
+        setBanner({ type: 'err', text: data.error || `Failed to load users (${res.status})` });
+        setUsers([]);
+        return;
       }
-    };
-    fetchUsers();
+      if (data.users) {
+        setUsers(data.users);
+      }
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+      setBanner({ type: 'err', text: 'Network error while loading users.' });
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    setCurrentUserId(readCurrentUserId());
+    fetchUsers();
+  }, [fetchUsers]);
+
   const handleRoleChange = async (userId: number, newRole: string) => {
+    setBanner(null);
     try {
       const res = await fetch('/api/admin/users', {
         method: 'PATCH',
@@ -43,11 +67,38 @@ export default function UsersPage() {
         credentials: 'include',
         body: JSON.stringify({ userId, role: newRole }),
       });
+      const data = await res.json();
       if (res.ok) {
         setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+        setBanner({ type: 'ok', text: 'Role updated.' });
+      } else {
+        setBanner({ type: 'err', text: data.error || 'Could not update role.' });
       }
     } catch (err) {
       console.error('Failed to update role:', err);
+      setBanner({ type: 'err', text: 'Network error while updating role.' });
+    }
+  };
+
+  const handleMarkVerified = async (userId: number) => {
+    setBanner(null);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId, markVerified: true }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUsers(users.map(u => (u.id === userId ? { ...u, is_verified: 1 } : u)));
+        setBanner({ type: 'ok', text: 'User marked as email-verified.' });
+      } else {
+        setBanner({ type: 'err', text: data.error || 'Could not verify user.' });
+      }
+    } catch (err) {
+      console.error('Failed to verify user:', err);
+      setBanner({ type: 'err', text: 'Network error.' });
     }
   };
 
@@ -55,16 +106,22 @@ export default function UsersPage() {
     if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
       return;
     }
+    setBanner(null);
     try {
       const res = await fetch(`/api/admin/users?id=${userId}`, {
         method: 'DELETE',
         credentials: 'include',
       });
+      const data = await res.json();
       if (res.ok) {
         setUsers(users.filter(u => u.id !== userId));
+        setBanner({ type: 'ok', text: 'User deleted.' });
+      } else {
+        setBanner({ type: 'err', text: data.error || 'Could not delete user.' });
       }
     } catch (err) {
       console.error('Failed to delete user:', err);
+      setBanner({ type: 'err', text: 'Network error while deleting user.' });
     }
   };
 
@@ -88,9 +145,22 @@ export default function UsersPage() {
       <div>
         <h2 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>Users</h2>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          Manage user accounts and roles
+          Manage roles, unblock verification, or remove accounts
         </p>
       </div>
+
+      {banner && (
+        <div
+          className="p-3 rounded-lg text-sm"
+          style={{
+            background: banner.type === 'ok' ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+            border: `1px solid ${banner.type === 'ok' ? 'rgba(34, 197, 94, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
+            color: banner.type === 'ok' ? 'var(--color-success)' : 'var(--color-error)',
+          }}
+        >
+          {banner.text}
+        </div>
+      )}
 
       <div className="flex gap-4 items-center">
         <div className="flex-1">
@@ -123,7 +193,9 @@ export default function UsersPage() {
               <th className="px-4 py-3 text-left text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Role</th>
               <th className="px-4 py-3 text-left text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Status</th>
               <th className="px-4 py-3 text-left text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Joined</th>
-              <th className="px-4 py-3 text-right text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Actions</th>
+              <th className="px-4 py-3 text-right text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -159,18 +231,39 @@ export default function UsersPage() {
                   </select>
                 </td>
                 <td className="px-4 py-3">
-                  <StatusBadge status={user.is_verified ? 'active' : 'inactive'} />
+                  <StatusBadge
+                    status={Number(user.is_verified) === 1 ? 'verified_email' : 'pending_email'}
+                  />
                 </td>
                 <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
                   {new Date(user.created_at).toLocaleDateString()}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => handleDelete(user.id)}
-                    className="text-sm text-red-500 hover:underline"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {Number(user.is_verified) !== 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleMarkVerified(user.id)}
+                        className="text-sm px-2 py-1 rounded"
+                        style={{ background: 'var(--bg-hover)', color: 'var(--accent)' }}
+                      >
+                        Mark verified
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(user.id)}
+                      disabled={currentUserId !== null && user.id === currentUserId}
+                      className="text-sm text-red-500 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                      title={
+                        currentUserId !== null && user.id === currentUserId
+                          ? 'You cannot delete your own account here'
+                          : undefined
+                      }
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateSession } from '@/lib/auth/session';
-import { getUserById } from '@/lib/db/users';
 import { listContentModules, upsertContentModule, validateModuleAuthoring } from '@/lib/db/content';
 import type { ModuleData } from '@/core/types';
-
-async function requireAdmin(request: NextRequest): Promise<number | null> {
-  const token = request.cookies.get('session')?.value;
-  if (!token) return null;
-  const userId = await validateSession(token);
-  if (!userId) return null;
-  const user = getUserById(userId);
-  if (!user || user.role !== 'admin') return null;
-  return userId;
-}
+import { requireAdmin } from '../_shared';
 
 export async function GET(request: NextRequest) {
   try {

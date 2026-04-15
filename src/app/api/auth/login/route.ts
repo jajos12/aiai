@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!user.is_verified) {
+    if (Number(user.is_verified) !== 1) {
       return NextResponse.json(
         { error: 'Please verify your email first. Check your inbox for the verification link.' },
         { status: 401 }
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       email: user.email,
       name: user.name,
+      role: user.role,
     });
 
     const response = NextResponse.json({

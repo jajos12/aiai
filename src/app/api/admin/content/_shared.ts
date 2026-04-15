@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { validateSession } from '@/lib/auth/session';
 import { getUserById } from '@/lib/db/users';
 
+/** Resolves session (JWT or legacy DB session) and requires admin role from the database. */
 export async function requireAdmin(request: NextRequest): Promise<number | null> {
   const token = request.cookies.get('session')?.value;
   if (!token) return null;

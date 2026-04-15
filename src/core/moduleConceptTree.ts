@@ -86,7 +86,6 @@ function extractConceptsFromStep(step: Step): string[] {
     }
   }
   
-  console.log('extractConceptsFromStep:', step.id, 'found:', concepts.length, concepts);
   return concepts.slice(0, 8);
 }
 
@@ -95,12 +94,9 @@ function extractConceptsFromStep(step: Step): string[] {
  * Matches how learners move broad → narrow → connected ideas.
  */
 export function buildModuleConceptTree(module: ModuleData): ConceptTreeNode[] {
-  console.log('Building tree for module:', module.id, 'steps:', module.steps?.length);
-  
   const children: ConceptTreeNode[] = (module.steps ?? []).map((step) => {
     const tags = extractConceptsFromStep(step);
-    console.log('Step:', step.id, 'tags:', tags);
-    
+    const mainNotes = (step.content.text || '').trim();
     const go = step.content.goDeeper?.explanation?.trim();
     const author = step.content.authorNote?.trim();
     const insight = go || author || undefined;
@@ -122,16 +118,16 @@ export function buildModuleConceptTree(module: ModuleData): ConceptTreeNode[] {
     return {
       id: step.id,
       title: step.title,
-      summary: truncateText(step.content.text, 160),
+      summary: truncateText(mainNotes, 160),
       prerequisites: [],
       children: conceptChildren,
       kind: 'subtopic',
-      detail: (step.content.text || '').trim(),
+      detail: mainNotes,
+      deeperExplanation: go,
+      authorNote: author,
       insight,
     };
   });
-
-  console.log('Children count:', children.length, 'with concepts:', children.filter(c => c.children.length > 0).length);
 
   const prereq =
     module.prerequisites.length > 0

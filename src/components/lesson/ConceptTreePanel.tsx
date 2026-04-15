@@ -1,11 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MutableRefObject,
+} from 'react';
 import ReactFlow, {
   Background,
   Controls,
   Edge,
   Node,
+  applyNodeChanges,
+  type NodeChange,
   useNodesState,
   useEdgesState,
   Panel,
@@ -20,6 +30,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import type { ConceptTreeNode } from '@/lib/ai/schemas';
 import { parseConceptNodeId } from '@/core/moduleConceptTree';
+import type { LearnerProfile } from '@/types/progress';
 
 function confidenceColor(score: number | undefined): string {
   if (typeof score !== 'number') return '#94a3b8';
@@ -43,6 +54,8 @@ interface TreeNodeData {
   node: ConceptTreeNode;
   hasChildren: boolean;
   isExpanded: boolean;
+  /** Set when filtering/focus dims non-matching nodes */
+  isDimmed?: boolean;
 }
 
 function CustomTreeNode({
@@ -106,17 +119,73 @@ const nodeTypes: NodeTypes = {
   customTreeNode: CustomTreeNode,
 };
 
+function tutoringStepIdForNode(
+  node: ConceptTreeNode,
+  jumpableStepIds: Set<string> | undefined,
+  anchorStepId: string,
+): string {
+  if (node.kind === 'subtopic' && jumpableStepIds?.has(node.id)) return node.id;
+  if (node.kind === 'concept') {
+    const p = parseConceptNodeId(node.id);
+    if (p?.stepId && jumpableStepIds?.has(p.stepId)) return p.stepId;
+  }
+  if (jumpableStepIds?.has(node.id)) return node.id;
+  return anchorStepId;
+}
+
+type ChatTurn = { role: 'user' | 'assistant'; content: string };
+
+function buildNodeChatIntro(n: ConceptTreeNode): string {
+  const lines: string[] = [];
+  lines.push(`Here’s everything we have on this ${kindLabel(n.kind).toLowerCase()} in your map.`);
+  lines.push('');
+  if (n.summary?.trim()) {
+    lines.push('Summary', n.summary.trim(), '');
+  }
+  if (n.insight?.trim()) {
+    lines.push('Insight', n.insight.trim(), '');
+  }
+  if (n.detail?.trim()) {
+    lines.push('Lesson notes', n.detail.trim(), '');
+  }
+  if (n.deeperExplanation?.trim()) {
+    lines.push('Deeper explanation', n.deeperExplanation.trim(), '');
+  }
+  if (n.authorNote?.trim()) {
+    lines.push('Author note', n.authorNote.trim(), '');
+  }
+  if (n.prerequisites.length > 0) {
+    lines.push('Prerequisites', n.prerequisites.map((p) => `• ${p}`).join('\n'), '');
+  }
+  lines.push('—', 'Ask a follow-up below. I’ll use this context plus your lesson.');
+  return lines.join('\n').trim();
+}
+
 function NodeDetailModal({
   node,
   onClose,
   jumpableStepIds,
   onJumpToLesson,
+  moduleId,
+  moduleTitle,
+  anchorStepId,
+  learnerProfile,
 }: {
   node: ConceptTreeNode | null;
   onClose: () => void;
   jumpableStepIds?: Set<string>;
   onJumpToLesson?: (stepId: string) => void;
+  moduleId: string;
+  moduleTitle: string;
+  anchorStepId: string;
+  learnerProfile: LearnerProfile;
 }) {
+  const [followQuestion, setFollowQuestion] = useState('');
+  const [chatMessages, setChatMessages] = useState<ChatTurn[]>([]);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [followError, setFollowError] = useState<string | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -125,128 +194,305 @@ function NodeDetailModal({
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
+  useEffect(() => {
+    if (!node) {
+      setChatMessages([]);
+      return;
+    }
+    setChatMessages([{ role: 'assistant', content: buildNodeChatIntro(node) }]);
+    setFollowQuestion('');
+    setFollowError(null);
+    setFollowLoading(false);
+  }, [node?.id]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
   if (!node) return null;
 
-  const parsed = parseConceptNodeId(node.id);
+  const currentNode = node;
+  const parsed = parseConceptNodeId(currentNode.id);
   let jumpStepId: string | undefined;
-  if (node.kind === 'concept') jumpStepId = parsed?.stepId;
-  else if (node.kind === 'subtopic') jumpStepId = node.id;
+  if (currentNode.kind === 'concept') jumpStepId = parsed?.stepId;
+  else if (currentNode.kind === 'subtopic') jumpStepId = currentNode.id;
   else jumpStepId = parsed?.stepId;
-  if (!jumpStepId && jumpableStepIds?.has(node.id)) jumpStepId = node.id;
+  if (!jumpStepId && jumpableStepIds?.has(currentNode.id)) jumpStepId = currentNode.id;
   const canJump = Boolean(jumpStepId && jumpableStepIds?.has(jumpStepId) && onJumpToLesson);
+
+  const tutorStepId = tutoringStepIdForNode(currentNode, jumpableStepIds, anchorStepId);
+  const canAsk = Boolean(moduleId && tutorStepId);
+
+  async function sendFollowUp() {
+    const q = followQuestion.trim();
+    if (!q || !moduleId || !tutorStepId || followLoading) return;
+    setFollowLoading(true);
+    setFollowError(null);
+    setChatMessages((prev) => [...prev, { role: 'user', content: q }, { role: 'assistant', content: '' }]);
+    setFollowQuestion('');
+    const context = [
+      `[Mind map — ${currentNode.kind ?? 'node'}: "${currentNode.title}"]`,
+      currentNode.summary ? `Summary: ${currentNode.summary}` : '',
+      currentNode.detail ? `Lesson notes:\n${currentNode.detail}` : '',
+      currentNode.deeperExplanation ? `Deeper explanation:\n${currentNode.deeperExplanation}` : '',
+      currentNode.authorNote ? `Author note:\n${currentNode.authorNote}` : '',
+      currentNode.insight ? `Insight:\n${currentNode.insight}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+    const message = `${context}\n\n---\nLearner follow-up question:\n${q}`;
+
+    try {
+      const res = await fetch('/api/ai/tutor-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          moduleId,
+          moduleTitle,
+          stepId: tutorStepId,
+          level: 'standard',
+          message,
+          learnerProfile: {
+            weakConcepts: learnerProfile.weakConcepts,
+            strongConcepts: learnerProfile.strongConcepts,
+            skillByConcept: learnerProfile.skillByConcept,
+            preferredPace: learnerProfile.preferredPace,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(err.error ?? res.statusText);
+      }
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let acc = '';
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          acc += decoder.decode(value, { stream: true });
+          setChatMessages((prev) => {
+            const next = [...prev];
+            if (next.length === 0) return next;
+            next[next.length - 1] = { role: 'assistant', content: acc };
+            return next;
+          });
+        }
+      }
+    } catch (e) {
+      setFollowError(e instanceof Error ? e.message : 'Request failed');
+      setChatMessages((prev) => (prev.length >= 2 ? prev.slice(0, -2) : prev));
+    } finally {
+      setFollowLoading(false);
+    }
+  }
+
+  function handleComposerKeyDown(e: ReactKeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      void sendFollowUp();
+    }
+  }
 
   return (
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.7)',
+        background: 'rgba(0,0,0,0.72)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        backdropFilter: 'blur(4px)',
+        backdropFilter: 'blur(6px)',
+        padding: 'max(0.75rem, env(safe-area-inset-bottom))',
       }}
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Node chat"
         style={{
-          background: 'linear-gradient(180deg, rgba(30,27,75,0.95) 0%, rgba(15,23,42,0.98) 100%)',
-          border: '1px solid rgba(99,102,241,0.35)',
-          borderRadius: '16px',
-          padding: '1.5rem',
-          maxWidth: 560,
-          width: '90%',
-          maxHeight: '80vh',
-          overflowY: 'auto',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
+          background: 'linear-gradient(180deg, rgba(30,27,75,0.97) 0%, rgba(15,23,42,0.99) 100%)',
+          border: '1px solid rgba(99,102,241,0.4)',
+          borderRadius: '18px',
+          width: 'min(720px, 100%)',
+          height: 'min(88vh, 820px)',
+          maxHeight: '88vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          boxShadow: '0 28px 64px rgba(0,0,0,0.55)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-          <div>
-            <div style={{ fontSize: '0.7rem', color: '#818cf8', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.25rem' }}>
-              {kindLabel(node.kind).toUpperCase()}
+        <div
+          style={{
+            flexShrink: 0,
+            padding: '1rem 1.1rem',
+            borderBottom: '1px solid rgba(99,102,241,0.25)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+          }}
+        >
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: '0.68rem', color: '#818cf8', fontWeight: 700, letterSpacing: '0.08em' }}>
+              {kindLabel(node.kind).toUpperCase()} · {moduleTitle}
             </div>
-            <h2 style={{ margin: 0, fontSize: '1.4rem', color: '#f1f5f9', fontWeight: 700 }}>
+            <h2 style={{ margin: '0.2rem 0 0', fontSize: '1.25rem', color: '#f8fafc', fontWeight: 800, lineHeight: 1.25 }}>
               {node.title}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'rgba(99,102,241,0.2)',
-              border: '1px solid rgba(99,102,241,0.3)',
-              borderRadius: '8px',
-              padding: '0.4rem 0.6rem',
-              color: '#a5b4fc',
-              cursor: 'pointer',
-              fontSize: '1.1rem',
-            }}
-          >
-            ✕
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem', flexShrink: 0 }}>
+            {canJump && jumpStepId && (
+              <button
+                type="button"
+                className="btn btn--primary btn--sm"
+                onClick={() => onJumpToLesson?.(jumpStepId)}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                Open guided lesson →
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: 'rgba(99,102,241,0.15)',
+                border: '1px solid rgba(99,102,241,0.35)',
+                borderRadius: '8px',
+                padding: '0.35rem 0.55rem',
+                color: '#c7d2fe',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+              }}
+            >
+              Close
+            </button>
+          </div>
         </div>
 
-        <div style={{ fontSize: '0.95rem', color: '#cbd5e1', lineHeight: 1.6, marginBottom: '1rem' }}>
-          {node.summary}
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            padding: '1rem 1.1rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
+          }}
+        >
+          {chatMessages.map((msg, i) => (
+            <div
+              key={i}
+              style={{
+                display: 'flex',
+                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+              }}
+            >
+              <div
+                style={{
+                  maxWidth: '92%',
+                  borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                  padding: '0.65rem 0.85rem',
+                  fontSize: '0.86rem',
+                  lineHeight: 1.55,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  color: msg.role === 'user' ? '#f1f5f9' : '#e2e8f0',
+                  background:
+                    msg.role === 'user'
+                      ? 'linear-gradient(135deg, rgba(99,102,241,0.45) 0%, rgba(79,70,229,0.35) 100%)'
+                      : 'rgba(15,23,42,0.75)',
+                  border:
+                    msg.role === 'user'
+                      ? '1px solid rgba(165,180,252,0.45)'
+                      : '1px solid rgba(99,102,241,0.22)',
+                }}
+              >
+                {msg.role === 'assistant' && i === 0 && (
+                  <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#a5b4fc', marginBottom: '0.35rem' }}>
+                    EXPLANATION
+                  </div>
+                )}
+                {msg.role === 'assistant' && i > 0 && (
+                  <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#a5b4fc', marginBottom: '0.35rem' }}>
+                    TUTOR
+                  </div>
+                )}
+                {msg.role === 'user' && (
+                  <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#e0e7ff', marginBottom: '0.35rem' }}>
+                    YOU
+                  </div>
+                )}
+                {msg.content || (msg.role === 'assistant' && followLoading ? '…' : '')}
+              </div>
+            </div>
+          ))}
+          {followError && (
+            <div style={{ fontSize: '0.8rem', color: '#fca5a5', padding: '0 0.25rem' }}>{followError}</div>
+          )}
+          <div ref={chatEndRef} />
         </div>
 
-        {node.insight && (
-          <div
-            style={{
-              fontSize: '0.88rem',
-              lineHeight: 1.5,
-              color: '#f1f5f9',
-              padding: '0.85rem 1rem',
-              borderRadius: '12px',
-              background: 'rgba(99,102,241,0.15)',
-              border: '1px solid rgba(129,140,248,0.3)',
-              marginBottom: '1rem',
-            }}
-          >
-            <span style={{ fontWeight: 700, color: '#818cf8', marginRight: '0.4rem' }}>💡 Insight</span>
-            {node.insight}
+        <div
+          style={{
+            flexShrink: 0,
+            borderTop: '1px solid rgba(99,102,241,0.28)',
+            padding: '0.85rem 1rem 1rem',
+            background: 'rgba(15,23,42,0.92)',
+          }}
+        >
+          {!canAsk && (
+            <p style={{ margin: '0 0 0.5rem', fontSize: '0.72rem', color: '#94a3b8' }}>
+              Tutor follow-up needs a linked lesson step. Use the map from a module with steps, or open the guided
+              lesson first.
+            </p>
+          )}
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+            <textarea
+              value={followQuestion}
+              onChange={(e) => setFollowQuestion(e.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              placeholder={
+                canAsk
+                  ? 'Ask the tutor anything about this node… (Enter to send, Shift+Enter for newline)'
+                  : 'Follow-up unavailable for this node'
+              }
+              rows={2}
+              disabled={followLoading || !canAsk}
+              style={{
+                flex: 1,
+                resize: 'none',
+                borderRadius: '12px',
+                border: '1px solid rgba(99,102,241,0.3)',
+                background: 'rgba(15,23,42,0.9)',
+                color: '#f1f5f9',
+                fontSize: '0.88rem',
+                padding: '0.55rem 0.7rem',
+                fontFamily: 'inherit',
+                lineHeight: 1.45,
+                minHeight: '48px',
+                outline: 'none',
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={followLoading || !canAsk || !followQuestion.trim()}
+              onClick={() => void sendFollowUp()}
+              style={{ flexShrink: 0, padding: '0.55rem 1rem', alignSelf: 'stretch' }}
+            >
+              {followLoading ? '…' : 'Send'}
+            </button>
           </div>
-        )}
-
-        {node.detail && (
-          <div
-            style={{
-              fontSize: '0.88rem',
-              lineHeight: 1.65,
-              color: '#e2e8f0',
-              whiteSpace: 'pre-wrap',
-              padding: '1rem',
-              borderRadius: '12px',
-              background: 'rgba(15,23,42,0.6)',
-              border: '1px solid rgba(99,102,241,0.2)',
-              marginBottom: '1rem',
-              maxHeight: '30vh',
-              overflowY: 'auto',
-            }}
-          >
-            {node.detail}
-          </div>
-        )}
-
-        {node.prerequisites.length > 0 && (
-          <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '1rem' }}>
-            <span style={{ fontWeight: 700, color: '#818cf8' }}>Prerequisites: </span>
-            {node.prerequisites.join(', ')}
-          </div>
-        )}
-
-        {canJump && jumpStepId && (
-          <button
-            type="button"
-            className="btn btn--primary"
-            style={{ width: '100%', padding: '0.75rem' }}
-            onClick={() => onJumpToLesson?.(jumpStepId)}
-          >
-            Open in guided lesson →
-          </button>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -393,6 +639,98 @@ function setsEqual(a: Set<string>, b: Set<string>): boolean {
   return true;
 }
 
+/** Exposed to toolbar without subscribing TreeContent to the React Flow store (avoids update-depth loops). */
+type ConceptTreeViewportApi = {
+  setViewport: (viewport: { x: number; y: number; zoom: number }, options?: { duration?: number }) => void;
+};
+
+/** Mounts a fresh React Flow instance when `key` (flowSyncSignature) changes — avoids setState sync loops. */
+function ConceptTreeFlowCanvas({
+  nodes: initialNodes,
+  edges: initialEdges,
+  onNodeClick,
+  viewportApiRef,
+}: {
+  nodes: Node[];
+  edges: Edge[];
+  onNodeClick: (e: React.MouseEvent, node: Node) => void;
+  viewportApiRef: MutableRefObject<ConceptTreeViewportApi | null>;
+}) {
+  const [nodes, setNodes] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const rf = useReactFlow();
+  const rfRef = useRef(rf);
+  rfRef.current = rf;
+  const fitViewRef = useRef(rf.fitView);
+  fitViewRef.current = rf.fitView;
+
+  useEffect(() => {
+    viewportApiRef.current = {
+      setViewport: (viewport, options) => rfRef.current.setViewport(viewport, options),
+    };
+    return () => {
+      viewportApiRef.current = null;
+    };
+  }, [viewportApiRef]);
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      const allowed = new Set(['select', 'remove', 'add', 'reset']);
+      const structural = changes.filter((c) => allowed.has(c.type));
+      if (structural.length === 0) return;
+      setNodes((nds) => applyNodeChanges(structural, nds));
+    },
+    [setNodes],
+  );
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      fitViewRef.current({ padding: 0.4, duration: 300 });
+    }, 100);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onNodeClick={onNodeClick}
+      nodeTypes={nodeTypes}
+      minZoom={0.15}
+      maxZoom={3}
+      defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
+      nodesDraggable={false}
+      nodesConnectable={false}
+      panOnScroll
+      zoomOnScroll
+    >
+      <Background color="rgba(129,140,248,0.08)" gap={30} />
+      <Controls
+        style={{
+          background: 'rgba(15,23,42,0.85)',
+          border: '1px solid rgba(99,102,241,0.3)',
+          borderRadius: '8px',
+        }}
+      />
+      <MiniMap
+        style={{
+          background: 'rgba(15,23,42,0.85)',
+          border: '1px solid rgba(99,102,241,0.3)',
+          borderRadius: '8px',
+        }}
+        nodeColor={(node) => {
+          const data = node.data as TreeNodeData;
+          if (data.isDone) return 'rgba(34,197,94,0.6)';
+          if (typeof data.confidence === 'number' && data.confidence < 45) return 'rgba(245,158,11,0.5)';
+          return 'rgba(129,140,248,0.5)';
+        }}
+      />
+    </ReactFlow>
+  );
+}
+
 function TreeContent({
   treeNodes,
   completedNodeIds,
@@ -405,6 +743,10 @@ function TreeContent({
   onExpandedChange,
   jumpableStepIds,
   onJumpToLesson,
+  moduleId,
+  moduleTitle,
+  anchorStepId,
+  learnerProfile,
 }: {
   treeNodes: ConceptTreeNode[];
   completedNodeIds?: Set<string>;
@@ -417,17 +759,27 @@ function TreeContent({
   onExpandedChange?: (nodeIds: string[]) => void;
   jumpableStepIds?: Set<string>;
   onJumpToLesson?: (stepId: string) => void;
+  moduleId: string;
+  moduleTitle: string;
+  anchorStepId: string;
+  learnerProfile: LearnerProfile;
 }) {
-  const [nodesState, setNodes, onNodesChange] = useNodesState([]);
-  const [edgesState, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState<ConceptTreeNode | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [focusMode, setFocusMode] = useState(false);
   const [expandedNodeIdSet, setExpandedNodeIdSet] = useState<Set<string>>(new Set<string>());
-  const { fitView, setViewport, getViewport } = useReactFlow();
+  const viewportApiRef = useRef<ConceptTreeViewportApi | null>(null);
 
-  const doneIds = completedNodeIds ?? new Set<string>();
+  const completedIdsKey = useMemo(() => {
+    if (!completedNodeIds || completedNodeIds.size === 0) return '';
+    return [...completedNodeIds].sort().join('|');
+  }, [completedNodeIds]);
+
+  const doneIds = useMemo(() => {
+    if (!completedNodeIds) return new Set<string>();
+    return new Set(completedNodeIds);
+  }, [completedIdsKey]);
 
   const allNodes = useMemo(() => {
     return buildRadialTree(treeNodes, doneIds, conceptConfidence, expandedNodeIdSet);
@@ -446,7 +798,7 @@ function TreeContent({
     if (!onExpandedChange) return;
     const propSet = new Set(expandedNodeIds ?? []);
     if (setsEqual(expandedNodeIdSet, propSet)) return;
-    onExpandedChange(Array.from(expandedNodeIdSet));
+    onExpandedChange([...expandedNodeIdSet].sort((a, b) => a.localeCompare(b)));
   }, [expandedNodeIdSet, expandedNodeIds, onExpandedChange]);
 
   const stats = useMemo(() => {
@@ -491,21 +843,25 @@ function TreeContent({
     })) ?? [];
   }, [allNodes, focusedNodeId, hiddenNodeIds]);
 
-  useEffect(() => {
-    setNodes(visibleNodes);
-    setEdges(allNodes?.edges ?? []);
-  }, [visibleNodes, allNodes, setNodes, setEdges]);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      fitView({ padding: 0.4, duration: 300 });
-    }, 100);
-    return () => clearTimeout(timeout);
-  }, [treeNodes, fitView]);
+  const flowSyncSignature = useMemo(() => {
+    const round = (v: number) => Math.round(v * 1000) / 1000;
+    const vn = visibleNodes
+      .map((n) => ({
+        id: n.id,
+        x: round(n.position.x),
+        y: round(n.position.y),
+        dim: Boolean((n.data as TreeNodeData).isDimmed),
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+    const e = (allNodes?.edges ?? [])
+      .map((edge) => ({ id: edge.id, s: edge.source, t: edge.target }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+    return JSON.stringify({ vn, e });
+  }, [visibleNodes, allNodes]);
 
   const handleResetView = useCallback(() => {
-    setViewport({ x: 0, y: 0, zoom: 0.5 }, { duration: 400 });
-  }, [setViewport]);
+    viewportApiRef.current?.setViewport({ x: 0, y: 0, zoom: 0.5 }, { duration: 400 });
+  }, []);
 
   const handleExport = useCallback(() => {
     const flowElement = document.querySelector('.react-flow') as HTMLElement;
@@ -527,21 +883,18 @@ function TreeContent({
     });
   }, []);
 
-  const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      const nodeData = node.data as TreeNodeData;
-      setSelectedNode(nodeData.node);
-      if (nodeData.hasChildren) {
-        setExpandedNodeIdSet((prev) => {
-          const next = new Set(prev);
-          if (next.has(node.id)) next.delete(node.id);
-          else next.add(node.id);
-          return next;
-        });
-      }
-    },
-    [onExpandedChange]
-  );
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    const nodeData = node.data as TreeNodeData;
+    setSelectedNode(nodeData.node);
+    if (nodeData.hasChildren) {
+      setExpandedNodeIdSet((prev) => {
+        const next = new Set(prev);
+        if (next.has(node.id)) next.delete(node.id);
+        else next.add(node.id);
+        return next;
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -728,44 +1081,13 @@ function TreeContent({
           overflow: 'hidden',
         }}
       >
-        <ReactFlow
-          nodes={nodesState}
-          edges={edgesState}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
+        <ConceptTreeFlowCanvas
+          key={flowSyncSignature}
+          nodes={visibleNodes}
+          edges={allNodes.edges ?? []}
           onNodeClick={onNodeClick}
-          nodeTypes={nodeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.4 }}
-          minZoom={0.15}
-          maxZoom={3}
-          defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
-          nodesDraggable={true}
-          panOnScroll
-          zoomOnScroll
-        >
-          <Background color="rgba(129,140,248,0.08)" gap={30} />
-          <Controls 
-            style={{ 
-              background: 'rgba(15,23,42,0.85)', 
-              border: '1px solid rgba(99,102,241,0.3)',
-              borderRadius: '8px',
-            }} 
-          />
-          <MiniMap
-            style={{ 
-              background: 'rgba(15,23,42,0.85)', 
-              border: '1px solid rgba(99,102,241,0.3)',
-              borderRadius: '8px',
-            }}
-            nodeColor={(node) => {
-              const data = node.data as TreeNodeData;
-              if (data.isDone) return 'rgba(34,197,94,0.6)';
-              if (typeof data.confidence === 'number' && data.confidence < 45) return 'rgba(245,158,11,0.5)';
-              return 'rgba(129,140,248,0.5)';
-            }}
-          />
-        </ReactFlow>
+          viewportApiRef={viewportApiRef}
+        />
       </div>
 
       <NodeDetailModal
@@ -773,6 +1095,10 @@ function TreeContent({
         onClose={() => setSelectedNode(null)}
         jumpableStepIds={jumpableStepIds}
         onJumpToLesson={onJumpToLesson}
+        moduleId={moduleId}
+        moduleTitle={moduleTitle}
+        anchorStepId={anchorStepId}
+        learnerProfile={learnerProfile}
       />
     </div>
   );
@@ -780,6 +1106,10 @@ function TreeContent({
 
 export function ConceptTreePanel(props: {
   nodes: ConceptTreeNode[];
+  moduleId: string;
+  moduleTitle: string;
+  anchorStepId: string;
+  learnerProfile: LearnerProfile;
   completedNodeIds?: Set<string>;
   expandedNodeIds?: string[];
   conceptConfidence?: Record<string, number>;
@@ -793,6 +1123,10 @@ export function ConceptTreePanel(props: {
 }) {
   const {
     nodes,
+    moduleId,
+    moduleTitle,
+    anchorStepId,
+    learnerProfile,
     completedNodeIds,
     expandedNodeIds,
     conceptConfidence,
@@ -809,6 +1143,10 @@ export function ConceptTreePanel(props: {
     <ReactFlowProvider>
       <TreeContent
         treeNodes={nodes}
+        moduleId={moduleId}
+        moduleTitle={moduleTitle}
+        anchorStepId={anchorStepId}
+        learnerProfile={learnerProfile}
         completedNodeIds={completedNodeIds}
         expandedNodeIds={expandedNodeIds}
         conceptConfidence={conceptConfidence}

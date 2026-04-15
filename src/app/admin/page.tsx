@@ -19,6 +19,7 @@ export default function AdminDashboard() {
     totalCourses: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -28,6 +29,13 @@ export default function AdminDashboard() {
           fetch('/api/admin/content/modules', { credentials: 'include' }),
           fetch('/api/admin/content/courses', { credentials: 'include' }),
         ]);
+
+        if (!usersRes.ok || !modulesRes.ok || !coursesRes.ok) {
+          setLoadError(
+            'Could not load admin data (often 403 if you are not signed in as admin). Sign out, sign in with an admin account, and try again.',
+          );
+          return;
+        }
 
         const [usersData, modulesData, coursesData] = await Promise.all([
           usersRes.json(),
@@ -45,6 +53,7 @@ export default function AdminDashboard() {
         });
       } catch (err) {
         console.error('Failed to fetch stats:', err);
+        setLoadError('Network error while loading the dashboard.');
       } finally {
         setLoading(false);
       }
@@ -77,6 +86,19 @@ export default function AdminDashboard() {
           Overview of your content and users
         </p>
       </div>
+
+      {loadError && (
+        <div
+          className="p-4 rounded-lg text-sm"
+          style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            color: 'var(--color-error)',
+          }}
+        >
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {statCards.map((stat) => (

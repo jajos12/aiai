@@ -12,6 +12,7 @@ const navItems = [
   { href: '/admin', label: 'Dashboard', icon: '📊' },
   { href: '/admin/courses', label: 'Courses', icon: '📚' },
   { href: '/admin/modules', label: 'Modules', icon: '📖' },
+  { href: '/admin/media', label: 'Media', icon: '🖼️' },
   { href: '/admin/users', label: 'Users', icon: '👥' },
 ];
 

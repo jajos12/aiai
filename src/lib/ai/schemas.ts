@@ -10,6 +10,10 @@ export interface ConceptTreeNode {
   children: ConceptTreeNode[];
   /** Long-form text for the context panel (lesson notes, etc.). */
   detail?: string;
+  /** Go-deeper / extended lesson explanation (usually from step content). */
+  deeperExplanation?: string;
+  /** Instructor or author note attached to the step. */
+  authorNote?: string;
   /** Short “insight” line (e.g. go-deeper, connections). */
   insight?: string;
   /** Role in the hierarchy for layout and copy. */

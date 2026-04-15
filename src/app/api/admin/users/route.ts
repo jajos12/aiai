@@ -1,24 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateSession } from '@/lib/auth/session';
-import { getUserById, getAllUsers, deleteUser, updateUser } from '@/lib/db/users';
+import { requireAdmin } from '@/app/api/admin/content/_shared';
+import { adminMarkUserVerified, getAllUsers, deleteUser, updateUser } from '@/lib/db/users';
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get('session')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const userId = await validateSession(token);
-    if (!userId) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
-    }
-
-    const user = getUserById(userId);
-    if (!user || user.role !== 'admin') {
+    const adminId = await requireAdmin(request);
+    if (!adminId) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
-
     const users = getAllUsers();
     return NextResponse.json({ users });
   } catch (error) {
@@ -29,25 +18,15 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const token = request.cookies.get('session')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const userId = await validateSession(token);
-    if (!userId) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
-    }
-
-    const admin = getUserById(userId);
-    if (!admin || admin.role !== 'admin') {
+    const adminId = await requireAdmin(request);
+    if (!adminId) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const deleteUserId = parseInt(searchParams.get('id') || '0', 10);
 
-    if (!deleteUserId || deleteUserId === userId) {
+    if (!deleteUserId || deleteUserId === adminId) {
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
     }
 
@@ -61,30 +40,33 @@ export async function DELETE(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const token = request.cookies.get('session')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const userId = await validateSession(token);
-    if (!userId) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
-    }
-
-    const admin = getUserById(userId);
-    if (!admin || admin.role !== 'admin') {
+    const adminId = await requireAdmin(request);
+    if (!adminId) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as { userId?: unknown; role?: string; markVerified?: boolean };
+
+    if (body.markVerified === true) {
+      const targetUserId = Number(body.userId);
+      if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+        return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+      }
+      const ok = adminMarkUserVerified(targetUserId);
+      if (!ok) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      return NextResponse.json({ message: 'User marked as email-verified' });
+    }
+
     const targetUserId = Number(body?.userId);
     const role = body?.role;
 
-    if (!Number.isInteger(targetUserId) || targetUserId <= 0 || targetUserId === userId) {
+    if (!Number.isInteger(targetUserId) || targetUserId <= 0 || targetUserId === adminId) {
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
     }
 
-    if (!['user', 'admin'].includes(role)) {
+    if (!role || !['user', 'admin'].includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 

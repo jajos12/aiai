@@ -61,6 +61,13 @@ export function verifyUser(token: string): boolean {
   return true;
 }
 
+/** Admin-only: mark a user verified when email delivery failed or support needs to unblock login. */
+export function adminMarkUserVerified(userId: number): boolean {
+  const stmt = db.prepare('UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?');
+  const result = stmt.run(userId);
+  return result.changes > 0;
+}
+
 export function getUserByVerificationToken(token: string): User | undefined {
   const stmt = db.prepare('SELECT * FROM users WHERE verification_token = ?');
   return stmt.get(token) as User | undefined;

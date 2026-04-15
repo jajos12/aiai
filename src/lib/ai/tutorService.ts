@@ -5,12 +5,23 @@ import type { LessonMapInsights } from '@/lib/db/lessonMap';
 import { buildExplainLevelMessages, buildTutorMessages, buildLessonMapMessages } from './tutorPrompts';
 import { chatWithMessages, streamChatWithMessages } from './huggingfaceClient';
 
+function stripMarkdownFences(raw: string): string {
+  let s = raw.trim();
+  const block = /^```(?:json)?\s*\r?\n?([\s\S]*?)\r?\n?```$/im.exec(s);
+  if (block) return block[1].trim();
+  if (s.startsWith('```')) {
+    s = s.replace(/^```(?:json)?\s*\r?\n?/, '').replace(/\r?\n?```\s*$/, '');
+  }
+  return s.trim();
+}
+
 function parseExplanation(raw: string): StepExplanation | null {
-  const start = raw.indexOf('{');
-  const end = raw.lastIndexOf('}');
+  const cleaned = stripMarkdownFences(raw);
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
   if (start === -1 || end === -1 || end <= start) return null;
   try {
-    const parsed = JSON.parse(raw.slice(start, end + 1)) as unknown;
+    const parsed = JSON.parse(cleaned.slice(start, end + 1)) as unknown;
     if (typeof parsed !== 'object' || parsed === null) return null;
     const obj = parsed as Record<string, unknown>;
     const text = typeof obj.text === 'string' ? obj.text.trim() : null;
@@ -31,17 +42,33 @@ function parseExplanation(raw: string): StepExplanation | null {
   }
 }
 
+/** When the model ignores JSON instructions, still show the rewrite as the main text. */
+function fallbackExplanationFromProse(raw: string): StepExplanation {
+  const cleaned = stripMarkdownFences(raw).trim();
+  return { text: cleaned.slice(0, 12_000) };
+}
+
+export type GenerateStepExplanationResult =
+  | { ok: true; explanation: StepExplanation }
+  | { ok: false; error: string };
+
 export async function generateStepExplanation(
   step: Step,
   level: Exclude<ExplainLevel, 'standard'>,
-): Promise<StepExplanation | null> {
+): Promise<GenerateStepExplanationResult> {
   const messages = buildExplainLevelMessages(step, level);
   const { text, error } = await chatWithMessages(messages);
   if (!text) {
     console.error('[tutorService] explain-level error:', error);
-    return null;
+    return { ok: false, error: error ?? 'AI request returned no text' };
   }
-  return parseExplanation(text);
+  const parsed = parseExplanation(text);
+  if (parsed) return { ok: true, explanation: parsed };
+  const fallback = fallbackExplanationFromProse(text);
+  if (!fallback.text) {
+    return { ok: false, error: 'AI returned empty content' };
+  }
+  return { ok: true, explanation: fallback };
 }
 
 export async function* streamTutorResponse(

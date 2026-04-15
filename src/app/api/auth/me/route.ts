@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { validateSession } from '@/lib/auth/session';
+import { getSessionPayload, validateSession } from '@/lib/auth/session';
 import { getUserById, updateUser, getUserPreferences, upsertUserPreferences, getUserProgress } from '@/lib/db/users';
 
 const updateSchema = z.object({
@@ -19,26 +19,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const userId = await validateSession(token);
-    if (!userId) {
+    const jwtPayload = await getSessionPayload(token);
+    if (!jwtPayload) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const user = getUserById(userId);
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
+    const userId = jwtPayload.userId;
+    const dbUser = getUserById(userId);
     const preferences = getUserPreferences(userId);
     const progress = getUserProgress(userId);
 
     return NextResponse.json({
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        createdAt: user.created_at,
+        id: userId,
+        email: dbUser?.email ?? jwtPayload.email,
+        name: dbUser?.name ?? jwtPayload.name,
+        role: dbUser?.role ?? jwtPayload.role,
+        createdAt: dbUser?.created_at ?? null,
       },
       preferences: preferences || null,
       progress,
