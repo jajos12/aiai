@@ -14,10 +14,6 @@ import ReactFlow, {
   Controls,
   Edge,
   Node,
-  applyNodeChanges,
-  type NodeChange,
-  useNodesState,
-  useEdgesState,
   Panel,
   MiniMap,
   NodeTypes,
@@ -656,8 +652,6 @@ function ConceptTreeFlowCanvas({
   onNodeClick: (e: React.MouseEvent, node: Node) => void;
   viewportApiRef: MutableRefObject<ConceptTreeViewportApi | null>;
 }) {
-  const [nodes, setNodes] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const rf = useReactFlow();
   const rfRef = useRef(rf);
   rfRef.current = rf;
@@ -673,16 +667,6 @@ function ConceptTreeFlowCanvas({
     };
   }, [viewportApiRef]);
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      const allowed = new Set(['select', 'remove', 'add', 'reset']);
-      const structural = changes.filter((c) => allowed.has(c.type));
-      if (structural.length === 0) return;
-      setNodes((nds) => applyNodeChanges(structural, nds));
-    },
-    [setNodes],
-  );
-
   useEffect(() => {
     const t = window.setTimeout(() => {
       fitViewRef.current({ padding: 0.4, duration: 300 });
@@ -692,10 +676,8 @@ function ConceptTreeFlowCanvas({
 
   return (
     <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
+      nodes={initialNodes}
+      edges={initialEdges}
       onNodeClick={onNodeClick}
       nodeTypes={nodeTypes}
       minZoom={0.15}
