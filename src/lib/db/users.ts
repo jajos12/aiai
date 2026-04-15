@@ -19,6 +19,13 @@ export function getUserByEmail(email: string): User | undefined {
   return stmt.get(email) as User | undefined;
 }
 
+export function markUserVerifiedByEmail(email: string): void {
+  const stmt = db.prepare(
+    'UPDATE users SET is_verified = 1, verification_token = NULL, updated_at = CURRENT_TIMESTAMP WHERE email = ?',
+  );
+  stmt.run(email);
+}
+
 export function updateUser(id: number, updates: Partial<Pick<User, 'name' | 'role'>>): void {
   const fields: string[] = [];
   const values: unknown[] = [];
@@ -44,6 +51,20 @@ export function updateUser(id: number, updates: Partial<Pick<User, 'name' | 'rol
 export function deleteUser(id: number): void {
   const stmt = db.prepare('DELETE FROM users WHERE id = ?');
   stmt.run(id);
+}
+
+/** Deletes all unverified users and returns number of removed rows. */
+export function deleteAllUnverifiedUsers(): number {
+  const stmt = db.prepare('DELETE FROM users WHERE is_verified = 0');
+  const result = stmt.run();
+  return Number(result.changes ?? 0);
+}
+
+/** Deletes stale unverified account for a given email, returns true when removed. */
+export function deleteUnverifiedUserByEmail(email: string): boolean {
+  const stmt = db.prepare('DELETE FROM users WHERE email = ? AND is_verified = 0');
+  const result = stmt.run(email);
+  return Number(result.changes ?? 0) > 0;
 }
 
 export function getAllUsers(): User[] {

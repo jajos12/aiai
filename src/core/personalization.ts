@@ -68,6 +68,7 @@ export function updateSkillFromChallenge(
 
 export function recommendNextModule(progress: ProgressState): NextModuleRecommendation | null {
   const modules = MODULE_META;
+  const weakConcepts = new Set(progress.learnerProfile.weakConcepts);
 
   for (const moduleMeta of modules) {
     const status = tierModuleStatus(progress, moduleMeta.tierId, moduleMeta.id);
@@ -81,7 +82,7 @@ export function recommendNextModule(progress: ProgressState): NextModuleRecommen
     }
   }
 
-  const available = modules.find((moduleMeta) => {
+  const available = modules.filter((moduleMeta) => {
     const status = tierModuleStatus(progress, moduleMeta.tierId, moduleMeta.id);
     if (status === 'completed') return false;
 
@@ -97,19 +98,31 @@ export function recommendNextModule(progress: ProgressState): NextModuleRecommen
     });
   });
 
-  if (!available) return null;
+  if (available.length === 0) return null;
 
-  const concept = conceptForModule(available.id);
+  const ranked = [...available].sort((a, b) => {
+    const aWeakBoost = weakConcepts.has(a.clusterId) ? -1 : 0;
+    const bWeakBoost = weakConcepts.has(b.clusterId) ? -1 : 0;
+    if (aWeakBoost !== bWeakBoost) return aWeakBoost - bWeakBoost;
+    if (a.tierId !== b.tierId) return a.tierId - b.tierId;
+    return modules.findIndex((m) => m.id === a.id) - modules.findIndex((m) => m.id === b.id);
+  });
+
+  const selected = ranked[0];
+
+  const concept = conceptForModule(selected.id);
   const conceptSkill = progress.learnerProfile.skillByConcept[concept] ?? DEFAULT_CONCEPT_SKILL;
-  const reason =
-    conceptSkill < 45
+  const isWeakFocus = weakConcepts.has(concept);
+  const reason = isWeakFocus
+    ? `Targeted practice for ${concept.replace(/-/g, ' ')}`
+    : conceptSkill < 45
       ? `Build confidence in ${concept.replace(/-/g, ' ')}`
       : 'Recommended next step';
 
   return {
-    moduleId: available.id,
-    tierId: available.tierId,
-    title: available.title,
+    moduleId: selected.id,
+    tierId: selected.tierId,
+    title: selected.title,
     reason,
   };
 }

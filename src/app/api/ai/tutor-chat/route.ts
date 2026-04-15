@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { validateSession } from '@/lib/auth/session';
+import { validateRequestSession } from '@/lib/auth/session';
 import { getModuleData } from '@/core/registry';
 import { streamTutorResponse } from '@/lib/ai/tutorService';
 import { getTutorMessages, saveTutorMessage } from '@/lib/db/tutor';
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get('session')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-    const userId = await validateSession(token);
+    const userId = await validateRequestSession(request);
     if (!userId) {
       return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
     }
@@ -47,11 +43,7 @@ const PostSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get('session')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-    const userId = await validateSession(token);
+    const userId = await validateRequestSession(request);
     if (!userId) {
       return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
     }

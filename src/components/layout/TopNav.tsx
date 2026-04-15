@@ -33,7 +33,6 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     localStorage.removeItem('user');
-    localStorage.removeItem('token');
     router.push('/login');
   };
 
@@ -101,9 +100,36 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
           gap: '0.75rem',
         }}
       >
+        <Link
+          href='/dashboard'
+          style={{
+            padding: '0.375rem 0.75rem',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-primary)',
+            textDecoration: 'none',
+            fontSize: '0.875rem',
+            fontWeight: 500,
+          }}
+        >
+          Dashboard
+        </Link>
         <StreakDisplay />
         {user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span
+              style={{
+                fontSize: '0.8125rem',
+                color: 'var(--text-secondary)',
+                padding: '0.2rem 0.5rem',
+                borderRadius: '999px',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              Hi, {user.name.split(' ')[0] || 'Learner'}
+            </span>
             {user.role === 'admin' && (
               <Link
                 href='/admin'

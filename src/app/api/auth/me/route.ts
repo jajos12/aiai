@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getSessionPayload, validateSession } from '@/lib/auth/session';
+import { validateRequestSession } from '@/lib/auth/session';
 import { getUserById, updateUser, getUserPreferences, upsertUserPreferences, getUserProgress } from '@/lib/db/users';
 
 const updateSchema = z.object({
@@ -14,28 +14,24 @@ const updateSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get('session')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const jwtPayload = await getSessionPayload(token);
-    if (!jwtPayload) {
+    const userId = await validateRequestSession(request);
+    if (!userId) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
-
-    const userId = jwtPayload.userId;
     const dbUser = getUserById(userId);
+    if (!dbUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
     const preferences = getUserPreferences(userId);
     const progress = getUserProgress(userId);
 
     return NextResponse.json({
       user: {
         id: userId,
-        email: dbUser?.email ?? jwtPayload.email,
-        name: dbUser?.name ?? jwtPayload.name,
-        role: dbUser?.role ?? jwtPayload.role,
-        createdAt: dbUser?.created_at ?? null,
+        email: dbUser.email,
+        name: dbUser.name,
+        role: dbUser.role,
+        createdAt: dbUser.created_at ?? null,
       },
       preferences: preferences || null,
       progress,
@@ -51,12 +47,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const token = request.cookies.get('session')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const userId = await validateSession(token);
+    const userId = await validateRequestSession(request);
     if (!userId) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }

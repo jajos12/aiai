@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import crypto from 'crypto';
-import { getUserByEmail, createPasswordResetToken } from '@/lib/db/users';
-import { sendPasswordResetEmail } from '@/lib/auth/email';
+import { firebaseSendPasswordResetEmail } from '@/lib/auth/firebaseAuth';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email(),
@@ -13,33 +11,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email } = forgotPasswordSchema.parse(body);
 
-    const user = getUserByEmail(email);
-    if (!user) {
-      return NextResponse.json(
-        { message: 'If that email exists, we have sent a reset link.' }
-      );
-    }
-
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 1);
-
-    createPasswordResetToken(user.id, token, expiresAt);
-
-    const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
-    
-    const mailResult = await sendPasswordResetEmail(email, resetUrl);
-    if (!mailResult.ok) {
-      console.warn(`Password reset email delivery failed for ${email}: ${mailResult.reason}`);
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`[DEV] Fallback reset URL for ${email}: ${resetUrl}`);
-      }
-    }
+    // Firebase intentionally returns generic behavior to avoid account enumeration.
+    await firebaseSendPasswordResetEmail(email).catch(() => undefined);
 
     return NextResponse.json({
       message: 'If that email exists, we have sent a reset link.',
-      emailSent: mailResult.ok,
+      emailSent: true,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

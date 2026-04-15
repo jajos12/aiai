@@ -1,71 +1,30 @@
 import crypto from 'crypto';
+import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 import { db } from '../db/database';
-import { verifyToken, JWTPayload } from './jwt';
-
-const TOKEN_EXPIRY_DAYS = 7;
-
-export function createSession(userId: number): { token: string; expiresAt: Date } {
-  const token = crypto.randomBytes(32).toString('hex');
-  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS);
-
+import { getAuthSecret } from './config';
+/** Auth.js session validator (JWT strategy). */
+export async function validateRequestSession(request: NextRequest): Promise<number | null> {
   try {
-    const stmt = db.prepare(
-      'INSERT INTO user_sessions (user_id, token_hash, expires_at) VALUES (?, ?, ?)'
-    );
-    stmt.run(userId, tokenHash, expiresAt.toISOString());
-  } catch {
-  }
+    const token = await getToken({
+      req: request,
+      secret: getAuthSecret(),
+    });
+    if (!token) return null;
 
-  return { token, expiresAt };
-}
-
-export async function getSessionPayload(token: string): Promise<JWTPayload | null> {
-  return verifyToken(token);
-}
-
-export async function validateSession(token: string): Promise<number | null> {
-  const jwtPayload = await verifyToken(token);
-  if (jwtPayload) {
-    return jwtPayload.userId;
-  }
-
-  try {
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const now = new Date().toISOString();
-    const stmt = db.prepare(
-      'SELECT user_id FROM user_sessions WHERE token_hash = ? AND expires_at > ?'
-    );
-    const session = stmt.get(tokenHash, now) as { user_id: number } | undefined;
-    return session?.user_id ?? null;
+    const userIdRaw = token.userId ?? token.sub;
+    const userId = typeof userIdRaw === 'number' ? userIdRaw : Number(userIdRaw);
+    return Number.isInteger(userId) && userId > 0 ? userId : null;
   } catch {
     return null;
   }
 }
 
-export function deleteSession(_token: string): void {
-  try {
-    const tokenHash = crypto.createHash('sha256').update(_token).digest('hex');
-    const stmt = db.prepare('DELETE FROM user_sessions WHERE token_hash = ?');
-    stmt.run(tokenHash);
-  } catch {
-  }
-}
-
 export function deleteUserSessions(userId: number): void {
   try {
+    // Clears legacy DB-backed sessions kept for backward compatibility.
     const stmt = db.prepare('DELETE FROM user_sessions WHERE user_id = ?');
     stmt.run(userId);
-  } catch {
-  }
-}
-
-export function cleanupExpiredSessions(): void {
-  try {
-    const now = new Date().toISOString();
-    const stmt = db.prepare('DELETE FROM user_sessions WHERE expires_at <= ?');
-    stmt.run(now);
   } catch {
   }
 }

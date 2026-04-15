@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
+  user: { name: string; email: string; role: string };
 }
 
 const navItems = [
@@ -16,45 +17,9 @@ const navItems = [
   { href: '/admin/users', label: 'Users', icon: '👥' },
 ];
 
-export default function AdminLayout({ children }: AdminLayoutProps) {
+export default function AdminLayout({ children, user }: AdminLayoutProps) {
   const pathname = usePathname();
-  const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
-  const [isReady, setIsReady] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  useEffect(() => {
-    const userStr = localStorage.getItem('user');
-    if (!userStr) {
-      window.location.href = '/login';
-      return;
-    }
-    try {
-      const parsed = JSON.parse(userStr) as { name: string; email: string; role: string };
-      if (parsed.role !== 'admin') {
-        window.location.href = '/';
-        return;
-      }
-      setUser(parsed);
-      setIsReady(true);
-    } catch {
-      window.location.href = '/login';
-    }
-  }, []);
-
-  if (!isReady || !user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--bg-primary)' }}>
-        <div className="animate-pulse" style={{ color: 'var(--text-secondary)' }}>Loading...</div>
-      </div>
-    );
-  }
-
-  if (user.role !== 'admin') {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/';
-    }
-    return null;
-  }
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>

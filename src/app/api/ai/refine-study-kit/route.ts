@@ -2,15 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getModuleData } from '@/core/registry';
 import { generateStudyKit } from '@/lib/ai/studyKitService';
 import { StudyKitRequestSchema } from '@/lib/ai/schemas';
-import { validateSession } from '@/lib/auth/session';
+import { validateRequestSession } from '@/lib/auth/session';
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get('session')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-    const userId = await validateSession(token);
+    const userId = await validateRequestSession(request);
     if (!userId) {
       return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
     }

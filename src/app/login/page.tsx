@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { signIn } from 'next-auth/react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,24 +18,26 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || 'Login failed');
+      if (!result || !result.ok) {
+        setError('Invalid credentials or email not verified in Firebase.');
         return;
       }
 
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      
+      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!meRes.ok) {
+        setError('Signed in, but failed to load user profile.');
+        return;
+      }
+      const me = await meRes.json();
+      localStorage.setItem('user', JSON.stringify(me.user));
+
       router.push('/');
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -74,6 +77,16 @@ export default function LoginPage() {
         >
           Welcome Back
         </h1>
+        <p
+          style={{
+            margin: '0 0 1rem 0',
+            textAlign: 'center',
+            color: 'var(--text-secondary)',
+            fontSize: '0.875rem',
+          }}
+        >
+          Secure sign-in is powered by Auth.js.
+        </p>
 
         {error && (
           <div
