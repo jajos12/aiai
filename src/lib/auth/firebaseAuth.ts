@@ -38,12 +38,14 @@ export type FirebaseSignInResult = {
 };
 
 type FirebaseLookupResponse = {
-  users?: Array<{
-    localId: string;
-    email?: string;
-    emailVerified?: boolean;
-    displayName?: string;
-  }>;
+  users?: FirebaseLookupUser[];
+};
+
+export type FirebaseLookupUser = {
+  localId: string;
+  email?: string;
+  emailVerified?: boolean;
+  displayName?: string;
 };
 
 export async function firebaseSignInWithPassword(email: string, password: string): Promise<FirebaseSignInResult> {
@@ -62,7 +64,7 @@ export async function firebaseSignUp(email: string, password: string): Promise<F
   });
 }
 
-export async function firebaseLookupByIdToken(idToken: string): Promise<FirebaseLookupResponse['users'][number] | null> {
+export async function firebaseLookupByIdToken(idToken: string): Promise<FirebaseLookupUser | null> {
   const data = await postFirebase<FirebaseLookupResponse>('accounts:lookup', { idToken });
   const user = data.users?.[0];
   return user ?? null;
