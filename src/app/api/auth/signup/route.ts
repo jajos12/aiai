@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { createUser, deleteUnverifiedUserByEmail, getUserByEmail } from '@/lib/db/users';
-import { firebaseSendVerificationEmail, firebaseSignUp } from '@/lib/auth/firebaseAuth';
+import {
+  firebaseLookupByIdToken,
+  firebaseSendVerificationEmail,
+  firebaseSignInWithPassword,
+  firebaseSignUp,
+} from '@/lib/auth/firebaseAuth';
 
 const signupSchema = z.object({
   email: z.string().email(),
@@ -42,7 +47,33 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Firebase signup failed';
       if (/EMAIL_EXISTS/i.test(message)) {
-        return NextResponse.json({ error: 'Email already in use' }, { status: 400 });
+        // If account already exists in Firebase, try to sign in and re-send verification
+        // when that Firebase account is still unverified.
+        try {
+          const existingSignIn = await firebaseSignInWithPassword(email, password);
+          const existingFirebaseUser = await firebaseLookupByIdToken(existingSignIn.idToken);
+          if (existingFirebaseUser?.emailVerified === true) {
+            return NextResponse.json({ error: 'Email already in use' }, { status: 400 });
+          }
+
+          await firebaseSendVerificationEmail(existingSignIn.idToken);
+
+          let user = getUserByEmail(email);
+          if (!user) {
+            const placeholderHash = `firebase:${crypto.randomBytes(24).toString('hex')}`;
+            user = createUser(email, placeholderHash, name, undefined);
+          }
+
+          return NextResponse.json({
+            message: 'Account already exists but is unverified. We sent a new verification email.',
+            user: { id: user.id, email: user.email, name: user.name, role: user.role, is_verified: 0 },
+            requiresVerification: true,
+            emailSent: true,
+          });
+        } catch {
+          // Existing Firebase account with a different password (or blocked sign-in).
+          return NextResponse.json({ error: 'Email already in use' }, { status: 400 });
+        }
       }
       return NextResponse.json({ error: `Firebase signup failed: ${message}` }, { status: 400 });
     }
