@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { signIn } from 'next-auth/react';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -172,6 +173,25 @@ export default function SignupPage() {
         >
           Create Account
         </h1>
+
+        <button
+          type='button'
+          onClick={() => signIn('google', { callbackUrl: '/' })}
+          style={{
+            width: '100%',
+            padding: '0.65rem',
+            background: 'var(--bg-primary)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--text-primary)',
+            fontSize: '0.95rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            marginBottom: '1rem',
+          }}
+        >
+          Continue with Google
+        </button>
 
         {error && (
           <div
