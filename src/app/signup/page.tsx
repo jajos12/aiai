@@ -105,9 +105,14 @@ export default function SignupPage() {
               Your account is active. You can sign in now.
             </p>
           ) : emailSent ? (
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-              We&apos;ve sent a verification link to <strong>{email}</strong>. Click the link to verify your account.
-            </p>
+            <>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '0.65rem' }}>
+                We&apos;ve sent a verification link to <strong>{email}</strong>. Click the link to verify your account.
+              </p>
+              <p style={{ color: '#f59e0b', marginBottom: '1.5rem' }}>
+                <strong>Please check your Spam/Junk folder as well.</strong>
+              </p>
+            </>
           ) : (
             <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
               We could not send mail to <strong>{email}</strong>. Ask your administrator to set{' '}

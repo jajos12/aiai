@@ -88,6 +88,25 @@ export default function LoginPage() {
           Secure sign-in is powered by Auth.js.
         </p>
 
+        <button
+          type='button'
+          onClick={() => signIn('google', { callbackUrl: '/' })}
+          style={{
+            width: '100%',
+            padding: '0.65rem',
+            background: 'var(--bg-primary)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--text-primary)',
+            fontSize: '0.95rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            marginBottom: '1rem',
+          }}
+        >
+          Continue with Google
+        </button>
+
         {error && (
           <div
             style={{

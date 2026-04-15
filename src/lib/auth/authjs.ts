@@ -1,5 +1,6 @@
 import { type NextAuthOptions } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import Google from 'next-auth/providers/google';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { createUser, getUserByEmail, markUserVerifiedByEmail } from '@/lib/db/users';
@@ -11,62 +12,74 @@ const credentialsSchema = z.object({
   password: z.string().min(1),
 });
 
-export const authOptions: NextAuthOptions = {
-  providers: [
-    Credentials({
-      name: 'Email and Password',
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
-      },
-      async authorize(rawCredentials) {
-        const parsed = credentialsSchema.safeParse(rawCredentials);
-        if (!parsed.success) return null;
+function ensureLocalUser(email: string, name?: string | null) {
+  let user = getUserByEmail(email);
+  if (!user) {
+    const placeholderHash = `oauth:${crypto.randomBytes(24).toString('hex')}`;
+    user = createUser(email, placeholderHash, name?.trim() || email.split('@')[0] || 'User', undefined);
+  }
+  if (Number(user.is_verified) !== 1) {
+    markUserVerifiedByEmail(user.email);
+    user = getUserByEmail(user.email) ?? user;
+  }
+  return user;
+}
 
-        const { email, password } = parsed.data;
-        let signInResult;
-        try {
-          signInResult = await firebaseSignInWithPassword(email, password);
-        } catch {
-          return null;
-        }
+const providers = [
+  Credentials({
+    name: 'Email and Password',
+    credentials: {
+      email: { label: 'Email', type: 'email' },
+      password: { label: 'Password', type: 'password' },
+    },
+    async authorize(rawCredentials) {
+      const parsed = credentialsSchema.safeParse(rawCredentials);
+      if (!parsed.success) return null;
 
-        const firebaseUser = await firebaseLookupByIdToken(signInResult.idToken);
-        if (!firebaseUser || !firebaseUser.email || firebaseUser.emailVerified !== true) {
-          return null;
-        }
+      const { email, password } = parsed.data;
+      let signInResult;
+      try {
+        signInResult = await firebaseSignInWithPassword(email, password);
+      } catch {
+        return null;
+      }
 
-        let user = getUserByEmail(firebaseUser.email);
-        if (!user) {
-          const placeholderHash = `firebase:${crypto.randomBytes(24).toString('hex')}`;
-          user = createUser(
-            firebaseUser.email,
-            placeholderHash,
-            firebaseUser.displayName?.trim() || email.split('@')[0] || 'User',
-            undefined,
-          );
-        }
+      const firebaseUser = await firebaseLookupByIdToken(signInResult.idToken);
+      if (!firebaseUser || !firebaseUser.email || firebaseUser.emailVerified !== true) {
+        return null;
+      }
 
-        if (Number(user.is_verified) !== 1) {
-          markUserVerifiedByEmail(user.email);
-          user = getUserByEmail(user.email) ?? user;
-        }
+      const user = ensureLocalUser(firebaseUser.email, firebaseUser.displayName);
 
-        return {
-          id: String(user.id),
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        };
-      },
+      return {
+        id: String(user.id),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      };
+    },
+  }),
+];
+
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
-  ],
+  );
+}
+
+export const authOptions: NextAuthOptions = {
+  providers,
   session: { strategy: 'jwt' },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
-        token.userId = Number(user.id);
-        token.role = (user as { role?: string }).role ?? 'user';
+      if (user?.email) {
+        const localUser = ensureLocalUser(user.email, user.name);
+        token.userId = Number(localUser.id);
+        token.role = localUser.role ?? 'user';
+        token.name = localUser.name;
       }
       return token;
     },
