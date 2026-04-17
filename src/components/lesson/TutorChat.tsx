@@ -1,10 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { ExplainLevel } from '@/types/tutor';
 import type { LearnerProfile } from '@/types/progress';
 import { useTutorChat } from '@/hooks/useTutorChat';
+
+const WIDTH_STORAGE_KEY = 'aiai_tutor_chat_width';
+const MIN_WIDTH = 280;
+const MAX_WIDTH = 640;
+const DEFAULT_WIDTH = 360;
 
 const QUICK_ACTIONS = [
   'Explain this step simply',
@@ -12,6 +17,19 @@ const QUICK_ACTIONS = [
   'Why does this matter?',
   'Connect this to what I learned before',
 ];
+
+function readStoredWidth(): number {
+  if (typeof window === 'undefined') return DEFAULT_WIDTH;
+  try {
+    const raw = sessionStorage.getItem(WIDTH_STORAGE_KEY);
+    if (!raw) return DEFAULT_WIDTH;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return DEFAULT_WIDTH;
+    return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(n)));
+  } catch {
+    return DEFAULT_WIDTH;
+  }
+}
 
 interface TutorChatProps {
   open: boolean;
@@ -33,8 +51,11 @@ export function TutorChat({
   learnerProfile,
 }: TutorChatProps) {
   const [input, setInput] = useState('');
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH);
+  const panelWidthRef = useRef(DEFAULT_WIDTH);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const dragRef = useRef<{ startX: number; startW: number } | null>(null);
 
   const { messages, isStreaming, error, sendMessage, clearError } = useTutorChat({
     moduleId,
@@ -45,7 +66,14 @@ export function TutorChat({
   });
 
   useEffect(() => {
+    panelWidthRef.current = panelWidth;
+  }, [panelWidth]);
+
+  useEffect(() => {
     if (open) {
+      const w = readStoredWidth();
+      panelWidthRef.current = w;
+      setPanelWidth(w);
       setTimeout(() => inputRef.current?.focus(), 200);
     }
   }, [open]);
@@ -53,6 +81,40 @@ export function TutorChat({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const delta = drag.startX - e.clientX;
+      const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, drag.startW + delta));
+      panelWidthRef.current = next;
+      setPanelWidth(next);
+    };
+    const onUp = () => {
+      if (!dragRef.current) return;
+      dragRef.current = null;
+      try {
+        sessionStorage.setItem(WIDTH_STORAGE_KEY, String(panelWidthRef.current));
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, []);
+
+  const onResizePointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    dragRef.current = { startX: e.clientX, startW: panelWidthRef.current };
+  }, []);
 
   function handleSend() {
     const text = input.trim();
@@ -81,8 +143,8 @@ export function TutorChat({
             top: 'var(--topnav-height)',
             right: 0,
             bottom: 0,
-            width: '360px',
-            maxWidth: '92vw',
+            width: panelWidth,
+            maxWidth: '96vw',
             background: 'var(--bg-surface)',
             borderLeft: '1px solid var(--border-subtle)',
             display: 'flex',
@@ -91,7 +153,23 @@ export function TutorChat({
             boxShadow: '-8px 0 32px rgba(0,0,0,0.3)',
           }}
         >
-          {/* Header */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize AI tutor panel"
+            onPointerDown={onResizePointerDown}
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 8,
+              cursor: 'ew-resize',
+              zIndex: 2,
+              touchAction: 'none',
+            }}
+          />
+
           <div
             style={{
               display: 'flex',
@@ -101,15 +179,24 @@ export function TutorChat({
               borderBottom: '1px solid var(--border-subtle)',
               background: 'var(--bg-elevated)',
               flexShrink: 0,
+              paddingLeft: '0.75rem',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
               <span style={{ fontSize: '1rem' }}>🤖</span>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                   AI Tutor
                 </div>
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                <div
+                  style={{
+                    fontSize: '0.68rem',
+                    color: 'var(--text-muted)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
                   {moduleTitle}
                 </div>
               </div>
@@ -124,6 +211,7 @@ export function TutorChat({
                 fontSize: '1.1rem',
                 padding: '0.25rem',
                 lineHeight: 1,
+                flexShrink: 0,
               }}
               aria-label="Close AI Tutor"
             >
@@ -131,7 +219,6 @@ export function TutorChat({
             </button>
           </div>
 
-          {/* Messages */}
           <div
             style={{
               flex: 1,
@@ -155,6 +242,9 @@ export function TutorChat({
                 <div style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>🎓</div>
                 <p style={{ margin: 0 }}>
                   Ask me anything about this step. I know the context of the current lesson.
+                </p>
+                <p style={{ margin: '0.75rem 0 0', fontSize: '0.72rem', opacity: 0.85 }}>
+                  Drag the left edge to widen or narrow this panel.
                 </p>
               </div>
             )}
@@ -212,7 +302,6 @@ export function TutorChat({
             <div ref={bottomRef} />
           </div>
 
-          {/* Quick actions (only when empty) */}
           {messages.length === 0 && (
             <div
               style={{
@@ -245,7 +334,6 @@ export function TutorChat({
             </div>
           )}
 
-          {/* Error */}
           {error && (
             <div
               style={{
@@ -272,7 +360,6 @@ export function TutorChat({
             </div>
           )}
 
-          {/* Input */}
           <div
             style={{
               padding: '0.75rem 1rem',

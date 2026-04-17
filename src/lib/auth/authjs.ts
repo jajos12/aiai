@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { createUser, getUserByEmail, getUserById, markUserVerifiedByEmail } from '@/lib/db/users';
 import { getAuthSecret } from '@/lib/auth/config';
+import { effectiveSessionRole } from '@/lib/auth/adminEnv';
 import { firebaseLookupByIdToken, firebaseSignInWithPassword } from '@/lib/auth/firebaseAuth';
 
 const credentialsSchema = z.object({
@@ -55,7 +56,7 @@ const providers: NonNullable<NextAuthOptions['providers']> = [
         id: String(user.id),
         email: user.email,
         name: user.name,
-        role: user.role,
+        role: effectiveSessionRole(user.email, user.role ?? 'user'),
       };
     },
   }),
@@ -78,14 +79,16 @@ export const authOptions: NextAuthOptions = {
       if (user?.email) {
         const localUser = ensureLocalUser(user.email, user.name);
         token.userId = Number(localUser.id);
-        token.role = localUser.role ?? 'user';
+        token.email = localUser.email;
+        token.role = effectiveSessionRole(localUser.email, localUser.role ?? 'user');
         token.name = localUser.name;
       } else if (token.userId != null) {
         const uid = Number(token.userId);
         if (Number.isInteger(uid) && uid > 0) {
           const dbUser = getUserById(uid);
           if (dbUser) {
-            token.role = dbUser.role ?? 'user';
+            token.email = dbUser.email;
+            token.role = effectiveSessionRole(dbUser.email, dbUser.role ?? 'user');
             token.name = dbUser.name;
           }
         }
@@ -96,6 +99,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = String(token.userId ?? token.sub ?? '');
         session.user.role = String(token.role ?? 'user');
+        if (token.email) session.user.email = String(token.email);
       }
       return session;
     },

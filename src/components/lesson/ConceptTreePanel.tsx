@@ -640,16 +640,20 @@ type ConceptTreeViewportApi = {
   setViewport: (viewport: { x: number; y: number; zoom: number }, options?: { duration?: number }) => void;
 };
 
-/** Mounts a fresh React Flow instance when `key` (flowSyncSignature) changes — avoids setState sync loops. */
+/** React Flow canvas; remounted per `moduleId` so switching modules resets viewport cleanly. */
 function ConceptTreeFlowCanvas({
   nodes: initialNodes,
   edges: initialEdges,
   onNodeClick,
+  onNodeDoubleClick,
+  onPaneClick,
   viewportApiRef,
 }: {
   nodes: Node[];
   edges: Edge[];
   onNodeClick: (e: React.MouseEvent, node: Node) => void;
+  onNodeDoubleClick: (e: React.MouseEvent, node: Node) => void;
+  onPaneClick: () => void;
   viewportApiRef: MutableRefObject<ConceptTreeViewportApi | null>;
 }) {
   const rf = useReactFlow();
@@ -679,6 +683,8 @@ function ConceptTreeFlowCanvas({
       nodes={initialNodes}
       edges={initialEdges}
       onNodeClick={onNodeClick}
+      onNodeDoubleClick={onNodeDoubleClick}
+      onPaneClick={onPaneClick}
       nodeTypes={nodeTypes}
       minZoom={0.15}
       maxZoom={3}
@@ -776,13 +782,6 @@ function TreeContent({
     setExpandedNodeIdSet((prev) => (setsEqual(prev, nextSet) ? prev : nextSet));
   }, [treeNodes, expandedNodeIds]);
 
-  useEffect(() => {
-    if (!onExpandedChange) return;
-    const propSet = new Set(expandedNodeIds ?? []);
-    if (setsEqual(expandedNodeIdSet, propSet)) return;
-    onExpandedChange([...expandedNodeIdSet].sort((a, b) => a.localeCompare(b)));
-  }, [expandedNodeIdSet, expandedNodeIds, onExpandedChange]);
-
   const stats = useMemo(() => {
     const total = treeNodes && treeNodes.length > 0 ? countAllNodes(treeNodes[0]) : 0;
     const completed = doneIds.size;
@@ -825,22 +824,6 @@ function TreeContent({
     })) ?? [];
   }, [allNodes, focusedNodeId, hiddenNodeIds]);
 
-  const flowSyncSignature = useMemo(() => {
-    const round = (v: number) => Math.round(v * 1000) / 1000;
-    const vn = visibleNodes
-      .map((n) => ({
-        id: n.id,
-        x: round(n.position.x),
-        y: round(n.position.y),
-        dim: Boolean((n.data as TreeNodeData).isDimmed),
-      }))
-      .sort((a, b) => a.id.localeCompare(b.id));
-    const e = (allNodes?.edges ?? [])
-      .map((edge) => ({ id: edge.id, s: edge.source, t: edge.target }))
-      .sort((a, b) => a.id.localeCompare(b.id));
-    return JSON.stringify({ vn, e });
-  }, [visibleNodes, allNodes]);
-
   const handleResetView = useCallback(() => {
     viewportApiRef.current?.setViewport({ x: 0, y: 0, zoom: 0.5 }, { duration: 400 });
   }, []);
@@ -868,14 +851,21 @@ function TreeContent({
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     const nodeData = node.data as TreeNodeData;
     setSelectedNode(nodeData.node);
-    if (nodeData.hasChildren) {
-      setExpandedNodeIdSet((prev) => {
-        const next = new Set(prev);
-        if (next.has(node.id)) next.delete(node.id);
-        else next.add(node.id);
-        return next;
-      });
-    }
+  }, []);
+
+  const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node) => {
+    const nodeData = node.data as TreeNodeData;
+    if (!nodeData.hasChildren) return;
+    setExpandedNodeIdSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(node.id)) next.delete(node.id);
+      else next.add(node.id);
+      return next;
+    });
+  }, []);
+
+  const onPaneClick = useCallback(() => {
+    setSelectedNode(null);
   }, []);
 
   useEffect(() => {
@@ -951,8 +941,11 @@ function TreeContent({
           gap: '0.5rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{ fontSize: '0.75rem', color: '#818cf8', fontWeight: 700 }}>Knowledge tree</div>
+          <span style={{ fontSize: '0.62rem', color: '#64748b', maxWidth: '14rem', lineHeight: 1.35 }}>
+            Click a node for details · double-click to expand/collapse a branch
+          </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <div style={{ width: 80, height: 6, background: 'rgba(99,102,241,0.2)', borderRadius: 3, overflow: 'hidden' }}>
               <div style={{ width: `${progressPercent}%`, height: '100%', background: '#818cf8', transition: 'width 0.3s' }} />
@@ -1064,10 +1057,12 @@ function TreeContent({
         }}
       >
         <ConceptTreeFlowCanvas
-          key={flowSyncSignature}
+          key={moduleId}
           nodes={visibleNodes}
           edges={allNodes.edges ?? []}
           onNodeClick={onNodeClick}
+          onNodeDoubleClick={onNodeDoubleClick}
+          onPaneClick={onPaneClick}
           viewportApiRef={viewportApiRef}
         />
       </div>

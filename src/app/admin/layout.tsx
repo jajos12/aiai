@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import AdminLayout from '@/components/admin/layout/AdminLayout';
 import { authOptions } from '@/lib/auth/authjs';
 import { getUserById } from '@/lib/db/users';
+import { hasAdminAccess } from '@/lib/auth/adminEnv';
 
 export default async function AdminLayoutWrapper({
   children,
@@ -16,7 +17,7 @@ export default async function AdminLayoutWrapper({
   }
 
   const user = getUserById(userId);
-  if (!user || user.role !== 'admin') {
+  if (!user || !hasAdminAccess(user.email, user.role)) {
     redirect('/');
   }
 
