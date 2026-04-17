@@ -27,6 +27,11 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
     try {
       const res = await fetch('/api/auth/me', { credentials: 'include' });
       if (!res.ok) {
+        try {
+          localStorage.removeItem('user');
+        } catch {
+          /* ignore */
+        }
         setUser(null);
         return;
       }

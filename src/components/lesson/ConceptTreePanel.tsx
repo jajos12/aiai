@@ -884,15 +884,19 @@ function TreeContent({
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      // Node chat modal: never change map selection / tutor context from keys here.
+      if (target?.closest('[aria-label="Node chat"]')) return;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+
+      if (e.key === 'PageDown' || e.key === 'PageUp' || e.key === 'Home' || e.key === 'End') return;
+
       const isArrow =
         e.key === 'ArrowRight' ||
         e.key === 'ArrowDown' ||
         e.key === 'ArrowLeft' ||
         e.key === 'ArrowUp';
       if (!isArrow) return;
-
-      const target = e.target as HTMLElement | null;
-      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
 
       if (!selectedNode) return;
 
