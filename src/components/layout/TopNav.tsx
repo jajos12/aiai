@@ -157,9 +157,10 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
             >
               Hi, {user.name.split(' ')[0] || 'Learner'}
             </span>
-            {user.role === 'admin' && (
+            {(user.role ?? '').toLowerCase() === 'admin' && (
               <Link
                 href='/admin'
+                prefetch={false}
                 style={{
                   padding: '0.375rem 0.75rem',
                   background: 'var(--accent)',

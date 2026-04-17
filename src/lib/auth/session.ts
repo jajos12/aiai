@@ -3,6 +3,15 @@ import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { db } from '../db/database';
 import { getAuthSecret } from './config';
+import { getUserByEmail } from '@/lib/db/users';
+
+function parsePositiveUserId(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isInteger(raw) && raw > 0) return raw;
+  if (raw == null) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 /** Auth.js session validator (JWT strategy). */
 export async function validateRequestSession(request: NextRequest): Promise<number | null> {
   try {
@@ -12,9 +21,15 @@ export async function validateRequestSession(request: NextRequest): Promise<numb
     });
     if (!token) return null;
 
-    const userIdRaw = token.userId ?? token.sub;
-    const userId = typeof userIdRaw === 'number' ? userIdRaw : Number(userIdRaw);
-    return Number.isInteger(userId) && userId > 0 ? userId : null;
+    const fromToken = parsePositiveUserId(token.userId);
+    if (fromToken != null) return fromToken;
+
+    const email = typeof token.email === 'string' ? token.email : null;
+    if (email) {
+      const user = getUserByEmail(email);
+      if (user) return Number(user.id);
+    }
+    return null;
   } catch {
     return null;
   }

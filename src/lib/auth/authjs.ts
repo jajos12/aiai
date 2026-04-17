@@ -82,7 +82,7 @@ export const authOptions: NextAuthOptions = {
         token.email = localUser.email;
         token.role = effectiveSessionRole(localUser.email, localUser.role ?? 'user');
         token.name = localUser.name;
-      } else if (token.userId != null) {
+      } else {
         const uid = Number(token.userId);
         if (Number.isInteger(uid) && uid > 0) {
           const dbUser = getUserById(uid);
@@ -91,13 +91,22 @@ export const authOptions: NextAuthOptions = {
             token.role = effectiveSessionRole(dbUser.email, dbUser.role ?? 'user');
             token.name = dbUser.name;
           }
+        } else if (typeof token.email === 'string' && token.email) {
+          const localUser = getUserByEmail(token.email);
+          if (localUser) {
+            token.userId = Number(localUser.id);
+            token.role = effectiveSessionRole(localUser.email, localUser.role ?? 'user');
+            token.name = localUser.name;
+          }
         }
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = String(token.userId ?? token.sub ?? '');
+        const uid = Number(token.userId);
+        session.user.id =
+          Number.isInteger(uid) && uid > 0 ? String(uid) : '';
         session.user.role = String(token.role ?? 'user');
         if (token.email) session.user.email = String(token.email);
       }

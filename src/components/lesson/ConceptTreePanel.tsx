@@ -870,22 +870,31 @@ function TreeContent({
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      const isArrow =
+        e.key === 'ArrowRight' ||
+        e.key === 'ArrowDown' ||
+        e.key === 'ArrowLeft' ||
+        e.key === 'ArrowUp';
+      if (!isArrow) return;
+
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+
       if (!selectedNode) return;
-      
-      const currentNodeIds = visibleNodes.map(n => n.id);
+
+      const currentNodeIds = visibleNodes.map((n) => n.id);
       const currentIdx = currentNodeIds.indexOf(selectedNode.id);
-      
+      if (currentIdx < 0 || currentNodeIds.length === 0) return;
+
       let nextIdx = currentIdx;
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         nextIdx = (currentIdx + 1) % currentNodeIds.length;
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        nextIdx = (currentIdx - 1 + currentNodeIds.length) % currentNodeIds.length;
       } else {
-        return;
+        nextIdx = (currentIdx - 1 + currentNodeIds.length) % currentNodeIds.length;
       }
-      
+
       const nextNodeId = currentNodeIds[nextIdx];
-      const nextNodeData = visibleNodes.find(n => n.id === nextNodeId)?.data as TreeNodeData | undefined;
+      const nextNodeData = visibleNodes.find((n) => n.id === nextNodeId)?.data as TreeNodeData | undefined;
       if (nextNodeData) {
         setSelectedNode(nextNodeData.node);
       }
