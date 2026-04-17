@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useProgress } from '@/hooks/useProgress';
 
@@ -21,19 +22,43 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const { isLoaded } = useProgress();
 
-  useEffect(() => {
-    const stored = localStorage.getItem('user');
-    if (stored) {
-      setUser(JSON.parse(stored));
+  const syncUserFromSession = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!res.ok) {
+        setUser(null);
+        return;
+      }
+      const data = (await res.json()) as { user?: User };
+      if (data.user) {
+        setUser(data.user);
+        try {
+          localStorage.setItem('user', JSON.stringify(data.user));
+        } catch {
+          /* ignore */
+        }
+      } else {
+        setUser(null);
+      }
+    } catch {
+      setUser(null);
     }
   }, []);
 
+  useEffect(() => {
+    void syncUserFromSession();
+  }, [pathname, syncUserFromSession]);
+
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    localStorage.removeItem('user');
-    router.push('/login');
+    try {
+      localStorage.removeItem('user');
+    } catch {
+      /* ignore */
+    }
+    setUser(null);
+    await signOut({ callbackUrl: '/' });
+    router.refresh();
   };
 
   const excludeNav = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify', '/admin'];
@@ -100,21 +125,23 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
           gap: '0.75rem',
         }}
       >
-        <Link
-          href='/dashboard'
-          style={{
-            padding: '0.375rem 0.75rem',
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)',
-            color: 'var(--text-primary)',
-            textDecoration: 'none',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-          }}
-        >
-          Dashboard
-        </Link>
+        {user ? (
+          <Link
+            href='/dashboard'
+            style={{
+              padding: '0.375rem 0.75rem',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-primary)',
+              textDecoration: 'none',
+              fontSize: '0.875rem',
+              fontWeight: 500,
+            }}
+          >
+            Dashboard
+          </Link>
+        ) : null}
         <StreakDisplay />
         {user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

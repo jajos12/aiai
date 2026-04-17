@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Footer } from '@/components/layout/Footer';
 import { TierCard } from '@/components/dashboard/TierCard';
@@ -75,16 +75,27 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle?: string })
 export default function PersonalizedDashboardPage() {
   const router = useRouter();
   const { progress, isLoaded, stats } = useProgress();
-  const [user] = useState<StoredUser | null>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const stored = localStorage.getItem('user');
-      if (!stored) return null;
-      return JSON.parse(stored) as StoredUser;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState<StoredUser | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { user?: { name?: string; email?: string } };
+        if (cancelled) return;
+        if (data.user) {
+          setUser({ name: data.user.name, email: data.user.email });
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const tiers = getTierSummaries(isLoaded ? progress : undefined);
   const nextRecommendation = isLoaded ? recommendNextModule(progress) : null;
   const firstName = user?.name?.trim().split(/\s+/)[0] ?? 'Learner';

@@ -12,18 +12,6 @@ interface User {
   created_at: string;
 }
 
-function readCurrentUserId(): number | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem('user');
-    if (!raw) return null;
-    const u = JSON.parse(raw) as { id?: number };
-    return typeof u.id === 'number' ? u.id : null;
-  } catch {
-    return null;
-  }
-}
-
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +19,27 @@ export default function UsersPage() {
   const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'user'>('all');
   const [banner, setBanner] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { user?: { id?: number } };
+        if (cancelled) return;
+        const id = data.user?.id;
+        if (typeof id === 'number' && Number.isInteger(id)) {
+          setCurrentUserId(id);
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     setBanner(null);
@@ -54,8 +63,7 @@ export default function UsersPage() {
   }, []);
 
   useEffect(() => {
-    setCurrentUserId(readCurrentUserId());
-    fetchUsers();
+    void fetchUsers();
   }, [fetchUsers]);
 
   const handleRoleChange = async (userId: number, newRole: string) => {

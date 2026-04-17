@@ -3,7 +3,7 @@ import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import crypto from 'crypto';
 import { z } from 'zod';
-import { createUser, getUserByEmail, markUserVerifiedByEmail } from '@/lib/db/users';
+import { createUser, getUserByEmail, getUserById, markUserVerifiedByEmail } from '@/lib/db/users';
 import { getAuthSecret } from '@/lib/auth/config';
 import { firebaseLookupByIdToken, firebaseSignInWithPassword } from '@/lib/auth/firebaseAuth';
 
@@ -80,6 +80,15 @@ export const authOptions: NextAuthOptions = {
         token.userId = Number(localUser.id);
         token.role = localUser.role ?? 'user';
         token.name = localUser.name;
+      } else if (token.userId != null) {
+        const uid = Number(token.userId);
+        if (Number.isInteger(uid) && uid > 0) {
+          const dbUser = getUserById(uid);
+          if (dbUser) {
+            token.role = dbUser.role ?? 'user';
+            token.name = dbUser.name;
+          }
+        }
       }
       return token;
     },

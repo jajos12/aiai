@@ -1,12 +1,23 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 
-export default function LoginPage() {
+function safeCallbackPath(raw: string | null): string {
+  const fallback = '/';
+  if (!raw || typeof raw !== 'string') return fallback;
+  if (!raw.startsWith('/') || raw.startsWith('//')) return fallback;
+  if (raw.startsWith('/login') || raw.startsWith('/signup')) return fallback;
+  return raw;
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const postAuthPath = safeCallbackPath(searchParams.get('callbackUrl'));
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -34,9 +45,14 @@ export default function LoginPage() {
         return;
       }
       const me = await meRes.json();
-      localStorage.setItem('user', JSON.stringify(me.user));
+      try {
+        localStorage.setItem('user', JSON.stringify(me.user));
+      } catch {
+        /* ignore */
+      }
 
-      router.push('/');
+      router.refresh();
+      router.push(postAuthPath);
     } catch {
       setError('An error occurred. Please try again.');
     } finally {
@@ -90,7 +106,7 @@ export default function LoginPage() {
 
         <button
           type='button'
-          onClick={() => signIn('google', { callbackUrl: '/' })}
+          onClick={() => signIn('google', { callbackUrl: postAuthPath })}
           style={{
             width: '100%',
             padding: '0.65rem',
@@ -234,5 +250,28 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'var(--bg-primary)',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          Loading…
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
