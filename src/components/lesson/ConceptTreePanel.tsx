@@ -824,6 +824,20 @@ function TreeContent({
     })) ?? [];
   }, [allNodes, focusedNodeId, hiddenNodeIds]);
 
+  /** React Flow only applies initial `nodes` on mount; remount when tree shape changes (e.g. AI lesson map). */
+  const reactFlowMountKey = useMemo(() => {
+    let total = 0;
+    const childCounts: number[] = [];
+    const walk = (n: ConceptTreeNode) => {
+      total++;
+      const kids = n.children ?? [];
+      childCounts.push(kids.length);
+      for (const ch of kids) walk(ch);
+    };
+    for (const root of treeNodes) walk(root);
+    return `${moduleId}:${total}:${childCounts.join('.')}`;
+  }, [moduleId, treeNodes]);
+
   const handleResetView = useCallback(() => {
     viewportApiRef.current?.setViewport({ x: 0, y: 0, zoom: 0.5 }, { duration: 400 });
   }, []);
@@ -1066,7 +1080,7 @@ function TreeContent({
         }}
       >
         <ConceptTreeFlowCanvas
-          key={moduleId}
+          key={reactFlowMountKey}
           nodes={visibleNodes}
           edges={allNodes.edges ?? []}
           onNodeClick={onNodeClick}

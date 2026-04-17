@@ -142,11 +142,14 @@ export async function generateLessonMapInsights(
 
     const parsed = parseLessonMapBatch(text);
     for (const item of parsed) {
+      const concepts = Array.isArray(item.concepts)
+        ? item.concepts.slice(0, 5).map((c) => String(c).slice(0, 40))
+        : [];
       result[item.stepId] = {
         stepId: item.stepId,
         insight: item.insight.slice(0, 400),
-        concepts: item.concepts.slice(0, 5).map((c) => String(c).slice(0, 40)),
-        summary: item.summary?.slice(0, 200),
+        concepts,
+        summary: typeof item.summary === 'string' ? item.summary.slice(0, 200) : undefined,
       };
     }
 

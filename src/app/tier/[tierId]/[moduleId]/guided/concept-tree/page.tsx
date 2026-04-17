@@ -20,9 +20,10 @@ function applyInsightsToTree(
 
     if (!ins) return { ...node, children: enrichedChildren };
 
+    const conceptList = Array.isArray(ins.concepts) ? ins.concepts : [];
     const aiConceptChildren: ConceptTreeNode[] =
-      ins.concepts.length > 0
-        ? ins.concepts.map((concept) => ({
+      conceptList.length > 0
+        ? conceptList.map((concept) => ({
             id: conceptNodeId(node.id, concept),
             title: concept,
             summary: `Key concept in "${node.title}". Click for details.`,
@@ -38,7 +39,7 @@ function applyInsightsToTree(
       ...node,
       insight: ins.insight || node.insight,
       summary: ins.summary || node.summary,
-      children: ins.concepts.length > 0 ? aiConceptChildren : enrichedChildren,
+      children: conceptList.length > 0 ? aiConceptChildren : enrichedChildren,
     };
   });
 }

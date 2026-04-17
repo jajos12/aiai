@@ -26,7 +26,7 @@ export function isEnvListedAdmin(email: string | null | undefined): boolean {
 export function hasAdminAccess(email: string | null | undefined, dbRole: string | null | undefined): boolean {
   const list = parseAdminEmailList();
   if (list.length > 0) return isEnvListedAdmin(email);
-  return (dbRole ?? 'user') === 'admin';
+  return (dbRole ?? 'user').trim().toLowerCase() === 'admin';
 }
 
 /** Role string stored on the JWT / session (`admin` | `user`). */

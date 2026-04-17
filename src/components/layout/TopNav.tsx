@@ -158,9 +158,12 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
               Hi, {user.name.split(' ')[0] || 'Learner'}
             </span>
             {(user.role ?? '').toLowerCase() === 'admin' && (
-              <Link
+              <a
                 href='/admin'
-                prefetch={false}
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.assign('/admin');
+                }}
                 style={{
                   padding: '0.375rem 0.75rem',
                   background: 'var(--accent)',
@@ -169,10 +172,11 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
                   textDecoration: 'none',
                   fontSize: '0.875rem',
                   fontWeight: 600,
+                  display: 'inline-block',
                 }}
               >
                 Admin
-              </Link>
+              </a>
             )}
             <button
               onClick={handleLogout}
