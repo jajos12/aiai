@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
+import MediaLibraryPicker from '../shared/MediaLibraryPicker';
 
 interface Video {
   url: string;
@@ -19,6 +20,7 @@ export default function VideoUploader({ video, onChange }: VideoUploaderProps) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [urlInput, setUrlInput] = useState('');
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const uploadToCloudinary = useCallback(async (file: File) => {
     setUploading(true);
@@ -131,6 +133,12 @@ export default function VideoUploader({ video, onChange }: VideoUploaderProps) {
       if (match) {
         processedUrl = `https://player.vimeo.com/video/${match[1]}`;
       }
+    } else if (url.includes('loom.com')) {
+      provider = 'loom';
+      const share = url.match(/loom\.com\/(?:share|embed)\/([a-zA-Z0-9-]+)/);
+      if (share) {
+        processedUrl = `https://www.loom.com/embed/${share[1]}`;
+      }
     }
 
     onChange({ url: processedUrl, provider });
@@ -149,7 +157,7 @@ export default function VideoUploader({ video, onChange }: VideoUploaderProps) {
       {video ? (
         <div className="space-y-4">
           <div className="relative rounded-lg overflow-hidden" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
-            {video.provider === 'youtube' || video.provider === 'vimeo' ? (
+            {video.provider === 'youtube' || video.provider === 'vimeo' || video.provider === 'loom' ? (
               <div className="aspect-video">
                 <iframe
                   src={video.url}
@@ -169,7 +177,15 @@ export default function VideoUploader({ video, onChange }: VideoUploaderProps) {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              {video.provider === 'youtube' ? 'YouTube' : video.provider === 'vimeo' ? 'Vimeo' : video.provider === 'cloudinary' ? 'Cloudinary' : 'Direct URL'}
+              {video.provider === 'youtube'
+                ? 'YouTube'
+                : video.provider === 'vimeo'
+                  ? 'Vimeo'
+                  : video.provider === 'loom'
+                    ? 'Loom'
+                    : video.provider === 'cloudinary'
+                      ? 'Cloudinary'
+                      : 'Direct URL'}
             </span>
             <button
               onClick={removeVideo}
@@ -181,6 +197,24 @@ export default function VideoUploader({ video, onChange }: VideoUploaderProps) {
         </div>
       ) : (
         <>
+          {libraryOpen && (
+            <MediaLibraryPicker
+              mediaType="video"
+              onPick={(item) => {
+                onChange({ url: item.url, provider: 'cloudinary', assetId: item.publicId });
+                setLibraryOpen(false);
+              }}
+              onClose={() => setLibraryOpen(false)}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setLibraryOpen(true)}
+            className="w-full py-2 px-3 rounded-lg text-sm font-medium mb-3"
+            style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+          >
+            Choose from media library
+          </button>
           <div
             {...getRootProps()}
             className="p-8 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors"
@@ -239,7 +273,7 @@ export default function VideoUploader({ video, onChange }: VideoUploaderProps) {
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
-              placeholder="Paste YouTube, Vimeo, or direct video URL"
+              placeholder="Paste YouTube, Vimeo, Loom, or direct video URL"
               className="flex-1 p-3 rounded-lg outline-none"
               style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
             />

@@ -170,8 +170,8 @@ export default function UsersPage() {
         </div>
       )}
 
-      <div className="flex gap-4 items-center">
-        <div className="flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1">
           <input
             type="text"
             value={searchQuery}
@@ -184,7 +184,7 @@ export default function UsersPage() {
         <select
           value={filterRole}
           onChange={(e) => setFilterRole(e.target.value as 'all' | 'admin' | 'user')}
-          className="p-3 rounded-lg outline-none"
+          className="w-full shrink-0 rounded-lg p-3 outline-none sm:w-auto"
           style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
         >
           <option value="all">All Roles</option>
@@ -193,8 +193,8 @@ export default function UsersPage() {
         </select>
       </div>
 
-      <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-        <table className="w-full">
+      <div className="overflow-x-auto rounded-lg" style={{ border: '1px solid var(--border-subtle)' }}>
+        <table className="w-full min-w-[640px]">
           <thead>
             <tr style={{ background: 'var(--bg-surface)' }}>
               <th className="px-4 py-3 text-left text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>User</th>

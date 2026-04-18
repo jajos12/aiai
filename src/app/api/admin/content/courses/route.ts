@@ -7,6 +7,12 @@ const courseSchema = z.object({
   courseId: z.string().min(1),
   title: z.string().min(1),
   description: z.string().optional(),
+  subtitle: z.string().optional(),
+  learningOutcomes: z.array(z.string()).optional(),
+  audienceText: z.string().optional(),
+  prerequisitesText: z.string().optional(),
+  coverImageUrl: z.string().optional(),
+  introVideoUrl: z.string().optional(),
   status: z.enum(['draft', 'published']).optional(),
   sortOrder: z.number().optional(),
   sections: z

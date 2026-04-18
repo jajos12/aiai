@@ -52,6 +52,8 @@ interface TreeNodeData {
   isExpanded: boolean;
   /** Set when filtering/focus dims non-matching nodes */
   isDimmed?: boolean;
+  /** Toggle expand/collapse for this branch (chevron control) */
+  onToggleBranch?: (nodeId: string) => void;
 }
 
 function CustomTreeNode({
@@ -93,9 +95,30 @@ function CustomTreeNode({
           {data.label}
         </span>
         {data.hasChildren && (
-          <span style={{ fontSize: '0.65rem', color: isDimmed ? '#64748b' : '#a5b4fc', fontWeight: 700 }}>
+          <button
+            type="button"
+            className="nodrag nopan"
+            title={data.isExpanded ? 'Collapse branch' : 'Expand branch'}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              data.onToggleBranch?.(data.node.id);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              fontSize: '0.65rem',
+              color: isDimmed ? '#64748b' : '#a5b4fc',
+              fontWeight: 700,
+              border: 'none',
+              background: 'rgba(99,102,241,0.15)',
+              borderRadius: '4px',
+              padding: '0 0.2rem',
+              cursor: 'pointer',
+              lineHeight: 1.2,
+            }}
+          >
             {data.isExpanded ? '▼' : '▶'}
-          </span>
+          </button>
         )}
         {isDone && (
           <span style={{ fontSize: '0.6rem', color: '#22c55e', fontWeight: 700 }}>✓</span>
@@ -635,6 +658,16 @@ function setsEqual(a: Set<string>, b: Set<string>): boolean {
   return true;
 }
 
+function collectTreeNodeIds(tree: ConceptTreeNode[]): Set<string> {
+  const ids = new Set<string>();
+  const walk = (n: ConceptTreeNode) => {
+    ids.add(n.id);
+    for (const ch of n.children ?? []) walk(ch);
+  };
+  for (const root of tree) walk(root);
+  return ids;
+}
+
 /** Exposed to toolbar without subscribing TreeContent to the React Flow store (avoids update-depth loops). */
 type ConceptTreeViewportApi = {
   setViewport: (viewport: { x: number; y: number; zoom: number }, options?: { duration?: number }) => void;
@@ -758,6 +791,7 @@ function TreeContent({
   const [focusMode, setFocusMode] = useState(false);
   const [expandedNodeIdSet, setExpandedNodeIdSet] = useState<Set<string>>(new Set<string>());
   const viewportApiRef = useRef<ConceptTreeViewportApi | null>(null);
+  const nodeClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const completedIdsKey = useMemo(() => {
     if (!completedNodeIds || completedNodeIds.size === 0) return '';
@@ -773,14 +807,37 @@ function TreeContent({
     return buildRadialTree(treeNodes, doneIds, conceptConfidence, expandedNodeIdSet);
   }, [treeNodes, doneIds, conceptConfidence, expandedNodeIdSet]);
 
+  const expandedIdsKey = useMemo(() => (expandedNodeIds ?? []).join('|'), [expandedNodeIds]);
+  const lastExpandedIdsKeyRef = useRef<string | null>(null);
+
+  /** Sync from parent when storage changes; when only the tree shape changes, prune/merge without clobbering local expansion. */
   useEffect(() => {
     const rootId = treeNodes?.[0]?.id;
     if (!rootId) return;
+    const validIds = collectTreeNodeIds(treeNodes);
     const incoming = expandedNodeIds ?? [];
     const base = incoming.length > 0 ? incoming : [rootId];
-    const nextSet = new Set<string>(base);
-    setExpandedNodeIdSet((prev) => (setsEqual(prev, nextSet) ? prev : nextSet));
-  }, [treeNodes, expandedNodeIds]);
+    const fromParent = new Set<string>();
+    for (const id of base) {
+      if (validIds.has(id)) fromParent.add(id);
+    }
+    if (fromParent.size === 0) fromParent.add(rootId);
+
+    const keyChanged = lastExpandedIdsKeyRef.current !== expandedIdsKey;
+    lastExpandedIdsKeyRef.current = expandedIdsKey;
+
+    setExpandedNodeIdSet((prev) => {
+      if (keyChanged) {
+        return setsEqual(prev, fromParent) ? prev : fromParent;
+      }
+      const next = new Set<string>(fromParent);
+      for (const id of prev) {
+        if (validIds.has(id)) next.add(id);
+      }
+      if (next.size === 0) next.add(rootId);
+      return setsEqual(prev, next) ? prev : next;
+    });
+  }, [expandedIdsKey, treeNodes, expandedNodeIds]);
 
   const stats = useMemo(() => {
     const total = treeNodes && treeNodes.length > 0 ? countAllNodes(treeNodes[0]) : 0;
@@ -814,15 +871,62 @@ function TreeContent({
 
   const focusedNodeId = focusMode && selectedNode ? selectedNode.id : null;
 
+  const toggleBranchExpand = useCallback(
+    (nodeId: string) => {
+      setExpandedNodeIdSet((prev) => {
+        const next = new Set(prev);
+        if (next.has(nodeId)) next.delete(nodeId);
+        else next.add(nodeId);
+        onExpandedChange?.([...next]);
+        return next;
+      });
+    },
+    [onExpandedChange],
+  );
+
+  const clearNodeClickTimer = useCallback(() => {
+    if (nodeClickTimerRef.current) {
+      clearTimeout(nodeClickTimerRef.current);
+      nodeClickTimerRef.current = null;
+    }
+  }, []);
+
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    const nodeData = node.data as TreeNodeData;
+    clearNodeClickTimer();
+    nodeClickTimerRef.current = setTimeout(() => {
+      nodeClickTimerRef.current = null;
+      setSelectedNode(nodeData.node);
+    }, 280);
+  }, [clearNodeClickTimer]);
+
+  const onNodeDoubleClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      clearNodeClickTimer();
+      const nodeData = node.data as TreeNodeData;
+      if (!nodeData.hasChildren) return;
+      toggleBranchExpand(node.id);
+    },
+    [clearNodeClickTimer, toggleBranchExpand],
+  );
+
+  const onPaneClick = useCallback(() => {
+    clearNodeClickTimer();
+    setSelectedNode(null);
+  }, [clearNodeClickTimer]);
+
+  useEffect(() => () => clearNodeClickTimer(), [clearNodeClickTimer]);
+
   const visibleNodes = useMemo(() => {
     return allNodes?.nodes?.map?.(node => ({
       ...node,
       data: {
         ...node.data,
         isDimmed: focusedNodeId && node.id !== focusedNodeId && !hiddenNodeIds.has(node.id),
+        onToggleBranch: toggleBranchExpand,
       },
     })) ?? [];
-  }, [allNodes, focusedNodeId, hiddenNodeIds]);
+  }, [allNodes, focusedNodeId, hiddenNodeIds, toggleBranchExpand]);
 
   /** React Flow only applies initial `nodes` on mount; remount when tree shape changes (e.g. AI lesson map). */
   const reactFlowMountKey = useMemo(() => {
@@ -860,26 +964,6 @@ function TreeContent({
         link.click();
       });
     });
-  }, []);
-
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    const nodeData = node.data as TreeNodeData;
-    setSelectedNode(nodeData.node);
-  }, []);
-
-  const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node) => {
-    const nodeData = node.data as TreeNodeData;
-    if (!nodeData.hasChildren) return;
-    setExpandedNodeIdSet((prev) => {
-      const next = new Set(prev);
-      if (next.has(node.id)) next.delete(node.id);
-      else next.add(node.id);
-      return next;
-    });
-  }, []);
-
-  const onPaneClick = useCallback(() => {
-    setSelectedNode(null);
   }, []);
 
   useEffect(() => {
@@ -970,8 +1054,8 @@ function TreeContent({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{ fontSize: '0.75rem', color: '#818cf8', fontWeight: 700 }}>Knowledge tree</div>
-          <span style={{ fontSize: '0.62rem', color: '#64748b', maxWidth: '14rem', lineHeight: 1.35 }}>
-            Click a node for details · double-click to expand/collapse a branch
+          <span style={{ fontSize: '0.62rem', color: '#64748b', maxWidth: '18rem', lineHeight: 1.35 }}>
+            Click for details (or ▶/▼) · double-click also expands/collapses
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <div style={{ width: 80, height: 6, background: 'rgba(99,102,241,0.2)', borderRadius: 3, overflow: 'hidden' }}>

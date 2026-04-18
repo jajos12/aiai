@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import katex from 'katex';
 
 interface MathRendererProps {
@@ -49,31 +49,45 @@ interface MathEditorProps {
 
 export default function MathEditor({ value, onChange, placeholder = 'Enter content with math support (use $...$ for inline, $$...$$ for block)', minHeight = '150px' }: MathEditorProps) {
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
+  const taRef = useRef<HTMLTextAreaElement>(null);
 
   const insertMath = (type: 'inline' | 'block') => {
-    const mathTemplate = type === 'inline' ? '$$' : '\n$$\n$$\n';
-    const textarea = document.querySelector('textarea[data-math-editor]') as HTMLTextAreaElement;
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const newValue = value.substring(0, start) + mathTemplate + value.substring(end);
-      onChange(newValue);
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start + 2, start + 2);
-      }, 0);
+    const textarea = taRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = value.substring(start, end);
+    let insert: string;
+    if (type === 'inline') {
+      insert = selected.length > 0 ? `$${selected}$` : '$ $';
+    } else {
+      insert = selected.length > 0 ? `\n$$\n${selected}\n$$\n` : '\n$$\n\n$$\n';
     }
+    const newValue = value.substring(0, start) + insert + value.substring(end);
+    onChange(newValue);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      if (type === 'inline' && selected.length === 0) {
+        const pos = start + 1;
+        textarea.setSelectionRange(pos, pos);
+      } else if (type === 'block' && selected.length === 0) {
+        const pos = start + 3;
+        textarea.setSelectionRange(pos, pos);
+      } else {
+        const pos = start + insert.length;
+        textarea.setSelectionRange(pos, pos);
+      }
+    });
   };
 
   const insertCodeBlock = () => {
+    const textarea = taRef.current;
+    if (!textarea) return;
     const codeTemplate = '\n```\ncode here\n```\n';
-    const textarea = document.querySelector('textarea[data-math-editor]') as HTMLTextAreaElement;
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const newValue = value.substring(0, start) + codeTemplate + value.substring(end);
-      onChange(newValue);
-    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newValue = value.substring(0, start) + codeTemplate + value.substring(end);
+    onChange(newValue);
   };
 
   return (
@@ -136,7 +150,7 @@ export default function MathEditor({ value, onChange, placeholder = 'Enter conte
 
       {activeTab === 'edit' ? (
         <textarea
-          data-math-editor
+          ref={taRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}

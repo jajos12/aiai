@@ -203,7 +203,94 @@ db.exec(`
     insights_json TEXT NOT NULL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS content_courses (
+    course_id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    subtitle TEXT NOT NULL DEFAULT '',
+    learning_outcomes_json TEXT NOT NULL DEFAULT '[]',
+    audience_text TEXT NOT NULL DEFAULT '',
+    prerequisites_text TEXT NOT NULL DEFAULT '',
+    cover_image_url TEXT NOT NULL DEFAULT '',
+    intro_video_url TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS content_course_sections (
+    section_id TEXT PRIMARY KEY,
+    course_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES content_courses(course_id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS content_section_modules (
+    section_id TEXT NOT NULL,
+    module_id TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (section_id, module_id),
+    FOREIGN KEY (section_id) REFERENCES content_course_sections(section_id) ON DELETE CASCADE,
+    FOREIGN KEY (module_id) REFERENCES content_modules(module_id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_content_courses_updated ON content_courses(updated_at);
+
+  CREATE TABLE IF NOT EXISTS content_media (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cloudinary_public_id TEXT NOT NULL UNIQUE,
+    url TEXT NOT NULL,
+    media_type TEXT NOT NULL CHECK (media_type IN ('image', 'video')),
+    name TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    uploaded_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_content_media_created ON content_media(created_at);
 `);
+
+/** Add columns introduced after first deploy (SQLite has no IF NOT EXISTS for columns). */
+function migrateContentCoursesColumns() {
+  const adds: Array<{ col: string; def: string }> = [
+    { col: 'subtitle', def: "TEXT NOT NULL DEFAULT ''" },
+    { col: 'learning_outcomes_json', def: "TEXT NOT NULL DEFAULT '[]'" },
+    { col: 'audience_text', def: "TEXT NOT NULL DEFAULT ''" },
+    { col: 'prerequisites_text', def: "TEXT NOT NULL DEFAULT ''" },
+    { col: 'cover_image_url', def: "TEXT NOT NULL DEFAULT ''" },
+    { col: 'intro_video_url', def: "TEXT NOT NULL DEFAULT ''" },
+  ];
+  const existing = db.prepare(`PRAGMA table_info(content_courses)`).all() as Array<{ name: string }>;
+  const names = new Set(existing.map((c) => c.name));
+  for (const { col, def } of adds) {
+    if (names.has(col)) continue;
+    try {
+      db.exec(`ALTER TABLE content_courses ADD COLUMN ${col} ${def}`);
+    } catch (err) {
+      console.warn(`[aiai/db] migrate content_courses.${col}:`, err);
+    }
+  }
+}
+migrateContentCoursesColumns();
+
+function migrateContentModuleStepsStudio() {
+  const existing = db.prepare(`PRAGMA table_info(content_module_steps)`).all() as Array<{ name: string }>;
+  const names = new Set(existing.map((c) => c.name));
+  if (names.has('content_studio_json')) return;
+  try {
+    db.exec(`ALTER TABLE content_module_steps ADD COLUMN content_studio_json TEXT`);
+  } catch (err) {
+    console.warn('[aiai/db] migrate content_module_steps.content_studio_json:', err);
+  }
+}
+migrateContentModuleStepsStudio();
 
 export interface User {
   id: number;

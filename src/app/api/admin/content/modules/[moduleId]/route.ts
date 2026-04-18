@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { db } from '@/lib/db/database';
 import { deleteContentModule, getContentModuleData, publishContentModule, upsertContentModule, validateModuleAuthoring } from '@/lib/db/content';
 import type { ModuleData } from '@/core/types';
 import { requireAdmin } from '../../_shared';
@@ -19,7 +20,8 @@ export async function GET(
     if (!moduleData) {
       return NextResponse.json({ error: 'Module content not found' }, { status: 404 });
     }
-    return NextResponse.json({ module: moduleData });
+    const verRow = db.prepare(`SELECT version FROM content_modules WHERE module_id = ?`).get(moduleId) as { version: number } | undefined;
+    return NextResponse.json({ module: moduleData, version: verRow?.version ?? 1 });
   } catch (error) {
     console.error('Admin get content module error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

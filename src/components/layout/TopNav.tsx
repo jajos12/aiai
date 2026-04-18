@@ -160,15 +160,12 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
                 border: '1px solid var(--border-subtle)',
               }}
             >
-              Hi, {user.name.split(' ')[0] || 'Learner'}
+              Hi, {user.name?.split(' ')?.[0] || 'Learner'}
             </span>
             {(user.role ?? '').toLowerCase() === 'admin' && (
-              <a
+              <Link
                 href='/admin'
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.assign('/admin');
-                }}
+                prefetch
                 style={{
                   padding: '0.375rem 0.75rem',
                   background: 'var(--accent)',
@@ -178,10 +175,12 @@ export function TopNav({ currentPath = '/' }: TopNavProps) {
                   fontSize: '0.875rem',
                   fontWeight: 600,
                   display: 'inline-block',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
                 }}
               >
                 Admin
-              </a>
+              </Link>
             )}
             <button
               onClick={handleLogout}

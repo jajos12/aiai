@@ -1,56 +1,39 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
-interface Stats {
+interface AdminStats {
   totalUsers: number;
   totalModules: number;
   publishedModules: number;
   draftModules: number;
   totalCourses: number;
+  draftCourses: number;
+  publishedCourses: number;
+  recentModules: Array<{ moduleId: string; title: string; status: string; updatedAt: string }>;
+  recentCourses: Array<{ courseId: string; title: string; status: string; updatedAt: string }>;
+  contentIntelligenceModules: number;
+  lessonStudioSteps: number;
 }
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<Stats>({
-    totalUsers: 0,
-    totalModules: 0,
-    publishedModules: 0,
-    draftModules: 0,
-    totalCourses: 0,
-  });
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [usersRes, modulesRes, coursesRes] = await Promise.all([
-          fetch('/api/admin/users', { credentials: 'include' }),
-          fetch('/api/admin/content/modules', { credentials: 'include' }),
-          fetch('/api/admin/content/courses', { credentials: 'include' }),
-        ]);
-
-        if (!usersRes.ok || !modulesRes.ok || !coursesRes.ok) {
+        const res = await fetch('/api/admin/stats', { credentials: 'include' });
+        if (!res.ok) {
           setLoadError(
             'Could not load admin data (often 403 if you are not signed in as admin). Sign out, sign in with an admin account, and try again.',
           );
           return;
         }
-
-        const [usersData, modulesData, coursesData] = await Promise.all([
-          usersRes.json(),
-          modulesRes.json(),
-          coursesRes.json(),
-        ]);
-
-        const modules = modulesData.modules || [];
-        setStats({
-          totalUsers: usersData.users?.length || 0,
-          totalModules: modules.length,
-          publishedModules: modules.filter((m: { status: string }) => m.status === 'published').length,
-          draftModules: modules.filter((m: { status: string }) => m.status === 'draft').length,
-          totalCourses: coursesData.courses?.length || 0,
-        });
+        const data = (await res.json()) as AdminStats;
+        setStats(data);
       } catch (err) {
         console.error('Failed to fetch stats:', err);
         setLoadError('Network error while loading the dashboard.');
@@ -59,7 +42,7 @@ export default function AdminDashboard() {
       }
     };
 
-    fetchStats();
+    void fetchStats();
   }, []);
 
   if (loading) {
@@ -70,12 +53,56 @@ export default function AdminDashboard() {
     );
   }
 
+  const s = stats ?? {
+    totalUsers: 0,
+    totalModules: 0,
+    publishedModules: 0,
+    draftModules: 0,
+    totalCourses: 0,
+    draftCourses: 0,
+    publishedCourses: 0,
+    recentModules: [],
+    recentCourses: [],
+    contentIntelligenceModules: 0,
+    lessonStudioSteps: 0,
+  };
+
   const statCards = [
-    { label: 'Total Users', value: stats.totalUsers, icon: '👥', color: 'var(--accent)' },
-    { label: 'Total Modules', value: stats.totalModules, icon: '📖', color: '#8b5cf6' },
-    { label: 'Published', value: stats.publishedModules, icon: '✅', color: 'var(--color-success)' },
-    { label: 'Draft', value: stats.draftModules, icon: '📝', color: 'var(--color-warning)' },
-    { label: 'Courses', value: stats.totalCourses, icon: '📚', color: '#06b6d4' },
+    {
+      label: 'Total Users',
+      value: s.totalUsers,
+      icon: '👥',
+      color: 'var(--accent)',
+      href: '/admin/users' as const,
+    },
+    {
+      label: 'Total Modules',
+      value: s.totalModules,
+      icon: '📖',
+      color: '#8b5cf6',
+      href: '/admin/modules' as const,
+    },
+    {
+      label: 'Published',
+      value: s.publishedModules,
+      icon: '✅',
+      color: 'var(--color-success)',
+      href: '/admin/modules' as const,
+    },
+    {
+      label: 'Draft modules',
+      value: s.draftModules,
+      icon: '📝',
+      color: 'var(--color-warning)',
+      href: '/admin/modules' as const,
+    },
+    {
+      label: 'Courses',
+      value: s.totalCourses,
+      icon: '📚',
+      color: '#06b6d4',
+      href: '/admin/courses' as const,
+    },
   ];
 
   return (
@@ -100,76 +127,144 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-5">
         {statCards.map((stat) => (
-          <div
+          <Link
             key={stat.label}
-            className="p-6 rounded-xl"
+            href={stat.href}
+            className="block rounded-xl p-4 transition-transform hover:scale-[1.02] sm:p-6"
             style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
           >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-2xl">{stat.icon}</span>
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xl sm:text-2xl">{stat.icon}</span>
             </div>
-            <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>{stat.value}</p>
+            <p className="text-2xl font-bold sm:text-3xl" style={{ color: 'var(--text-primary)' }}>{stat.value}</p>
             <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{stat.label}</p>
-          </div>
+          </Link>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        <div className="p-6 rounded-xl" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
-          <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Quick Actions</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+          <h3 className="mb-4 font-semibold" style={{ color: 'var(--text-primary)' }}>Quick actions</h3>
           <div className="space-y-3">
-            <a
+            <Link
               href="/admin/courses"
               className="flex items-center gap-3 p-3 rounded-lg transition-colors"
               style={{ background: 'var(--bg-hover)' }}
             >
               <span className="text-xl">📚</span>
-              <span style={{ color: 'var(--text-primary)' }}>Manage Courses</span>
-            </a>
-            <a
+              <span style={{ color: 'var(--text-primary)' }}>Manage courses</span>
+            </Link>
+            <Link
               href="/admin/modules"
               className="flex items-center gap-3 p-3 rounded-lg transition-colors"
               style={{ background: 'var(--bg-hover)' }}
             >
               <span className="text-xl">📖</span>
-              <span style={{ color: 'var(--text-primary)' }}>Edit Modules</span>
-            </a>
+              <span style={{ color: 'var(--text-primary)' }}>Edit modules</span>
+            </Link>
+            <Link
+              href="/admin/media"
+              className="flex items-center gap-3 p-3 rounded-lg transition-colors"
+              style={{ background: 'var(--bg-hover)' }}
+            >
+              <span className="text-xl">🖼️</span>
+              <span style={{ color: 'var(--text-primary)' }}>Media library</span>
+            </Link>
+            <Link
+              href="/admin/users"
+              className="flex items-center gap-3 p-3 rounded-lg transition-colors"
+              style={{ background: 'var(--bg-hover)' }}
+            >
+              <span className="text-xl">👥</span>
+              <span style={{ color: 'var(--text-primary)' }}>Users</span>
+            </Link>
           </div>
         </div>
 
-        <div className="p-6 rounded-xl" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
-          <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Content Health</h3>
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+          <h3 className="mb-4 font-semibold" style={{ color: 'var(--text-primary)' }}>Content health</h3>
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Module Completion</span>
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Module publish rate</span>
                 <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {stats.totalModules > 0 ? Math.round((stats.publishedModules / stats.totalModules) * 100) : 0}%
+                  {s.totalModules > 0 ? Math.round((s.publishedModules / s.totalModules) * 100) : 0}%
                 </span>
               </div>
               <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
                 <div
                   className="h-full rounded-full"
                   style={{
-                    width: `${stats.totalModules > 0 ? (stats.publishedModules / stats.totalModules) * 100 : 0}%`,
+                    width: `${s.totalModules > 0 ? (s.publishedModules / s.totalModules) * 100 : 0}%`,
                     background: 'var(--color-success)',
                   }}
                 />
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full" style={{ background: 'var(--color-success)' }} />
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Published</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full" style={{ background: 'var(--color-warning)' }} />
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Draft</span>
-              </div>
-            </div>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Courses: {s.publishedCourses} published · {s.draftCourses} draft
+            </p>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+        <h3 className="mb-2 font-semibold" style={{ color: 'var(--text-primary)' }}>Content intelligence (overview)</h3>
+        <p className="mb-4 text-sm" style={{ color: 'var(--text-muted)' }}>
+          Signals for structured lessons and stored lesson-map insights. Extend with learner telemetry when available.
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-lg p-3" style={{ background: 'var(--bg-hover)' }}>
+            <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.contentIntelligenceModules}</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Modules with lesson-map insights</p>
+          </div>
+          <div className="rounded-lg p-3" style={{ background: 'var(--bg-hover)' }}>
+            <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{s.lessonStudioSteps}</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Steps with Lesson Studio JSON</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+          <h3 className="mb-3 font-semibold" style={{ color: 'var(--text-primary)' }}>Recently updated modules</h3>
+          {s.recentModules.length === 0 ? (
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No modules yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {s.recentModules.map((m) => (
+                <li key={m.moduleId} className="flex justify-between gap-2 text-sm">
+                  <Link href="/admin/modules" className="truncate hover:underline" style={{ color: 'var(--accent)' }}>
+                    {m.title}
+                  </Link>
+                  <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>
+                    {m.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+          <h3 className="mb-3 font-semibold" style={{ color: 'var(--text-primary)' }}>Recently updated courses</h3>
+          {s.recentCourses.length === 0 ? (
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No courses yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {s.recentCourses.map((c) => (
+                <li key={c.courseId} className="flex justify-between gap-2 text-sm">
+                  <Link href="/admin/courses" className="truncate hover:underline" style={{ color: 'var(--accent)' }}>
+                    {c.title}
+                  </Link>
+                  <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>
+                    {c.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>

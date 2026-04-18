@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { ModuleData, Step, Challenge, PlaygroundConfig } from '@/core/types';
 import StatusBadge from '../shared/StatusBadge';
@@ -9,6 +9,7 @@ import StepEditor from './StepEditor';
 
 interface AdminModuleData extends ModuleData {
   status?: 'draft' | 'published';
+  version?: number;
 }
 
 interface ModuleEditorProps {
@@ -21,6 +22,24 @@ interface ModuleEditorProps {
 export default function ModuleEditor({ module, onChange, onSave, isSaving }: ModuleEditorProps) {
   const [activeTab, setActiveTab] = useState<'details' | 'steps' | 'playground' | 'challenges'>('details');
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [versions, setVersions] = useState<Array<{ version: number; status: string; createdAt: string }>>([]);
+  const [restoreVersion, setRestoreVersion] = useState<string>('');
+
+  const loadVersions = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/content/module-versions?moduleId=${encodeURIComponent(module.id)}`, {
+        credentials: 'include',
+      });
+      const data = (await res.json()) as { versions?: typeof versions };
+      if (data.versions) setVersions(data.versions);
+    } catch {
+      setVersions([]);
+    }
+  }, [module.id]);
+
+  useEffect(() => {
+    void loadVersions();
+  }, [loadVersions, module.version]);
 
   const updateModule = (updates: Partial<ModuleData>) => {
     onChange({ ...module, ...updates });
@@ -57,19 +76,66 @@ export default function ModuleEditor({ module, onChange, onSave, isSaving }: Mod
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 flex-1">
+      <div className="flex flex-col gap-3 rounded-lg p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between" style={{ background: 'var(--bg-hover)', border: '1px solid var(--border-subtle)' }}>
+        <div className="flex flex-wrap items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+          <span>Version {module.version ?? '—'}</span>
+          <select
+            value={restoreVersion}
+            onChange={(e) => setRestoreVersion(e.target.value)}
+            className="max-w-[200px] rounded border px-2 py-1 text-xs"
+            style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface)', color: 'var(--text-primary)' }}
+          >
+            <option value="">Restore snapshot…</option>
+            {versions.map((v) => (
+              <option key={v.version} value={String(v.version)}>
+                v{v.version} ({v.status}) {new Date(v.createdAt).toLocaleString()}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={!restoreVersion}
+            onClick={async () => {
+              const v = Number(restoreVersion);
+              if (!v || !confirm(`Restore module to version ${v} as draft? Unsaved editor changes may be lost.`)) return;
+              const res = await fetch('/api/admin/content/module-versions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ moduleId: module.id, version: v }),
+              });
+              const data = (await res.json()) as { module?: typeof module; error?: string };
+              if (!res.ok) {
+                alert(data.error || 'Restore failed');
+                return;
+              }
+              if (data.module) {
+                onChange({ ...(data.module as ModuleData), status: 'draft' } as AdminModuleData);
+              }
+              setRestoreVersion('');
+              void loadVersions();
+            }}
+            className="rounded px-2 py-1 text-xs font-medium disabled:opacity-50"
+            style={{ background: 'var(--accent)', color: 'white' }}
+          >
+            Restore
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <input
             type="text"
             value={module.title}
             onChange={(e) => updateModule({ title: e.target.value })}
             placeholder="Module title"
-            className="text-2xl font-semibold bg-transparent outline-none flex-1"
+            className="min-w-0 w-full flex-1 bg-transparent text-xl font-semibold outline-none sm:text-2xl"
             style={{ color: 'var(--text-primary)' }}
           />
           <StatusBadge status={module.status as 'draft' | 'published' || 'draft'} />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button
             onClick={() => {
               const newStatus = module.status === 'published' ? 'draft' : 'published';
@@ -96,12 +162,12 @@ export default function ModuleEditor({ module, onChange, onSave, isSaving }: Mod
         </div>
       </div>
 
-      <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--bg-surface)' }}>
+      <div className="-mx-1 flex gap-1 overflow-x-auto p-1 pb-2 rounded-lg" style={{ background: 'var(--bg-surface)' }}>
         {(['details', 'steps', 'playground', 'challenges'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className="px-4 py-2 rounded-md text-sm font-medium transition-colors capitalize"
+            className="shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium capitalize transition-colors sm:px-4"
             style={{
               background: activeTab === tab ? 'var(--bg-elevated)' : 'transparent',
               color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-secondary)',
@@ -117,15 +183,15 @@ export default function ModuleEditor({ module, onChange, onSave, isSaving }: Mod
       )}
 
       {activeTab === 'steps' && (
-        <div className="grid grid-cols-3 gap-4" style={{ minHeight: '500px' }}>
-          <div className="col-span-1 space-y-2">
-            <div className="flex items-center justify-between mb-3">
+        <div className="grid min-h-[320px] grid-cols-1 gap-4 xl:min-h-[500px] xl:grid-cols-3">
+          <div className="space-y-2 xl:col-span-1">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="font-medium" style={{ color: 'var(--text-primary)' }}>
                 Lessons ({module.steps.length})
               </h3>
               <button
                 onClick={addStep}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium"
+                className="w-full shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium sm:w-auto"
                 style={{ background: 'var(--accent)', color: 'white' }}
               >
                 + Add Lesson Step
@@ -160,10 +226,11 @@ export default function ModuleEditor({ module, onChange, onSave, isSaving }: Mod
             )}
           </div>
 
-          <div className="col-span-2 rounded-lg p-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+          <div className="min-w-0 rounded-lg p-3 sm:p-4 xl:col-span-2" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
             {selectedStep ? (
               <StepEditor
                 step={selectedStep}
+                moduleTitle={module.title}
                 onChange={(updates) => updateStep(selectedStep.id, updates)}
                 onRemove={() => removeStep(selectedStep.id)}
               />
@@ -223,7 +290,7 @@ function ModuleDetailsEditor({ module, onChange }: ModuleDetailsEditorProps) {
   };
 
   return (
-    <div className="grid grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
@@ -239,7 +306,7 @@ function ModuleDetailsEditor({ module, onChange }: ModuleDetailsEditorProps) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
               Difficulty
@@ -384,13 +451,13 @@ function PlaygroundEditor({ playground, onChange }: PlaygroundEditorProps) {
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <label className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
             Parameters
           </label>
           <button
             onClick={addParameter}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium"
+            className="w-full rounded-lg px-3 py-1.5 text-sm font-medium sm:w-auto"
             style={{ background: 'var(--accent)', color: 'white' }}
           >
             + Add Parameter
@@ -398,8 +465,8 @@ function PlaygroundEditor({ playground, onChange }: PlaygroundEditorProps) {
         </div>
         <div className="space-y-3">
           {playground.parameters.map((param) => (
-            <div key={param.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
-              <div className="flex-1">
+            <div key={param.id} className="flex flex-col gap-3 rounded-lg p-3 sm:flex-row sm:flex-wrap sm:items-center lg:flex-nowrap" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+              <div className="min-w-0 flex-1 sm:basis-full lg:basis-auto">
                 <input
                   type="text"
                   value={param.label}
@@ -411,7 +478,7 @@ function PlaygroundEditor({ playground, onChange }: PlaygroundEditorProps) {
               <select
                 value={param.type}
                 onChange={(e) => updateParameter(param.id, { type: e.target.value as 'slider' | 'stepper' | 'toggle' | 'select' })}
-                className="p-2 rounded text-sm"
+                className="w-full shrink-0 rounded p-2 text-sm sm:w-auto"
                 style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)' }}
               >
                 <option value="slider">Slider</option>
@@ -420,13 +487,13 @@ function PlaygroundEditor({ playground, onChange }: PlaygroundEditorProps) {
                 <option value="select">Select</option>
               </select>
               {(param.type === 'slider' || param.type === 'stepper') && (
-                <>
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                   <input
                     type="number"
                     value={param.min ?? 0}
                     onChange={(e) => updateParameter(param.id, { min: parseFloat(e.target.value) })}
                     placeholder="Min"
-                    className="w-20 p-2 rounded text-sm"
+                    className="min-w-0 flex-1 rounded p-2 text-sm sm:w-20 sm:flex-none"
                     style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)' }}
                   />
                   <input
@@ -434,20 +501,22 @@ function PlaygroundEditor({ playground, onChange }: PlaygroundEditorProps) {
                     value={param.max ?? 100}
                     onChange={(e) => updateParameter(param.id, { max: parseFloat(e.target.value) })}
                     placeholder="Max"
-                    className="w-20 p-2 rounded text-sm"
+                    className="min-w-0 flex-1 rounded p-2 text-sm sm:w-20 sm:flex-none"
                     style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)' }}
                   />
-                </>
+                </div>
               )}
               <input
                 type="number"
                 value={param.default as number}
                 onChange={(e) => updateParameter(param.id, { default: parseFloat(e.target.value) })}
                 placeholder="Default"
-                className="w-20 p-2 rounded text-sm"
+                className="w-full rounded p-2 text-sm sm:w-24"
                 style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)' }}
               />
-              <button onClick={() => removeParameter(param.id)} className="text-red-500 hover:underline text-sm">Remove</button>
+              <button type="button" onClick={() => removeParameter(param.id)} className="self-start text-sm text-red-500 hover:underline sm:self-center">
+                Remove
+              </button>
             </div>
           ))}
         </div>
@@ -519,13 +588,13 @@ function ChallengesEditor({ challenges, onChange }: ChallengesEditorProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="font-medium" style={{ color: 'var(--text-primary)' }}>
           Challenges ({challenges.length})
         </h3>
         <button
           onClick={addChallenge}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium"
+          className="w-full rounded-lg px-3 py-1.5 text-sm font-medium sm:w-auto"
           style={{ background: 'var(--accent)', color: 'white' }}
         >
           + Add Challenge
@@ -540,8 +609,8 @@ function ChallengesEditor({ challenges, onChange }: ChallengesEditorProps) {
         <div className="space-y-4">
           {challenges.map((challenge) => (
             <div key={challenge.id} className="p-4 rounded-lg" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
-              <div className="flex items-start gap-4">
-                <div className="flex-1 space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+                <div className="min-w-0 flex-1 space-y-3">
                   <input
                     type="text"
                     value={challenge.title}
@@ -557,7 +626,7 @@ function ChallengesEditor({ challenges, onChange }: ChallengesEditorProps) {
                     className="w-full p-2 rounded-lg outline-none resize-none text-sm"
                     style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)' }}
                   />
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <select
                       value={challenge.completionCriteria.type}
                       onChange={(e) => updateChallenge(challenge.id, { completionCriteria: { ...challenge.completionCriteria, type: e.target.value as Challenge['completionCriteria']['type'] } })}
@@ -586,7 +655,9 @@ function ChallengesEditor({ challenges, onChange }: ChallengesEditorProps) {
                     />
                   </div>
                 </div>
-                <button onClick={() => removeChallenge(challenge.id)} className="text-red-500 hover:underline text-sm">Remove</button>
+                <button type="button" onClick={() => removeChallenge(challenge.id)} className="shrink-0 self-start text-sm text-red-500 hover:underline sm:self-auto">
+                  Remove
+                </button>
               </div>
             </div>
           ))}

@@ -1,6 +1,88 @@
 import { z } from 'zod';
 import { db } from './database';
-import type { ModuleData } from '@/core/types';
+import type { LessonStudioState, ModuleData } from '@/core/types';
+
+const lessonBlockSchema = z.discriminatedUnion('type', [
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('concept'),
+    title: z.string().optional(),
+    body: z.string(),
+  }),
+  z.object({ id: z.string().min(1), type: z.literal('math'), latex: z.string() }),
+  z.object({ id: z.string().min(1), type: z.literal('explanation'), body: z.string() }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('callout'),
+    body: z.string(),
+    tone: z.enum(['info', 'warning', 'tip']).optional(),
+  }),
+  z.object({ id: z.string().min(1), type: z.literal('graph'), caption: z.string().optional() }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('interactive'),
+    label: z.string(),
+    boundVariableId: z.string(),
+  }),
+]);
+
+const lessonStudioSchema = z
+  .object({
+    blocks: z.array(lessonBlockSchema).optional(),
+    graphSpec: z
+      .object({
+        expression: z.string(),
+        variables: z
+          .array(
+            z.object({
+              id: z.string(),
+              label: z.string(),
+              min: z.number(),
+              max: z.number(),
+              step: z.number(),
+              default: z.number(),
+            }),
+          )
+          .optional(),
+        xMin: z.number().optional(),
+        xMax: z.number().optional(),
+        yMin: z.number().optional(),
+        yMax: z.number().optional(),
+      })
+      .optional(),
+    timeline: z
+      .object({
+        keyframes: z.array(
+          z.object({
+            id: z.string(),
+            tStart: z.number(),
+            tEnd: z.number(),
+            label: z.string(),
+            caption: z.string().optional(),
+            variableOverrides: z.record(z.string(), z.number()).optional(),
+          }),
+        ),
+      })
+      .optional(),
+    voiceNoteUrl: z.string().optional(),
+    videoTranscript: z.string().optional(),
+    intelligence: z
+      .object({
+        estimatedConfusion: z.array(z.string()).optional(),
+        improvementIdeas: z.array(z.string()).optional(),
+        lastGeneratedAt: z.string().optional(),
+      })
+      .optional(),
+    visualScriptNotes: z.string().optional(),
+  });
+
+function parseLessonStudioJson(raw: string | null | undefined): LessonStudioState | undefined {
+  if (!raw) return undefined;
+  const obj = parseJson<unknown>(raw, undefined);
+  if (!obj || typeof obj !== 'object') return undefined;
+  const s = lessonStudioSchema.safeParse(obj);
+  return s.success ? (s.data as LessonStudioState) : undefined;
+}
 
 const moduleDataSchema = z.object({
   id: z.string().min(1),
@@ -56,6 +138,7 @@ const moduleDataSchema = z.object({
             assetId: z.string().optional(),
           })
           .optional(),
+        studio: lessonStudioSchema.optional(),
       }),
       quiz: z
         .object({
@@ -126,6 +209,7 @@ type StepRow = {
   concepts_json: string;
   visualization_props_json: string;
   content_text: string;
+  content_studio_json?: string | null;
   go_deeper_json: string | null;
   author_note: string | null;
   image_url: string | null;
@@ -247,6 +331,7 @@ export function getContentModuleData(moduleId: string, opts?: { publishedOnly?: 
               assetId: step.video_asset_id ?? undefined,
             }
           : undefined,
+        studio: parseLessonStudioJson(step.content_studio_json ?? null),
       },
       quiz: parseJson(step.quiz_json, undefined),
       interactionHint: step.interaction_hint ?? undefined,
@@ -323,8 +408,8 @@ export function upsertContentModule(moduleData: ModuleData, updatedBy?: number, 
     const insertStep = db.prepare(
       `INSERT INTO content_module_steps (
         module_id, step_id, sort_order, title, concepts_json, visualization_props_json,
-        content_text, go_deeper_json, author_note, image_url, image_provider, image_asset_id, video_url, video_provider, video_asset_id, interaction_hint, quiz_json, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        content_text, content_studio_json, go_deeper_json, author_note, image_url, image_provider, image_asset_id, video_url, video_provider, video_asset_id, interaction_hint, quiz_json, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
     );
 
     validated.steps.forEach((step, idx) => {
@@ -336,6 +421,7 @@ export function upsertContentModule(moduleData: ModuleData, updatedBy?: number, 
         JSON.stringify(step.concepts ?? []),
         JSON.stringify(step.visualizationProps ?? {}),
         step.content.text ?? '',
+        step.content.studio ? JSON.stringify(step.content.studio) : null,
         step.content.goDeeper ? JSON.stringify(step.content.goDeeper) : null,
         step.content.authorNote ?? null,
         step.content.image?.url ?? null,
@@ -412,6 +498,12 @@ type CourseRow = {
   course_id: string;
   title: string;
   description: string;
+  subtitle?: string;
+  learning_outcomes_json?: string;
+  audience_text?: string;
+  prerequisites_text?: string;
+  cover_image_url?: string;
+  intro_video_url?: string;
   status: 'draft' | 'published';
   sort_order: number;
   updated_at: string;
@@ -435,6 +527,12 @@ export interface CourseHierarchy {
   courseId: string;
   title: string;
   description: string;
+  subtitle: string;
+  learningOutcomes: string[];
+  audienceText: string;
+  prerequisitesText: string;
+  coverImageUrl: string;
+  introVideoUrl: string;
   status: 'draft' | 'published';
   sortOrder: number;
   updatedAt: string;
@@ -481,10 +579,18 @@ export function listCourseHierarchy(): CourseHierarchy[] {
     sectionsByCourse.set(section.course_id, arr);
   }
 
-  return courses.map((course) => ({
+  return courses.map((course) => {
+    const outcomes = parseJson<string[]>(course.learning_outcomes_json ?? '[]', []);
+    return {
     courseId: course.course_id,
     title: course.title,
     description: course.description,
+    subtitle: course.subtitle ?? '',
+    learningOutcomes: Array.isArray(outcomes) ? outcomes : [],
+    audienceText: course.audience_text ?? '',
+    prerequisitesText: course.prerequisites_text ?? '',
+    coverImageUrl: course.cover_image_url ?? '',
+    introVideoUrl: course.intro_video_url ?? '',
     status: course.status,
     sortOrder: course.sort_order,
     updatedAt: course.updated_at,
@@ -506,22 +612,39 @@ export function listCourseHierarchy(): CourseHierarchy[] {
         })
         .filter(Boolean) as Array<{ moduleId: string; title: string; status: 'draft' | 'published'; sortOrder: number }>,
     })),
-  }));
+  };
+  });
 }
 
 export function upsertCourse(input: {
   courseId: string;
   title: string;
   description?: string;
+  subtitle?: string;
+  learningOutcomes?: string[];
+  audienceText?: string;
+  prerequisitesText?: string;
+  coverImageUrl?: string;
+  introVideoUrl?: string;
   status?: 'draft' | 'published';
   sortOrder?: number;
 }): void {
+  const outcomesJson = JSON.stringify(input.learningOutcomes ?? []);
   db.prepare(
-    `INSERT INTO content_courses (course_id, title, description, status, sort_order, updated_at)
-     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `INSERT INTO content_courses (
+       course_id, title, description, subtitle, learning_outcomes_json, audience_text, prerequisites_text,
+       cover_image_url, intro_video_url, status, sort_order, updated_at
+     )
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
      ON CONFLICT(course_id) DO UPDATE SET
        title = excluded.title,
        description = excluded.description,
+       subtitle = excluded.subtitle,
+       learning_outcomes_json = excluded.learning_outcomes_json,
+       audience_text = excluded.audience_text,
+       prerequisites_text = excluded.prerequisites_text,
+       cover_image_url = excluded.cover_image_url,
+       intro_video_url = excluded.intro_video_url,
        status = excluded.status,
        sort_order = excluded.sort_order,
        updated_at = CURRENT_TIMESTAMP`,
@@ -529,6 +652,12 @@ export function upsertCourse(input: {
     input.courseId,
     input.title,
     input.description ?? '',
+    input.subtitle ?? '',
+    outcomesJson,
+    input.audienceText ?? '',
+    input.prerequisitesText ?? '',
+    input.coverImageUrl ?? '',
+    input.introVideoUrl ?? '',
     input.status ?? 'draft',
     input.sortOrder ?? 0,
   );
@@ -671,19 +800,58 @@ export function reorderModuleSteps(moduleId: string, stepIds: string[]): void {
   tx();
 }
 
+export function listModuleVersions(moduleId: string): Array<{ version: number; status: string; createdAt: string }> {
+  const rows = db
+    .prepare(
+      `SELECT version, status, created_at as createdAt FROM content_versions WHERE module_id = ? ORDER BY version DESC LIMIT 60`,
+    )
+    .all(moduleId) as Array<{ version: number; status: string; createdAt: string }>;
+  return rows;
+}
+
+export function getModuleVersionPayload(moduleId: string, version: number): ModuleData | null {
+  const row = db
+    .prepare(`SELECT payload_json FROM content_versions WHERE module_id = ? AND version = ?`)
+    .get(moduleId, version) as { payload_json: string } | undefined;
+  if (!row) return null;
+  try {
+    const parsed = moduleDataSchema.safeParse(JSON.parse(row.payload_json));
+    return parsed.success ? (parsed.data as ModuleData) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function restoreModuleVersion(
+  moduleId: string,
+  version: number,
+  adminId: number,
+): { ok: true; data: ModuleData } | { ok: false; error: string } {
+  const data = getModuleVersionPayload(moduleId, version);
+  if (!data) return { ok: false, error: 'Version not found or invalid payload' };
+  upsertContentModule(data, adminId, 'draft');
+  return { ok: true, data };
+}
+
 export function validateModuleAuthoring(moduleData: ModuleData): string | null {
   if (!moduleData.steps.length) {
     return 'A module must include at least one lesson step.';
   }
 
   for (const step of moduleData.steps) {
-    const hasLessonBody = Boolean(step.content.text?.trim());
+    const hasBlocks = Boolean(step.content.studio?.blocks?.some((b) => {
+      if (b.type === 'concept' || b.type === 'explanation') return b.body.trim().length > 0;
+      if (b.type === 'math') return b.latex.trim().length > 0;
+      if (b.type === 'callout') return b.body.trim().length > 0;
+      return true;
+    }));
+    const hasLessonBody = Boolean(step.content.text?.trim()) || hasBlocks;
     const noteLength = step.content.authorNote?.trim().length ?? 0;
     const hasDetailedNote = noteLength >= 80;
     const hasVideo = Boolean(step.content.video?.url?.trim());
     const hasImage = Boolean(step.content.image?.url?.trim());
     if (!hasLessonBody || !hasDetailedNote || (!hasVideo && !hasImage)) {
-      return 'Each lesson step must include content text, a detailed note (at least 80 characters), and at least one media item (video or image).';
+      return 'Each lesson step must include content text (or Lesson Studio blocks), a detailed note (at least 80 characters), and at least one media item (video or image).';
     }
   }
 

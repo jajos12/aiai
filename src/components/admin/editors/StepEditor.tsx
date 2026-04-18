@@ -1,20 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import type { Step, GoDeeper } from '@/core/types';
+import type { Step, GoDeeper, Quiz } from '@/core/types';
 import MathEditor from '../shared/MathEditor';
 import QuizEditor from './QuizEditor';
 import VideoUploader from './VideoUploader';
 import ImageUploader from './ImageUploader';
+import LessonStudioPanel from '../lesson-studio/LessonStudioPanel';
 
 interface StepEditorProps {
   step: Step;
+  moduleTitle: string;
   onChange: (updates: Partial<Step>) => void;
   onRemove?: () => void;
 }
 
-export default function StepEditor({ step, onChange, onRemove }: StepEditorProps) {
-  const [activeTab, setActiveTab] = useState<'content' | 'media' | 'quiz' | 'deeper'>('content');
+export default function StepEditor({ step, moduleTitle, onChange, onRemove }: StepEditorProps) {
+  const [activeTab, setActiveTab] = useState<'content' | 'studio' | 'media' | 'quiz' | 'deeper'>('content');
 
   const updateContent = (updates: Partial<Step['content']>) => {
     onChange({ content: { ...step.content, ...updates } });
@@ -22,39 +24,40 @@ export default function StepEditor({ step, onChange, onRemove }: StepEditorProps
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <input
           type="text"
           value={step.title}
           onChange={(e) => onChange({ title: e.target.value })}
           placeholder="Step title"
-          className="flex-1 text-lg font-semibold bg-transparent outline-none"
+          className="min-w-0 w-full flex-1 bg-transparent text-base font-semibold outline-none sm:text-lg"
           style={{ color: 'var(--text-primary)' }}
         />
         {onRemove && (
           <button
             onClick={onRemove}
-            className="px-3 py-1.5 rounded-lg text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+            className="w-full shrink-0 rounded-lg px-3 py-1.5 text-sm text-red-500 transition-colors hover:bg-red-500/10 sm:w-auto"
           >
             Delete Step
           </button>
         )}
       </div>
 
-      <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--bg-elevated)' }}>
-        {(['content', 'media', 'quiz', 'deeper'] as const).map((tab) => (
+      <div className="-mx-1 flex gap-1 overflow-x-auto p-1 pb-2 rounded-lg" style={{ background: 'var(--bg-elevated)' }}>
+        {(['content', 'studio', 'media', 'quiz', 'deeper'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className="px-4 py-2 rounded-md text-sm font-medium transition-colors capitalize"
+            className="shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium capitalize transition-colors sm:px-4"
             style={{
               background: activeTab === tab ? 'var(--accent)' : 'transparent',
               color: activeTab === tab ? 'white' : 'var(--text-secondary)',
             }}
           >
-            {tab === 'deeper' ? 'Go Deeper' : tab}
+            {tab === 'deeper' ? 'Go Deeper' : tab === 'studio' ? 'Lesson Studio' : tab}
             {tab === 'quiz' && step.quiz && <span className="ml-1">✓</span>}
             {tab === 'media' && (step.content.video || step.content.image) && <span className="ml-1">✓</span>}
+            {tab === 'studio' && step.content.studio && <span className="ml-1">✓</span>}
           </button>
         ))}
       </div>
@@ -98,6 +101,15 @@ export default function StepEditor({ step, onChange, onRemove }: StepEditorProps
             />
           </div>
         </div>
+      )}
+
+      {activeTab === 'studio' && (
+        <LessonStudioPanel
+          step={step}
+          moduleTitle={moduleTitle}
+          onStudioChange={(studio) => updateContent({ studio })}
+          onApplyQuiz={(quiz: Quiz) => onChange({ quiz })}
+        />
       )}
 
       {activeTab === 'media' && (

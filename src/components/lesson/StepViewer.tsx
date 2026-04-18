@@ -6,6 +6,7 @@ import type { StepContentOverride } from '@/hooks/useLesson';
 import { GoDeeper } from '@/components/lesson/GoDeeper';
 import { AuthorNote } from '@/components/lesson/AuthorNote';
 import { QuizBlock } from '@/components/lesson/QuizBlock';
+import { LessonBlockRenderer } from '@/components/lesson/LessonBlockRenderer';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
@@ -433,6 +434,27 @@ export function StepViewer({
             {displayText}
           </p>
         </div>
+
+        {step.content.studio && (
+          <LessonBlockRenderer studio={step.content.studio} interactive={false} />
+        )}
+
+        {step.content.studio?.voiceNoteUrl?.trim() && (
+          <div style={{ marginTop: '1rem' }}>
+            <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
+              Voice note
+            </p>
+            <audio controls src={step.content.studio.voiceNoteUrl} style={{ width: '100%', maxWidth: '480px' }} />
+          </div>
+        )}
+        {step.content.studio?.videoTranscript?.trim() && (
+          <details style={{ marginTop: '0.75rem' }}>
+            <summary style={{ cursor: 'pointer', fontSize: '0.8rem', color: 'var(--accent)' }}>Transcript</summary>
+            <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>
+              {step.content.studio.videoTranscript}
+            </p>
+          </details>
+        )}
 
         {learningNote && (
           <div

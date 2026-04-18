@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Image from 'next/image';
+import MediaLibraryPicker from '../shared/MediaLibraryPicker';
 
 interface ImageAsset {
   url: string;
@@ -19,6 +20,7 @@ export default function ImageUploader({ image, onChange }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const uploadToCloudinary = useCallback(async (file: File) => {
     setUploading(true);
@@ -112,16 +114,36 @@ export default function ImageUploader({ image, onChange }: ImageUploaderProps) {
           </div>
         </div>
       ) : (
-        <div
-          {...getRootProps()}
-          className="p-4 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors"
-          style={{ borderColor: isDragActive ? 'var(--accent)' : 'var(--border-subtle)' }}
-        >
-          <input {...getInputProps()} />
-          <p style={{ color: 'var(--text-primary)' }}>
-            {uploading ? `Uploading image... ${uploadProgress}%` : 'Drag image here or click to upload'}
-          </p>
-        </div>
+        <>
+          {libraryOpen && (
+            <MediaLibraryPicker
+              mediaType="image"
+              onPick={(item) => {
+                onChange({ url: item.url, provider: 'cloudinary', assetId: item.publicId });
+                setLibraryOpen(false);
+              }}
+              onClose={() => setLibraryOpen(false)}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setLibraryOpen(true)}
+            className="w-full py-2 px-3 rounded-lg text-sm font-medium mb-3"
+            style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+          >
+            Choose from media library
+          </button>
+          <div
+            {...getRootProps()}
+            className="p-4 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors"
+            style={{ borderColor: isDragActive ? 'var(--accent)' : 'var(--border-subtle)' }}
+          >
+            <input {...getInputProps()} />
+            <p style={{ color: 'var(--text-primary)' }}>
+              {uploading ? `Uploading image... ${uploadProgress}%` : 'Drag image here or click to upload'}
+            </p>
+          </div>
+        </>
       )}
       {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
