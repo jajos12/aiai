@@ -50,8 +50,6 @@ export default function ModuleHubPage() {
   const guidedCompleted = progress.stepsCompleted.length;
   const guidedTotal = moduleData.steps.length;
   const guidedFraction = guidedTotal > 0 ? guidedCompleted / guidedTotal : 0;
-  const challengesCompleted = progress.challengesCompleted.length;
-  const challengesTotal = moduleData.challenges.length;
   const basePath = `/tier/${tierId}/${moduleId}`;
 
   const phases = [
@@ -79,21 +77,6 @@ export default function ModuleHubPage() {
             : 'Recommended next'
           : 'Recommended after ~50% of guided exploration',
       href: `${basePath}/playground`,
-    },
-    {
-      id: 'challenge',
-      emoji: '\uD83C\uDFC6',
-      title: 'Challenges',
-      description: `${challengesTotal} challenges to test your understanding.`,
-      progress: challengesTotal > 0 ? challengesCompleted / challengesTotal : 0,
-      progressLabel: `${challengesCompleted}/${challengesTotal} completed`,
-      recommendation:
-        guidedFraction >= 0.8
-          ? challengesCompleted < challengesTotal
-            ? 'Recommended next'
-            : null
-          : 'Recommended after ~80% of guided exploration',
-      href: `${basePath}/challenge`,
     },
   ];
 

@@ -3,15 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { Footer } from '@/components/layout/Footer';
 import { TierCard } from '@/components/dashboard/TierCard';
-import { StreakCounter } from '@/components/dashboard/StreakCounter';
-import { ActivityCalendar } from '@/components/dashboard/ActivityCalendar';
 import { getTierSummaries } from '@/core/curriculum';
-import { useProgress } from '@/hooks/useProgress';
 
-export default function DashboardPage() {
+export default function HomePage() {
   const router = useRouter();
-  const { progress, isLoaded } = useProgress();
-  const tiers = getTierSummaries(isLoaded ? progress : undefined);
+  const tiers = getTierSummaries();
 
   return (
     <div
@@ -58,17 +54,37 @@ export default function DashboardPage() {
         </div>
 
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-            gap: '1rem',
-            marginBottom: '2rem',
-          }}
           className="animate-fade-in"
+          style={{
+            marginBottom: '1.25rem',
+            padding: '1rem 1.25rem',
+            border: '1px solid var(--accent-soft)',
+            background: 'var(--bg-surface)',
+            borderRadius: 'var(--radius-lg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+          }}
         >
-          <StreakCounter />
-          <ActivityCalendar />
-        </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 700, marginBottom: '0.2rem' }}>
+              Personalized dashboard
+            </div>
+            <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+              View your learning analytics and recommendations
+            </div>
+            <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+              We moved all personalization features into a dedicated page.
+            </div>
+          </div>
+            <button
+              className="btn btn--primary btn--sm"
+              onClick={() => router.push('/dashboard')}
+            >
+              Open dashboard
+            </button>
+          </div>
 
         <div
           style={{

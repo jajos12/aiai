@@ -42,3 +42,9 @@ next-env.d.ts
 
 
 .vscode/
+
+# AI study kit cache
+.cache/
+
+# Local SQLite database
+/data/

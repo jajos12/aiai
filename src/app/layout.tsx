@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google';
+import { getServerSession } from 'next-auth';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { TopNav } from '@/components/layout/TopNav';
+import { AuthSessionProvider } from '@/components/auth/AuthSessionProvider';
+import { authOptions } from '@/lib/auth/authjs';
 import './globals.css';
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -78,11 +81,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await getServerSession(authOptions);
+
   return (
     <html
       lang="en"
@@ -91,10 +96,12 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body>
-        <ThemeProvider>
-          <TopNav />
-          {children}
-        </ThemeProvider>
+        <AuthSessionProvider session={session}>
+          <ThemeProvider>
+            <TopNav />
+            {children}
+          </ThemeProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   );

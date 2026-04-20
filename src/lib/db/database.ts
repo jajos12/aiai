@@ -1,0 +1,323 @@
+import Database from 'better-sqlite3';
+import fs from 'fs';
+import path from 'path';
+
+function resolveDbPath(): string {
+  const onVercel = Boolean(process.env.VERCEL);
+  const customPath = process.env.AIAI_DB_PATH?.trim();
+
+  if (onVercel && !customPath) {
+    console.warn(
+      '[aiai/db] WARNING: Running on Vercel without AIAI_DB_PATH set.\n' +
+      '  The database will use /tmp which is EPHEMERAL — all data (sessions, progress,\n' +
+      '  chat history) is lost on every cold start and deployment.\n' +
+      '  For persistence, set AIAI_DB_PATH to a mounted volume path, or migrate to\n' +
+      '  a cloud database (Turso, Neon, PlanetScale) before going to production.',
+    );
+  }
+
+  // Prefer project ./data on laptops and `next start` so signup + /verify share one file.
+  // On Vercel, cwd is often read-only — mkdir fails here and we fall through to /tmp (still ephemeral unless AIAI_DB_PATH).
+  const candidates = [
+    customPath,
+    path.join(process.cwd(), 'data', 'aiai.db'),
+    onVercel ? '/tmp/aiai-data/aiai.db' : undefined,
+    process.env.NODE_ENV === 'production' ? '/tmp/aiai-data/aiai.db' : undefined,
+  ].filter(Boolean) as string[];
+
+  let lastError: unknown = null;
+  for (const candidate of candidates) {
+    try {
+      const dir = path.dirname(candidate);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      return candidate;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw new Error(`Could not initialize database directory: ${String(lastError)}`);
+}
+
+const dbPath = resolveDbPath();
+let db: Database.Database;
+try {
+  db = new Database(dbPath);
+} catch (error) {
+  // Last-resort fallback avoids hard crashing API route module eval.
+  console.error(`Failed to open SQLite at ${dbPath}, falling back to in-memory DB:`, error);
+  db = new Database(':memory:');
+}
+export { db };
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    name TEXT NOT NULL,
+    role TEXT DEFAULT 'user',
+    is_verified INTEGER DEFAULT 0,
+    verification_token TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token_hash TEXT NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS user_progress (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    module_id TEXT NOT NULL,
+    tier_id TEXT NOT NULL,
+    completed_steps TEXT DEFAULT '[]',
+    quiz_scores TEXT DEFAULT '[]',
+    last_accessed DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, module_id, tier_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS user_preferences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER UNIQUE NOT NULL,
+    theme TEXT DEFAULT 'system',
+    difficulty TEXT DEFAULT 'intermediate',
+    learning_goal TEXT DEFAULT '',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS user_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token_hash TEXT NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS content_modules (
+    module_id TEXT PRIMARY KEY,
+    runtime_module_id TEXT NOT NULL,
+    tier_id REAL NOT NULL,
+    cluster_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    tags_json TEXT NOT NULL DEFAULT '[]',
+    prerequisites_json TEXT NOT NULL DEFAULT '[]',
+    difficulty TEXT NOT NULL,
+    estimated_minutes INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    version INTEGER NOT NULL DEFAULT 1,
+    updated_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS content_module_steps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    module_id TEXT NOT NULL,
+    step_id TEXT NOT NULL,
+    sort_order INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    concepts_json TEXT NOT NULL DEFAULT '[]',
+    visualization_props_json TEXT NOT NULL DEFAULT '{}',
+    content_text TEXT NOT NULL DEFAULT '',
+    go_deeper_json TEXT,
+    author_note TEXT,
+    interaction_hint TEXT,
+    quiz_json TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (module_id) REFERENCES content_modules(module_id) ON DELETE CASCADE,
+    UNIQUE(module_id, step_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS content_module_playgrounds (
+    module_id TEXT PRIMARY KEY,
+    description TEXT NOT NULL DEFAULT '',
+    parameters_json TEXT NOT NULL DEFAULT '[]',
+    try_this_json TEXT NOT NULL DEFAULT '[]',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (module_id) REFERENCES content_modules(module_id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS content_module_challenges (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    module_id TEXT NOT NULL,
+    challenge_id TEXT NOT NULL,
+    sort_order INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    concepts_json TEXT NOT NULL DEFAULT '[]',
+    component TEXT,
+    props_json TEXT,
+    completion_criteria_json TEXT NOT NULL,
+    hints_json TEXT NOT NULL DEFAULT '[]',
+    max_attempts INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (module_id) REFERENCES content_modules(module_id) ON DELETE CASCADE,
+    UNIQUE(module_id, challenge_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS content_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    module_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (module_id) REFERENCES content_modules(module_id) ON DELETE CASCADE,
+    UNIQUE(module_id, version)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_content_modules_status ON content_modules(status);
+  CREATE INDEX IF NOT EXISTS idx_content_steps_module ON content_module_steps(module_id, sort_order);
+  CREATE INDEX IF NOT EXISTS idx_content_challenges_module ON content_module_challenges(module_id, sort_order);
+
+  CREATE TABLE IF NOT EXISTS tutor_chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    module_id TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('user','assistant')),
+    content TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_tutor_msgs ON tutor_chat_messages(user_id, module_id, created_at);
+
+  CREATE TABLE IF NOT EXISTS lesson_map_insights (
+    module_id TEXT PRIMARY KEY,
+    insights_json TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS content_courses (
+    course_id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    subtitle TEXT NOT NULL DEFAULT '',
+    learning_outcomes_json TEXT NOT NULL DEFAULT '[]',
+    audience_text TEXT NOT NULL DEFAULT '',
+    prerequisites_text TEXT NOT NULL DEFAULT '',
+    cover_image_url TEXT NOT NULL DEFAULT '',
+    intro_video_url TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS content_course_sections (
+    section_id TEXT PRIMARY KEY,
+    course_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES content_courses(course_id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS content_section_modules (
+    section_id TEXT NOT NULL,
+    module_id TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (section_id, module_id),
+    FOREIGN KEY (section_id) REFERENCES content_course_sections(section_id) ON DELETE CASCADE,
+    FOREIGN KEY (module_id) REFERENCES content_modules(module_id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_content_courses_updated ON content_courses(updated_at);
+
+  CREATE TABLE IF NOT EXISTS content_media (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cloudinary_public_id TEXT NOT NULL UNIQUE,
+    url TEXT NOT NULL,
+    media_type TEXT NOT NULL CHECK (media_type IN ('image', 'video')),
+    name TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    uploaded_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_content_media_created ON content_media(created_at);
+`);
+
+/** Add columns introduced after first deploy (SQLite has no IF NOT EXISTS for columns). */
+function migrateContentCoursesColumns() {
+  const adds: Array<{ col: string; def: string }> = [
+    { col: 'subtitle', def: "TEXT NOT NULL DEFAULT ''" },
+    { col: 'learning_outcomes_json', def: "TEXT NOT NULL DEFAULT '[]'" },
+    { col: 'audience_text', def: "TEXT NOT NULL DEFAULT ''" },
+    { col: 'prerequisites_text', def: "TEXT NOT NULL DEFAULT ''" },
+    { col: 'cover_image_url', def: "TEXT NOT NULL DEFAULT ''" },
+    { col: 'intro_video_url', def: "TEXT NOT NULL DEFAULT ''" },
+  ];
+  const existing = db.prepare(`PRAGMA table_info(content_courses)`).all() as Array<{ name: string }>;
+  const names = new Set(existing.map((c) => c.name));
+  for (const { col, def } of adds) {
+    if (names.has(col)) continue;
+    try {
+      db.exec(`ALTER TABLE content_courses ADD COLUMN ${col} ${def}`);
+    } catch (err) {
+      console.warn(`[aiai/db] migrate content_courses.${col}:`, err);
+    }
+  }
+}
+migrateContentCoursesColumns();
+
+function migrateContentModuleStepsStudio() {
+  const existing = db.prepare(`PRAGMA table_info(content_module_steps)`).all() as Array<{ name: string }>;
+  const names = new Set(existing.map((c) => c.name));
+  if (names.has('content_studio_json')) return;
+  try {
+    db.exec(`ALTER TABLE content_module_steps ADD COLUMN content_studio_json TEXT`);
+  } catch (err) {
+    console.warn('[aiai/db] migrate content_module_steps.content_studio_json:', err);
+  }
+}
+migrateContentModuleStepsStudio();
+
+export interface User {
+  id: number;
+  email: string;
+  password_hash: string;
+  name: string;
+  role: string;
+  is_verified: number;
+  verification_token: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserProgress {
+  id: number;
+  user_id: number;
+  module_id: string;
+  tier_id: string;
+  completed_steps: string;
+  quiz_scores: string;
+  last_accessed: string;
+}
+
+export interface UserPreferences {
+  id: number;
+  user_id: number;
+  theme: string;
+  difficulty: string;
+  learning_goal: string;
+}
