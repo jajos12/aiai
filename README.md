@@ -2,7 +2,7 @@
   <img src="public/og-image.png" alt="AI Playground Banner" width="800" />
 </p>
 <p>
-  [Screencast From 2026-07-11 16-33-04.webm](https://github.com/user-attachments/assets/53b13cae-692a-4934-8b78-2931b5227172)
+  [Demo video of Eigen vectors module](https://github.com/user-attachments/assets/53b13cae-692a-4934-8b78-2931b5227172)
 </p>
 <h1 align="center">AI Playground</h1>
 
